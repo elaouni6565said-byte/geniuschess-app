@@ -103,6 +103,9 @@
                     </td>
                     <td style="text-align: center;">
                         <div style="display: inline-flex; gap: 0.4rem;">
+                            <a href="{% url 'portal:timetable_pdf' st.id %}?lang={{ CURRENT_LANG }}" target="_blank" class="btn btn-outline btn-sm" title="Télécharger l'Emploi du Temps (PDF)">
+                                📅 PDF
+                            </a>
                             <a href="{% url 'portal:student_edit' st.id %}" class="btn btn-secondary btn-sm" title="{% trans 'crud.edit' %}">
                                 ✏️
                             </a>

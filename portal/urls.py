@@ -24,6 +24,7 @@ urlpatterns = [
     path('students/add/', views.student_create_view, name='student_add'),
     path('students/<int:student_id>/edit/', views.student_edit_view, name='student_edit'),
     path('students/<int:student_id>/delete/', views.student_delete_view, name='student_delete'),
+    path('students/<int:student_id>/timetable-pdf/', views.download_timetable_pdf_view, name='timetable_pdf'),
 
     # Parents CRUD
     path('parents/', views.parents_list_view, name='parents_list'),

@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load gca_tags %}
 
 {% block title %}{% trans "planning.title" %} — {% trans "app_name" %}{% endblock %}
@@ -54,6 +54,22 @@
     </form>
 </div>
 
+<!-- LÉGENDE DES COULEURS PAR GROUPE -->
+{% if all_groups %}
+<div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; background: white; padding: 0.75rem 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+    <span style="font-size: 0.85rem; font-weight: 700; color: var(--primary-navy); display: flex; align-items: center; gap: 0.35rem;">
+        🎨 {% if CURRENT_LANG == 'ar' %}ألوان المجموعات :{% else %}Couleurs par Groupe :{% endif %}
+    </span>
+    {% for grp in all_groups %}
+    <span style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; background: #F8FAFC; padding: 0.25rem 0.65rem; border-radius: 9999px; border: 1px solid var(--border-color);">
+        <span style="width: 12px; height: 12px; border-radius: 50%; background: {{ grp.get_color }}; display: inline-block; flex-shrink: 0;"></span>
+        <b style="color: var(--primary-navy);">{{ grp|trans_field:CURRENT_LANG }}</b>
+        <span style="color: var(--text-muted); font-size: 0.75rem;">({{ grp.subject|trans_field:CURRENT_LANG }})</span>
+    </span>
+    {% endfor %}
+</div>
+{% endif %}
+
 
 <!-- ========================================================================= -->
 <!-- 1. VUE QUOTIDIENNE (DAILY VIEW)                                          -->
@@ -103,16 +119,18 @@
             </div>
             <div class="daily-timeline-content">
                 {% for s in row.sessions %}
-                <div style="background: white; border: 1px solid var(--border-color); border-inline-start: 5px solid {{ s.group.subject.color }}; border-radius: var(--radius-sm); padding: 0.65rem 1rem; box-shadow: var(--shadow-sm); min-width: 260px; max-width: 360px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="background: white; border: 1px solid var(--border-color); border-inline-start: 6px solid {{ s.group.get_color }}; border-radius: var(--radius-sm); padding: 0.75rem 1rem; box-shadow: var(--shadow-sm); min-width: 270px; max-width: 370px; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-                            <b style="color: var(--primary-navy); font-size: 0.95rem;">{{ s.group.subject|trans_field:CURRENT_LANG }}</b>
-                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--accent-orange);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <span class="badge" style="background: {{ s.group.get_color }}; color: white; font-weight: 700; font-size: 0.82rem; padding: 0.25rem 0.6rem;">
+                                👥 {{ s.group|trans_field:CURRENT_LANG }}
+                            </span>
+                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--accent-orange);">
                                 <bdi>{{ s.start_time|time:"H:i" }} - {{ s.end_time|time:"H:i" }}</bdi>
                             </span>
                         </div>
-                        <p style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.2rem;">
-                            👥 {{ s.group|trans_field:CURRENT_LANG }}
+                        <p style="font-size: 0.9rem; font-weight: 600; color: var(--primary-navy); margin-bottom: 0.25rem;">
+                            ♟️ {{ s.group.subject|trans_field:CURRENT_LANG }}
                         </p>
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">
                             📍 {{ s.room|trans_field:CURRENT_LANG }}
@@ -202,9 +220,9 @@
                     {% for s in day.sessions %}
                     <a href="?view=daily&date={{ day.date_str }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
                        class="calendar-session-chip" 
-                       style="background: {{ s.group.subject.color }};"
-                       title="{{ s.group.subject|trans_field:CURRENT_LANG }} ({{ s.start_time|time:'H:i' }} - {{ s.end_time|time:'H:i' }})">
-                        <span style="font-weight: bold;"><bdi>{{ s.start_time|time:"H:i" }}</bdi></span> {{ s.group.subject|trans_field:CURRENT_LANG }}
+                       style="background: {{ s.group.get_color }}; color: #ffffff; font-weight: 600;"
+                       title="{{ s.group|trans_field:CURRENT_LANG }} — {{ s.group.subject|trans_field:CURRENT_LANG }} ({{ s.start_time|time:'H:i' }} - {{ s.end_time|time:'H:i' }})">
+                        <span style="font-weight: 700;"><bdi>{{ s.start_time|time:"H:i" }}</bdi></span> {{ s.group|trans_field:CURRENT_LANG }}
                     </a>
                     {% endfor %}
                 </div>

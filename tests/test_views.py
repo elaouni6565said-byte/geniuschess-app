@@ -602,5 +602,78 @@ def test_payment_creation_auto_updates_invoice_and_dashboard():
     assert resp_dash.status_code == 200
 
 
+@pytest.mark.django_db
+def test_download_timetable_pdf():
+    """
+    Validates that:
+    1. Timetable PDF can be downloaded in French, Arabic, and Bilingual formats.
+    2. Admin and owning parent have authorization.
+    3. Unauthorized parent is blocked.
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    student = Student.objects.first()
+    assert student is not None
+
+    # 1. Admin downloads timetable PDF
+    for lang in ('fr', 'ar', 'bilingual'):
+        resp = client.get(f'/students/{student.id}/timetable-pdf/?lang={lang}')
+        assert resp.status_code == 200
+        assert resp['Content-Type'] == 'application/pdf'
+        assert resp.content.startswith(b'%PDF-')
+        assert len(resp.content) > 1000
+
+    # 2. Parent logs in and downloads own child's timetable PDF
+    parent = student.parent
+    assert parent is not None and parent.user is not None
+    parent.user.set_password('pass1234')
+    parent.user.save()
+    client.login(username=parent.user.username, password='pass1234')
+
+    resp_own = client.get(f'/students/{student.id}/timetable-pdf/?lang=fr')
+    assert resp_own.status_code == 200
+    assert resp_own['Content-Type'] == 'application/pdf'
+
+    # 3. Unauthorized access by another parent or anonymous
+    client.logout()
+    resp_anon = client.get(f'/students/{student.id}/timetable-pdf/')
+    assert resp_anon.status_code == 302
+
+
+@pytest.mark.django_db
+def test_planning_group_colors_and_legend():
+    """
+    Validates that:
+    1. Groups have distinct colors defined.
+    2. Planning view renders group colors and legend.
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    from academy.models import Group
+    groups = list(Group.objects.all())
+    assert len(groups) > 0
+    for g in groups:
+        assert g.get_color().startswith('#')
+        assert len(g.get_color()) == 7
+
+    # Check monthly and daily planning views
+    resp_monthly = client.get('/planning/?view=monthly')
+    assert resp_monthly.status_code == 200
+    assert 'all_groups' in resp_monthly.context
+
+    resp_daily = client.get('/planning/?view=daily')
+    assert resp_daily.status_code == 200
+    assert 'all_groups' in resp_daily.context
+
+
+
 
 

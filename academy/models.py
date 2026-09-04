@@ -69,11 +69,32 @@ class Room(models.Model):
 
 
 class Group(models.Model):
+    PALETTE = [
+        "#2563EB",  # Royal Blue
+        "#7C3AED",  # Violet / Purple
+        "#059669",  # Emerald Green
+        "#D97706",  # Amber / Gold
+        "#DC2626",  # Crimson Red
+        "#0891B2",  # Cyan
+        "#4F46E5",  # Indigo
+        "#EA580C",  # Vivid Orange
+        "#0D9488",  # Teal
+        "#DB2777",  # Rose / Pink
+        "#475569",  # Slate
+        "#16A34A",  # Forest Green
+    ]
+
     name_fr = models.CharField(max_length=100)
     name_ar = models.CharField(max_length=100)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="groups")
     level = models.ForeignKey(Level, on_delete=models.SET_NULL, null=True, blank=True)
     monthly_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("300.00"))
+    color = models.CharField(max_length=20, default="", blank=True, verbose_name="Couleur du Groupe / لون المجموعة")
+
+    def get_color(self):
+        if self.color:
+            return self.color
+        return self.PALETTE[(self.id or 0) % len(self.PALETTE)]
 
     def get_name(self, lang="fr"):
         return self.name_ar if lang == "ar" and self.name_ar else self.name_fr
@@ -94,6 +115,9 @@ class Parent(models.Model):
 
     def get_name(self, lang="fr"):
         return self.full_name_ar if lang == "ar" and self.full_name_ar else self.full_name_fr
+
+    def get_full_name(self, lang="fr"):
+        return self.get_name(lang)
 
     def get_last_visit(self):
         last_visit = self.visit_logs.order_by('-timestamp').first()

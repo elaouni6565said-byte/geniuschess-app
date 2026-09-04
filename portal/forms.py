@@ -126,13 +126,14 @@ class SubjectForm(forms.ModelForm):
 class GroupForm(forms.ModelForm):
     class Meta:
         model = Group
-        fields = ['name_fr', 'name_ar', 'subject', 'level', 'monthly_fee']
+        fields = ['name_fr', 'name_ar', 'subject', 'level', 'monthly_fee', 'color']
         widgets = {
             'name_fr': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Groupe Robotique Mercredi'}),
             'name_ar': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'مثال: مجموعة الروبوتيك الأربعاء', 'dir': 'rtl'}),
             'subject': forms.Select(attrs={'class': 'search-input'}),
             'level': forms.Select(attrs={'class': 'search-input'}),
             'monthly_fee': forms.NumberInput(attrs={'class': 'search-input', 'step': '10'}),
+            'color': forms.TextInput(attrs={'class': 'search-input', 'type': 'color'}),
         }
 
 

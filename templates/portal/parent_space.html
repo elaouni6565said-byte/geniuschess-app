@@ -110,9 +110,26 @@
 
             <!-- 1. Emploi du Temps Propre à cet Enfant (Weekly Schedule) -->
             <div style="margin-bottom: 1.75rem;">
-                <h5 style="font-size: 1rem; color: var(--primary-navy); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
-                    📅 {% trans "parent_space.schedule_for_child" %} <b>{{ ch|trans_field:CURRENT_LANG }}</b>
-                </h5>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem;">
+                    <h5 style="font-size: 1rem; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+                        📅 {% trans "parent_space.schedule_for_child" %} <b>{{ ch|trans_field:CURRENT_LANG }}</b>
+                    </h5>
+                    <!-- Boutons de Téléchargement Emploi du Temps PDF -->
+                    <div style="display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+                            📥 {% if CURRENT_LANG == 'ar' %}تحميل الجدول (PDF) :{% else %}Télécharger Emploi (PDF) :{% endif %}
+                        </span>
+                        <a href="{% url 'portal:timetable_pdf' ch.id %}?lang=fr" target="_blank" class="btn btn-outline btn-sm" title="Télécharger Emploi du Temps en Français">
+                            🇫🇷 FR
+                        </a>
+                        <a href="{% url 'portal:timetable_pdf' ch.id %}?lang=ar" target="_blank" class="btn btn-outline btn-sm" title="تحميل جدول الحصص بالعربية">
+                            🇲🇦 AR
+                        </a>
+                        <a href="{% url 'portal:timetable_pdf' ch.id %}?lang=bilingual" target="_blank" class="btn btn-secondary btn-sm" title="Emploi du Temps Bilingue Français / Arabe">
+                            🌐 Bilingue
+                        </a>
+                    </div>
+                </div>
                 
                 <div class="table-responsive">
                     <table class="gca-table" style="font-size: 0.88rem;">
@@ -139,8 +156,10 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <b>{{ sch.subject|trans_field:CURRENT_LANG }}</b> 
-                                    <span style="color: var(--text-muted);">({{ sch.group|trans_field:CURRENT_LANG }})</span>
+                                    <span class="badge" style="background: {{ sch.group.get_color }}; color: white; font-weight: 600; margin-inline-end: 0.35rem;">
+                                        👥 {{ sch.group|trans_field:CURRENT_LANG }}
+                                    </span>
+                                    <b>{{ sch.subject|trans_field:CURRENT_LANG }}</b>
                                 </td>
                                 <td>
                                     🏛️ {{ sch.room|trans_field:CURRENT_LANG }}

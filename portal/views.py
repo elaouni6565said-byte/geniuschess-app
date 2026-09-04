@@ -164,12 +164,14 @@ def planning_view(request):
 
     # Today anchor
     today = date(2026, 9, 3)
+    all_groups = Group.objects.select_related('subject').all()
 
     context = {
         'current_view': current_view,
         'rooms': rooms,
         'selected_room': int(room_id) if room_id and room_id.isdigit() else None,
         'today': today,
+        'all_groups': all_groups,
     }
 
     if current_view == 'daily':
@@ -339,6 +341,30 @@ def download_receipt_pdf_view(request, payment_id):
     
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     filename = f"Recu_{payment.receipt_number}_{lang}.pdf"
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+def download_timetable_pdf_view(request, student_id):
+    from portal.timetable_pdf import generate_timetable_pdf
+    lang = request.GET.get('lang')
+    if not lang:
+        lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+        
+    student = get_object_or_404(Student.objects.select_related('parent').prefetch_related('groups__subject', 'groups__schedules__room'), id=student_id)
+    
+    # Check permissions: Admin or Parent of this student
+    is_admin = request.user.is_authenticated and (request.user.is_admin_role() or request.user.is_superuser)
+    is_owner_parent = request.user.is_authenticated and hasattr(request.user, 'parent_profile') and student.parent == request.user.parent_profile
+    if not (is_admin or is_owner_parent):
+        if not request.user.is_authenticated:
+            return redirect(f'/login/?next={request.path}')
+        messages.error(request, get_translation('errors.permission_denied', lang=lang))
+        return redirect('portal:parent_space')
+
+    pdf_bytes = generate_timetable_pdf(student, lang=lang)
+    filename = f"Emploi_Du_Temps_{student.registration_number}_{lang}.pdf"
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
 
