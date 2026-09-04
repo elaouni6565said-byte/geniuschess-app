@@ -25,6 +25,18 @@ class Invoice(models.Model):
     def is_overdue(self):
         return self.get_balance() > Decimal('0.00')
 
+    def update_totals(self):
+        total_paid = self.payments.aggregate(total=models.Sum('amount'))['total'] or Decimal('0.00')
+        self.amount_paid = total_paid
+        if total_paid >= self.amount_due:
+            self.status = 'paid'
+        elif total_paid > Decimal('0.00'):
+            self.status = 'partial'
+        else:
+            self.status = 'unpaid'
+        self.save(update_fields=['amount_paid', 'status'])
+        return self.status
+
     def get_period_label(self, lang='fr'):
         if lang == 'ar':
             month_name = ARABIC_MONTHS.get(self.period_month, str(self.period_month))
@@ -104,6 +116,26 @@ class Payment(models.Model):
         if field == 'method':
             return self.get_method_label(lang)
         return str(getattr(self, field, ''))
+
+    def save(self, *args, **kwargs):
+        # If invoice not specified, auto-link to student's pending invoice
+        if not self.invoice_id and self.student_id:
+            pending_inv = Invoice.objects.filter(
+                student_id=self.student_id,
+                status__in=['unpaid', 'partial']
+            ).order_by('due_date', 'id').first()
+            if pending_inv:
+                self.invoice = pending_inv
+        super().save(*args, **kwargs)
+        if self.invoice:
+            self.invoice.update_totals()
+
+    def delete(self, *args, **kwargs):
+        inv = self.invoice
+        res = super().delete(*args, **kwargs)
+        if inv:
+            inv.update_totals()
+        return res
 
     def __str__(self):
         return f"Reçu #{self.receipt_number} - {self.student.get_full_name('fr')} ({self.amount} DH)"

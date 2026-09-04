@@ -37,6 +37,7 @@
                     <th>{% trans "payments.amount_paid" %}</th>
                     <th>{% trans "payments.balance" %}</th>
                     <th>{% trans "payments.status" %}</th>
+                    <th style="text-align: center;">{% trans "crud.actions" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -51,6 +52,12 @@
                         <span class="badge {% if inv.status == 'partial' %}badge-partial{% else %}badge-unpaid{% endif %}">
                             {% if CURRENT_LANG == 'ar' %}{{ inv.status_label_ar }}{% else %}{{ inv.status_label_fr }}{% endif %}
                         </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <a href="{% url 'portal:payment_add' %}?student={{ inv.student.id }}&invoice={{ inv.id }}&amount={{ inv.get_balance }}" 
+                           class="btn btn-primary btn-sm" style="white-space: nowrap; padding: 0.35rem 0.75rem;">
+                            💳 {% if CURRENT_LANG == 'ar' %}أداء الوصل{% else %}Encaisser{% endif %}
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}

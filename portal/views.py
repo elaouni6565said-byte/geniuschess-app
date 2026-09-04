@@ -43,9 +43,15 @@ def set_language(request, lang):
     return response
 
 
+def reconcile_orphan_payments():
+    orphans = Payment.objects.filter(invoice__isnull=True).select_related('student')
+    for p in orphans:
+        p.save()
+
 @admin_required
 def dashboard_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    reconcile_orphan_payments()
     total_students = Student.objects.filter(active=True).count()
     active_groups = Group.objects.count()
     
@@ -302,6 +308,7 @@ def planning_view(request):
 @admin_required
 def payments_list_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    reconcile_orphan_payments()
     payments = Payment.objects.select_related('student', 'invoice', 'invoice__group').order_by('-payment_date', '-id')
     unpaid_invoices = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')
     
@@ -1091,7 +1098,14 @@ def payment_create_view(request):
                 return redirect('portal:payments')
     else:
         import datetime
-        form = PaymentForm(initial={'payment_date': datetime.date.today(), 'security_code': ''})
+        initial_data = {'payment_date': datetime.date.today(), 'security_code': ''}
+        if request.GET.get('student'):
+            initial_data['student'] = request.GET.get('student')
+        if request.GET.get('invoice'):
+            initial_data['invoice'] = request.GET.get('invoice')
+        if request.GET.get('amount'):
+            initial_data['amount'] = request.GET.get('amount')
+        form = PaymentForm(initial=initial_data)
 
     context = {
         'form': form,

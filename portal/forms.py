@@ -162,16 +162,26 @@ class PaymentForm(forms.ModelForm):
         label="Code Spécial d'Autorisation"
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from finance.models import Invoice
+        self.fields['invoice'].required = False
+        self.fields['invoice'].empty_label = "-- Attribution automatique à la facture impayée --"
+        self.fields['invoice'].queryset = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')
+        self.fields['invoice'].label_from_instance = lambda obj: f"{obj.student.get_full_name('fr')} — {obj.get_period_label('fr')} (Reste: {obj.get_balance()} DH)"
+
     class Meta:
         from finance.models import Payment
         model = Payment
-        fields = ['student', 'amount', 'payment_date', 'payment_method', 'reference', 'notes']
+        fields = ['student', 'invoice', 'amount', 'payment_date', 'payment_method', 'reference', 'notes']
         widgets = {
             'student': forms.Select(attrs={'class': 'search-input'}),
+            'invoice': forms.Select(attrs={'class': 'search-input'}),
             'amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '10'}),
             'payment_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date'}),
             'payment_method': forms.Select(attrs={'class': 'search-input'}),
             'reference': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'N° Virement, Chèque ou Réf'}),
             'notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Remarques éventuelles'}),
         }
+
 

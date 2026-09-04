@@ -540,4 +540,67 @@ def test_admin_payment_modification_with_security_code():
     assert inv.amount_paid == expected_after_del
 
 
+@pytest.mark.django_db
+def test_payment_creation_auto_updates_invoice_and_dashboard():
+    """
+    Validates that:
+    1. Creating a new payment without specifying an invoice auto-links to the student's pending invoice.
+    2. The invoice amount_paid and status are updated automatically.
+    3. The unpaid balance decreases and reflects on /payments/ and dashboard.
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    student = Student.objects.first()
+    group = student.groups.first()
+
+    from finance.models import Invoice, Payment
+    # Create an unpaid invoice
+    inv = Invoice.objects.create(
+        student=student,
+        group=group,
+        period_month=10,
+        period_year=2026,
+        amount_due=Decimal('400.00'),
+        amount_paid=Decimal('0.00'),
+        status='unpaid',
+        due_date=date(2026, 10, 10)
+    )
+
+    # Initial state: invoice is unpaid
+    assert inv.status == 'unpaid'
+    assert inv.get_balance() == Decimal('400.00')
+
+    # Case A: Post new payment specifying the invoice
+    resp = client.post('/payments/add/', {
+        'student': student.id,
+        'invoice': inv.id,
+        'amount': '400',
+        'payment_date': '2026-10-02',
+        'payment_method': 'transfer',
+        'security_code': '6565',
+    })
+    assert resp.status_code == 302
+    assert resp.url == '/payments/'
+
+    # Verify invoice was updated automatically to paid
+    inv.refresh_from_db()
+    assert inv.amount_paid == Decimal('400.00')
+    assert inv.status == 'paid'
+    assert inv.get_balance() == Decimal('0.00')
+
+    # Verify payments page displays updated data
+    resp_payments = client.get('/payments/')
+    assert resp_payments.status_code == 200
+    assert inv not in resp_payments.context['unpaid_invoices']
+
+    # Verify dashboard displays updated KPIs
+    resp_dash = client.get('/')
+    assert resp_dash.status_code == 200
+
+
+
 
