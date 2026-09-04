@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "parent_space.title" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>👨‍👩‍👧 {% trans "parent_space.title" %}</h2>
+        <p>{% trans "parent_space.welcome" %} : <b>{{ parent|trans_field:CURRENT_LANG }}</b></p>
+    </div>
+    
+    <div class="page-actions" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <!-- Admin family preview switcher if user is admin -->
+        {% if all_parents and request.user.is_authenticated and request.user.is_admin_role or all_parents and request.user.is_authenticated and request.user.is_superuser %}
+        <form method="GET" action="" style="display: inline-flex; align-items: center; gap: 0.4rem; background: #EEF2F6; padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--primary-navy);">
+                👁️ {% trans "parent_space.switch_family_view" %} :
+            </label>
+            <select name="family_id" onchange="this.form.submit()" class="search-input" style="padding: 0.25rem 0.5rem; font-size: 0.82rem; height: auto;">
+                {% for p in all_parents %}
+                <option value="{{ p.id }}" {% if p.id == parent.id %}selected{% endif %}>
+                    {{ p|trans_field:CURRENT_LANG }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+
+        <!-- Direct Language Toggle from Parent Account (47.9) -->
+        <div style="display: inline-flex; align-items: center; gap: 0.35rem;">
+            <a href="{% url 'portal:set_language' 'fr' %}" class="btn btn-outline btn-sm {% if CURRENT_LANG == 'fr' %}active{% endif %}">🇫🇷 FR</a>
+            <a href="{% url 'portal:set_language' 'ar' %}" class="btn btn-outline btn-sm {% if CURRENT_LANG == 'ar' %}active{% endif %}">🇲🇦 AR</a>
+        </div>
+    </div>
+</div>
+
+<!-- Overdue Alert if any -->
+{% if invoices %}
+    {% for inv in invoices %}
+        {% if inv.is_overdue %}
+            <div class="alert-banner alert-warning">
+                <span>⚠️ <b>{% trans "parent_space.overdue_warning" %}</b> : {{ inv.student|trans_field:CURRENT_LANG }} — {{ inv|trans_field:CURRENT_LANG }} ({% money inv.get_balance %})</span>
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+<!-- Sélecteur d'enfants pour les familles ayant plusieurs enfants inscrits -->
+{% if all_children|length > 1 %}
+<div style="margin-bottom: 1.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; background: #F8FAFC; padding: 0.75rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+    <span style="font-size: 0.9rem; font-weight: 700; color: var(--primary-navy); margin-inline-end: 0.5rem;">
+        👶 {% trans "parent_space.my_children" %} :
+    </span>
+    <a href="?{% if all_parents and parent %}&family_id={{ parent.id }}{% endif %}" 
+       class="btn btn-sm {% if not selected_child_id %}btn-primary{% else %}btn-outline{% endif %}">
+        🌐 Tous mes enfants ({{ all_children|length }})
+    </a>
+    {% for c in all_children %}
+    <a href="?child_id={{ c.id }}{% if all_parents and parent %}&family_id={{ parent.id }}{% endif %}" 
+       class="btn btn-sm {% if selected_child_id == c.id %}btn-primary{% else %}btn-outline{% endif %}">
+        👤 {{ c|trans_field:CURRENT_LANG }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- SECTION PAR ENFANT : EMPLOI DU TEMPS ET SUIVI DE PRÉSENCE PROPRE -->
+<div style="margin-bottom: 2.5rem;">
+    <h3 style="font-size: 1.3rem; color: var(--primary-navy); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span>👶</span> {% trans "parent_space.my_children" %} ({{ children|length }})
+    </h3>
+
+    <div style="display: flex; flex-direction: column; gap: 2rem;">
+        {% for ch in children %}
+        <div class="card" style="border-top: 4px solid var(--primary-blue); box-shadow: var(--shadow-md);">
+            
+            <!-- En-tête Enfant avec KPI d'Assiduité -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+                <div>
+                    <h4 style="font-size: 1.25rem; color: var(--primary-navy); margin-bottom: 0.25rem;">
+                        👤 {{ ch|trans_field:CURRENT_LANG }}
+                    </h4>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        Matricule : <b>{{ ch.registration_number }}</b> • 
+                        {% if CURRENT_LANG == 'ar' %}{{ ch.first_name_fr }} {{ ch.last_name_fr }}{% else %}{{ ch.first_name_ar }} {{ ch.last_name_ar }}{% endif %}
+                    </span>
+                </div>
+
+                <!-- KPI Taux d'Assiduité -->
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="text-align: center; background: #F1F5F9; padding: 0.4rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+                            {% trans "parent_space.attendance_rate" %}
+                        </span>
+                        <b style="font-size: 1.15rem; color: {% if ch.attendance_rate >= 80 %}var(--success){% else %}var(--warning){% endif %};">
+                            {{ ch.attendance_rate }}%
+                        </b>
+                    </div>
+                    <div style="text-align: center; background: #F1F5F9; padding: 0.4rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+                            {% trans "attendance.present" %}
+                        </span>
+                        <b style="font-size: 1.15rem; color: var(--success);">
+                            {{ ch.present_count }} / {{ ch.total_sessions }}
+                        </b>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1. Emploi du Temps Propre à cet Enfant (Weekly Schedule) -->
+            <div style="margin-bottom: 1.75rem;">
+                <h5 style="font-size: 1rem; color: var(--primary-navy); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                    📅 {% trans "parent_space.schedule_for_child" %} <b>{{ ch|trans_field:CURRENT_LANG }}</b>
+                </h5>
+                
+                <div class="table-responsive">
+                    <table class="gca-table" style="font-size: 0.88rem;">
+                        <thead>
+                            <tr style="background: #F8FAFC;">
+                                <th>{% trans "planning.day" %}</th>
+                                <th>{% trans "parent_space.session_time" %}</th>
+                                <th>{% trans "parent_space.session_subject" %}</th>
+                                <th>{% trans "parent_space.session_room" %}</th>
+                                <th>{% trans "parent_space.session_trainer" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sch in ch.child_schedules %}
+                            <tr>
+                                <td>
+                                    <b style="color: var(--primary-navy);">
+                                        {% if CURRENT_LANG == 'ar' %}{{ sch.day_name_ar }}{% else %}{{ sch.day_name_fr }}{% endif %}
+                                    </b>
+                                </td>
+                                <td>
+                                    <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 600;">
+                                        🕒 {{ sch.start_time|time:"H:i" }} - {{ sch.end_time|time:"H:i" }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <b>{{ sch.subject|trans_field:CURRENT_LANG }}</b> 
+                                    <span style="color: var(--text-muted);">({{ sch.group|trans_field:CURRENT_LANG }})</span>
+                                </td>
+                                <td>
+                                    🏛️ {{ sch.room|trans_field:CURRENT_LANG }}
+                                </td>
+                                <td>
+                                    👨‍🏫 {% if CURRENT_LANG == 'ar' %}{{ sch.trainer_ar }}{% else %}{{ sch.trainer_fr }}{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1rem;">
+                                    {% trans "common.not_found" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. Suivi de Présence Propre à cet Enfant (Attendance Tracking) -->
+            <div>
+                <h5 style="font-size: 1rem; color: var(--primary-navy); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                    📋 {% trans "parent_space.attendance_for_child" %} <b>{{ ch|trans_field:CURRENT_LANG }}</b>
+                </h5>
+                
+                <div class="table-responsive">
+                    <table class="gca-table" style="font-size: 0.88rem;">
+                        <thead>
+                            <tr style="background: #F8FAFC;">
+                                <th>{% trans "parent_space.session_date" %}</th>
+                                <th>{% trans "parent_space.session_subject" %}</th>
+                                <th>{% trans "parent_space.session_status" %}</th>
+                                <th>{% trans "parent_space.notes" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for att in ch.child_attendances %}
+                            <tr>
+                                <td>
+                                    <b>{% local_date att.date %}</b>
+                                </td>
+                                <td>
+                                    {{ att.session.group.subject|trans_field:CURRENT_LANG }}
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">({{ att.session.group|trans_field:CURRENT_LANG }})</span>
+                                </td>
+                                <td>
+                                    {% if att.status == 'present' %}
+                                        <span class="badge badge-paid">✅ {% trans "parent_space.present" %}</span>
+                                    {% elif att.status == 'justified' %}
+                                        <span class="badge" style="background: #FEF3C7; color: #92400E;">⚠️ {% trans "parent_space.justified" %}</span>
+                                    {% elif att.status == 'absent' %}
+                                        <span class="badge badge-unpaid">❌ {% trans "parent_space.absent" %}</span>
+                                    {% else %}
+                                        <span class="badge" style="background: #FEE2E2; color: #B91C1C;">⏱️ {% trans "parent_space.late" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td style="color: var(--text-muted); font-style: italic;">
+                                    {{ att.notes|default:"—" }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1rem;">
+                                    {% trans "common.not_found" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+        {% empty %}
+        <div class="card" style="text-align: center; padding: 2rem;">
+            <p style="color: var(--text-muted);">{% trans "common.not_found" %}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Payments & Receipts Table for Parent -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h3 class="card-title">🧾 {% trans "parent_space.payments_history" %}</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% trans "payments.receipt_no" %}</th>
+                    <th>{% trans "parent_space.child_name" %}</th>
+                    <th>{% trans "payments.amount" %}</th>
+                    <th>{% trans "payments.payment_date" %}</th>
+                    <th>{% trans "parent_space.download_receipt" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pay in payments %}
+                <tr>
+                    <td><b>#{{ pay.receipt_number }}</b></td>
+                    <td>{{ pay.student|trans_field:CURRENT_LANG }}</td>
+                    <td style="color: var(--success); font-weight: bold;">{% money pay.amount %}</td>
+                    <td>{% local_date pay.payment_date %}</td>
+                    <td>
+                        <div style="display: inline-flex; gap: 0.35rem;">
+                            <a href="{% url 'portal:receipt_pdf' pay.id %}?lang={{ CURRENT_LANG }}" 
+                               target="_blank" class="btn btn-primary btn-sm">
+                                📥 {% trans "parent_space.download_receipt" %} ({{ CURRENT_LANG|upper }})
+                            </a>
+                            <a href="{% url 'portal:receipt_pdf' pay.id %}?lang=bilingual" 
+                               target="_blank" class="btn btn-outline btn-sm">
+                                🌐 Bilingue
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                        {% trans "common.not_found" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Notifications Center (47.10) -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">🔔 {% trans "parent_space.notifications_center" %}</h3>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for n in notifications %}
+        <div style="padding: 0.85rem 1rem; border-radius: var(--radius-sm); background: #F8FAFC; border-inline-start: 4px solid var(--primary-blue);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                <b style="color: var(--primary-navy);">{{ n|trans_field:CURRENT_LANG }}</b>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">{% local_date n.created_at include_time=True %}</span>
+            </div>
+            <p style="font-size: 0.9rem; color: var(--text-main);">
+                {% if CURRENT_LANG == 'ar' %}{{ n.message_ar }}{% else %}{{ n.message_fr }}{% endif %}
+            </p>
+        </div>
+        {% empty %}
+        <p style="color: var(--text-muted); padding: 1rem;">{% trans "common.not_found" %}</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

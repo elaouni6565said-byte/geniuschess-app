@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "dashboard.title" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>{% trans "dashboard.title" %}</h2>
+        <p>{% trans "dashboard.subtitle" %}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'portal:run_reminders' %}" class="btn btn-accent" title="{% trans 'dashboard.run_reminders_btn' %}">
+            🔔 {% trans "dashboard.run_reminders_btn" %}
+        </a>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid-kpi">
+    <div class="kpi-card">
+        <div class="kpi-content">
+            <h4>{% trans "dashboard.total_students" %}</h4>
+            <div class="kpi-value">{{ total_students }}</div>
+        </div>
+        <div class="kpi-icon blue">🎓</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-content">
+            <h4>{% trans "dashboard.active_groups" %}</h4>
+            <div class="kpi-value">{{ active_groups }}</div>
+        </div>
+        <div class="kpi-icon navy">👥</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-content">
+            <h4>{% trans "dashboard.monthly_revenue" %}</h4>
+            <div class="kpi-value" style="color: var(--success);">{% money total_revenue %}</div>
+        </div>
+        <div class="kpi-icon green">💰</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-content">
+            <h4>{% trans "dashboard.unpaid_total" %}</h4>
+            <div class="kpi-value" style="color: var(--danger);">{% money total_unpaid %}</div>
+        </div>
+        <div class="kpi-icon red">⚠️</div>
+    </div>
+</div>
+
+<!-- Main Sections Grid -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+    <!-- Recent Payments Card -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">💳 {% trans "dashboard.recent_payments" %}</h3>
+            <a href="{% url 'portal:payments' %}" class="btn btn-outline btn-sm">
+                {% trans "common.all" %} <span class="icon-dir">→</span>
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="gca-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "payments.receipt_no" %}</th>
+                        <th>{% trans "payments.student" %}</th>
+                        <th>{% trans "payments.amount" %}</th>
+                        <th>{% trans "payments.payment_date" %}</th>
+                        <th>{% trans "payments.method" %}</th>
+                        <th>PDF</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in recent_payments %}
+                    <tr>
+                        <td><b>#{{ p.receipt_number }}</b></td>
+                        <td>{{ p.student|trans_field:CURRENT_LANG }}</td>
+                        <td style="font-weight: bold; color: var(--primary-blue);">{% money p.amount %}</td>
+                        <td>{% local_date p.payment_date %}</td>
+                        <td>{{ p|trans_field:CURRENT_LANG }}</td>
+                        <td>
+                            <a href="{% url 'portal:receipt_pdf' p.id %}?lang={{ CURRENT_LANG }}" 
+                               target="_blank" class="btn btn-outline btn-sm" title="Télécharger">
+                                📄 PDF
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                            {% trans "common.not_found" %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Parent Visits Card -->
+    <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+            <h3 class="card-title">👁️ {% if CURRENT_LANG == 'ar' %}متابعة زيارات أولياء الأمور (النشاط الأخير){% else %}Suivi des visites Parents (Activité récente){% endif %}</h3>
+            <a href="{% url 'portal:parents_list' %}" class="btn btn-outline btn-sm">
+                {% trans "common.all" %} <span class="icon-dir">→</span>
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="gca-table">
+                <thead>
+                    <tr>
+                        <th>{% if CURRENT_LANG == 'ar' %}ولي الأمر{% else %}Parent / Tuteur{% endif %}</th>
+                        <th>{% if CURRENT_LANG == 'ar' %}التلميذ المُطّلع عليه{% else %}Élève consulté{% endif %}</th>
+                        <th>{% if CURRENT_LANG == 'ar' %}تاريخ ووقت الزيارة{% else %}Date & Heure{% endif %}</th>
+                        <th>{% if CURRENT_LANG == 'ar' %}الحالة{% else %}Statut{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in recent_parent_visits %}
+                    <tr>
+                        <td>
+                            <b>{{ v.parent|trans_field:CURRENT_LANG }}</b>
+                            <br><small style="color: var(--text-muted);"><bdi>{{ v.parent.phone }}</bdi></small>
+                        </td>
+                        <td>
+                            {% if v.student %}
+                                <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-weight: 600;">
+                                    👶 {{ v.student|trans_field:CURRENT_LANG }}
+                                </span>
+                            {% else %}
+                                <span style="color: var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <b>{{ v.timestamp|date:"d/m/Y" }}</b> <span style="color: var(--text-muted);">à {{ v.timestamp|date:"H:i" }}</span>
+                        </td>
+                        <td>
+                            <span class="badge badge-paid" style="font-size: 0.78rem;">
+                                🟢 {% if CURRENT_LANG == 'ar' %}تمت المعاينة{% else %}Espace consulté{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                            {% if CURRENT_LANG == 'ar' %}لا توجد زيارات مسجلة مؤخراً{% else %}Aucune visite de parent enregistrée pour le moment.{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <!-- Quick Actions & Dynamic Activities -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">⚡ {% trans "dashboard.quick_actions" %}</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <a href="{% url 'portal:students' %}" class="btn btn-secondary">
+                    🎓 {% trans "students.title" %}
+                </a>
+                <a href="{% url 'portal:planning' %}" class="btn btn-outline">
+                    📅 {% trans "planning.title" %}
+                </a>
+                <a href="{% url 'portal:payments' %}" class="btn btn-outline">
+                    💳 {% trans "payments.title" %}
+                </a>
+                <a href="{% url 'portal:export_students_excel' %}" class="btn btn-outline">
+                    📥 {% trans "students.export_excel" %}
+                </a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">♟️ {% trans "dashboard.activities_distribution" %}</h3>
+            </div>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem;">
+                {% for act in activities %}
+                <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: #F8FAFC; border-radius: var(--radius-sm); border-right: 4px solid {{ act.color }}; border-left: 4px solid {{ act.color }};">
+                    <span style="font-weight: 600;">{{ act|trans_field:CURRENT_LANG }}</span>
+                    <span class="badge" style="background: {{ act.color }}; color: white;">
+                        {{ act.groups.count }} {% trans "nav.planning" %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

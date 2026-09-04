@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="form-card-wrapper" style="max-width: 680px; margin: 2rem auto;">
+    <div class="page-header" style="margin-bottom: 1.5rem;">
+        <div class="page-header-titles">
+            <h2>💰 {{ title }}</h2>
+            <p>
+                {% if CURRENT_LANG == 'ar' %}
+                    تعديل أو تسجيل الأداء محمي برمز الأمان المالي للإدارة
+                {% else %}
+                    Opération financière sécurisée par le Code Spécial d'Autorisation
+                {% endif %}
+            </p>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'portal:payments' %}" class="btn btn-outline">
+                ← {% trans "crud.cancel" %}
+            </a>
+        </div>
+    </div>
+
+    {% if error_msg %}
+        <div class="alert-banner alert-danger" style="margin-bottom: 1.5rem; border-radius: var(--radius-md); padding: 1rem 1.25rem;">
+            <span style="font-weight: 700;">⚠️ {{ error_msg }}</span>
+        </div>
+    {% endif %}
+
+    <div class="card" style="border-top: 4px solid var(--accent-gold); box-shadow: var(--shadow-md);">
+        <form method="POST">
+            {% csrf_token %}
+
+            <!-- BOÎTE DU CODE SPÉCIAL DE SÉCURITÉ -->
+            <div style="background: #FEF9C3; border: 2px solid #FACC15; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.75rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; font-weight: 700; color: #854D0E; margin-bottom: 0.5rem;">
+                    🔐 {% if CURRENT_LANG == 'ar' %}الرمز السري الخاص لتأكيد التغيير (إلزامي) :{% else %}Code Spécial d'Autorisation Administrateur (Obligatoire) :{% endif %}
+                </label>
+                {{ form.security_code }}
+                <small style="display: block; color: #A16207; font-size: 0.78rem; margin-top: 0.4rem;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        أدخل الرمز السري الخاص (الافتراضي: 6565) للسماح بتغيير هذا السجل المالي الرسمي.
+                    {% else %}
+                        Saisissez le code secret de sécurité financière (défaut : 6565) pour autoriser cette opération.
+                    {% endif %}
+                </small>
+            </div>
+
+            <!-- CHAMPS DU PAIEMENT -->
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        {% trans "payments.student" %} *
+                    </label>
+                    {{ form.student }}
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                            {% trans "payments.amount" %} (DH) *
+                        </label>
+                        {{ form.amount }}
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                            {% trans "payments.payment_date" %} *
+                        </label>
+                        {{ form.payment_date }}
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                            {% trans "payments.method" %}
+                        </label>
+                        {{ form.payment_method }}
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                            {% if CURRENT_LANG == 'ar' %}رقم المرجع / الشيك / التحويل{% else %}Référence / N° Chèque{% endif %}
+                        </label>
+                        {{ form.reference }}
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        {% if CURRENT_LANG == 'ar' %}ملاحظات إضافية{% else %}Notes / Remarques{% endif %}
+                    </label>
+                    {{ form.notes }}
+                </div>
+
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                <a href="{% url 'portal:payments' %}" class="btn btn-outline">
+                    {% trans "crud.cancel" %}
+                </a>
+                <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.75rem;">
+                    💾 {% trans "crud.save" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

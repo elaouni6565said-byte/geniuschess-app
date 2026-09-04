@@ -1,0 +1,45 @@
+﻿{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "crud.confirm_delete" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 520px; margin: 4rem auto;">
+    <div class="card" style="padding: 2.25rem; text-align: center; border-top: 5px solid var(--danger); box-shadow: var(--shadow-lg);">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+        
+        <h3 style="font-size: 1.35rem; color: var(--danger); margin-bottom: 0.75rem;">
+            {% trans "crud.confirm_delete" %}
+        </h3>
+        
+        <p style="font-size: 1rem; color: var(--text-main); margin-bottom: 0.5rem;">
+            {% trans "crud.delete_question" %}
+        </p>
+
+        <div style="background: #FFF1F2; border: 1px solid #FECDD3; border-radius: var(--radius-sm); padding: 0.85rem; margin: 1.25rem 0;">
+            <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {{ item_type }}
+            </span>
+            <b style="font-size: 1.15rem; color: #9F1239;">
+                {{ item_name }}
+            </b>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.75rem;">
+            {% trans "crud.delete_warning" %}
+        </p>
+
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div style="display: flex; gap: 0.75rem; justify-content: center;">
+                <a href="{{ cancel_url }}" class="btn btn-secondary">
+                    {% trans "crud.cancel" %}
+                </a>
+                <button type="submit" class="btn btn-danger" style="background: var(--danger); color: white;">
+                    🗑️ {% trans "crud.delete" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

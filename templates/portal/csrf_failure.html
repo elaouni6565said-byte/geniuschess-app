@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load static gca_tags %}
+
+{% block title %}Session de Sécurité — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 520px; margin: 4rem auto; text-align: center;">
+    <div class="card" style="padding: 2.5rem; border-top: 5px solid var(--warning); box-shadow: var(--shadow-lg);">
+        <img src="{% static 'img/logo.png' %}" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; object-fit: contain;">
+        
+        <h2 style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 0.75rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                انتهت صلاحية جلسة الأمان (رمز الحماية)
+            {% else %}
+                Session de sécurité expirée (Jeton CSRF)
+            {% endif %}
+        </h2>
+
+        <p style="font-size: 0.92rem; color: var(--text-main); margin-bottom: 1.5rem; line-height: 1.5;">
+            {% if CURRENT_LANG == 'ar' %}
+                لقد انتهت صلاحية نموذج تسجيل الدخول القديم المخزن في المتصفح. 
+                يرجى الضغط على الزر أدناه لتحديث الصفحة وتسجيل الدخول بأمان.
+            {% else %}
+                La page de connexion précédente est restée ouverte ou vos cookies ont été réinitialisés. 
+                Veuillez cliquer sur le bouton ci-dessous pour recharger une session sécurisée et vous connecter.
+            {% endif %}
+        </p>
+
+        <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+            <a href="{% url 'portal:login' %}" class="btn btn-primary" style="padding: 0.75rem 1.5rem; font-size: 1rem;">
+                🔄 {% if CURRENT_LANG == 'ar' %}تحديث والعودة لتسجيل الدخول{% else %}Actualiser et se connecter{% endif %}
+            </a>
+            <a href="{% url 'portal:parent_space' %}" class="btn btn-outline" style="padding: 0.75rem 1.25rem;">
+                👨‍👩‍👧 {% trans "nav.parent_space" %}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

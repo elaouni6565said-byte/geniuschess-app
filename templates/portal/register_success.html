@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load static gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}تم تسجيل الأسرة بنجاح — Genius Chess Academy{% else %}Inscription Réussie — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 3rem auto; padding: 0 1rem;">
+    <div class="card" style="padding: 2.5rem; text-align: center; border-top: 5px solid var(--success); box-shadow: var(--shadow-lg);">
+        
+        <img src="{% static 'img/logo.png' %}" alt="Genius Chess Academy" 
+             style="width: 100px; height: 100px; object-fit: contain; margin-bottom: 1.25rem; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.15));">
+
+        <div style="font-size: 2.8rem; margin-bottom: 0.75rem;">🎉</div>
+
+        <h2 style="color: var(--primary-navy); font-size: 1.5rem; margin-bottom: 0.5rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                تم تسجيل طلبكم بنجاح في الأكاديمية !
+            {% else %}
+                Inscription Enregistrée avec Succès !
+            {% endif %}
+        </h2>
+
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.75rem; line-height: 1.5;">
+            {% if CURRENT_LANG == 'ar' %}
+                أهلاً بكم في عائلة Genius Chess Academy. تم تسجيل بيانات الأسرة وفتح الحساب الخاص بكم.
+            {% else %}
+                Bienvenue dans la famille Genius Chess Academy. Vos coordonnées et le profil de vos enfants sont désormais enregistrés.
+            {% endif %}
+        </p>
+
+        <!-- Récapitulatif Tuteur -->
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; text-align: start; margin-bottom: 1.5rem;">
+            <div style="font-weight: 700; color: var(--primary-navy); margin-bottom: 0.5rem; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.4rem;">
+                👨‍👩‍👧 {% if CURRENT_LANG == 'ar' %}ولي الأمر المسؤول :{% else %}Parent / Tuteur :{% endif %}
+            </div>
+            <div style="font-size: 0.9rem; margin-bottom: 0.35rem;">
+                <b>{{ parent.full_name_fr }}</b> / <span style="color: var(--primary-navy); font-weight: 600;">{{ parent.full_name_ar }}</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                📞 <bdi>{{ parent.phone }}</bdi>
+                {% if parent.email %} | ✉️ {{ parent.email }}{% endif %}
+                {% if parent.address %} | 📍 {{ parent.address }}{% endif %}
+            </div>
+        </div>
+
+        <!-- Récapitulatif Enfants -->
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md); padding: 1.25rem; text-align: start; margin-bottom: 2rem;">
+            <div style="font-weight: 700; color: #1E40AF; margin-bottom: 0.75rem; border-bottom: 1px solid #DBEAFE; padding-bottom: 0.4rem;">
+                👶 {% if CURRENT_LANG == 'ar' %}الأبناء والبنات المسجلون :{% else %}Enfants Inscrits :{% endif %}
+            </div>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.6rem; padding: 0; margin: 0;">
+                {% for st in students %}
+                <li style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid #E2E8F0;">
+                    <div>
+                        <b>{{ st.first_name_fr }} {{ st.last_name_fr }}</b> 
+                        <span style="color: var(--primary-navy); font-weight: 600;">({{ st.first_name_ar }} {{ st.last_name_ar }})</span>
+                        {% if st.school or st.grade_level %}
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                                🏫 {{ st.school|default:"" }}{% if st.school and st.grade_level %} • {% endif %}{{ st.grade_level|default:"" }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <span class="badge" style="background: #DBEAFE; color: #1D4ED8; font-family: monospace; font-weight: 700;">
+                        {{ st.registration_number }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Accès Espace Parent -->
+        <div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 2rem; text-align: start;">
+            <div style="font-weight: 700; color: #92400E; font-size: 0.9rem; margin-bottom: 0.35rem;">
+                🔑 {% if CURRENT_LANG == 'ar' %}معلومات الدخول لفضاء الأولياء :{% else %}Vos Accès à l'Espace Parents :{% endif %}
+            </div>
+            <div style="font-size: 0.85rem; color: #78350F; line-height: 1.5;">
+                {% if CURRENT_LANG == 'ar' %}
+                    يمكنكم الدخول عبر كتابة <b>رقم الهاتف</b> أو <b>اسم التلميذ</b>، وكلمة المرور الافتراضية هي: <code style="background: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">Parent@2026</code>
+                {% else %}
+                    Vous pouvez vous connecter en saisissant votre <b>numéro de téléphone</b> ou le <b>nom de votre enfant</b> avec le mot de passe : <code style="background: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">Parent@2026</code>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="{% url 'portal:login' %}" class="btn btn-primary" style="padding: 0.75rem 1.75rem;">
+                👨‍👩‍👧 {% if CURRENT_LANG == 'ar' %}الدخول إلى فضاء الأولياء{% else %}Accéder à l'Espace Parents{% endif %}
+            </a>
+            <a href="{% url 'portal:register' %}" class="btn btn-outline" style="padding: 0.75rem 1.25rem;">
+                ➕ {% if CURRENT_LANG == 'ar' %}تسجيل أسرة أخرى{% else %}Inscrire une autre famille{% endif %}
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

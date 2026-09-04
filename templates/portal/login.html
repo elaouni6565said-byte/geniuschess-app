@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static gca_tags %}
+
+{% block title %}{% trans "auth.login_title" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 3.5rem auto;">
+    <div class="card" style="padding: 2.25rem; box-shadow: var(--shadow-lg); border-radius: var(--radius-lg); border-top: 5px solid var(--primary-navy);">
+        
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <img src="{% static 'img/logo.png' %}" alt="Genius Chess Academy" 
+                 style="width: 105px; height: 105px; object-fit: contain; margin-bottom: 1rem; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.18));">
+            <h2 style="font-size: 1.4rem; color: var(--primary-navy); margin-bottom: 0.5rem;">
+                {% trans "auth.login_title" %}
+            </h2>
+            <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.4;">
+                {% trans "auth.login_subtitle" %}
+            </p>
+        </div>
+
+        {% if error_msg %}
+            <div class="alert-banner alert-danger" style="margin-bottom: 1.25rem;">
+                <span>⚠️ {{ error_msg }}</span>
+            </div>
+        {% endif %}
+
+        <form method="POST" action="{% url 'portal:login' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+
+            <div style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-main);">
+                    {% trans "auth.username_label" %}
+                </label>
+                <input type="text" name="username" value="{{ entered_username }}" required class="search-input" 
+                       placeholder="{% trans 'auth.username_placeholder' %}" style="background: white; font-weight: 500;">
+                <small style="display: block; margin-top: 0.35rem; font-size: 0.76rem; color: var(--text-muted);">
+                    {% trans "auth.identifier_hint" %}
+                </small>
+            </div>
+
+            <div style="margin-bottom: 1.75rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-main);">
+                    {% trans "auth.password" %}
+                </label>
+                <input type="password" name="password" required autofocus class="search-input" 
+                       placeholder="••••••••" style="font-size: 1.1rem; letter-spacing: 0.1em;">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 1rem;">
+                🔒 {% trans "auth.login_btn" %}
+            </button>
+        </form>
+
+        <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); text-align: center;">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                {% if CURRENT_LANG == 'ar' %}
+                    هل أنت ولي أمر ؟
+                {% else %}
+                    Vous êtes parent d'élève ?
+                {% endif %}
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 0.6rem; align-items: center;">
+                <a href="{% url 'portal:parent_space' %}" class="btn btn-outline btn-sm" style="font-size: 0.85rem; width: 100%;">
+                    👨‍👩‍👧 {% trans "parent_space.title" %}
+                </a>
+                <a href="{% url 'portal:register' %}" class="btn btn-secondary btn-sm" style="font-size: 0.85rem; width: 100%; border: 1px dashed var(--primary-navy); background: #F8FAFC; color: var(--primary-navy); font-weight: 600;">
+                    📝 {% if CURRENT_LANG == 'ar' %}تسجيل أسرة جديدة (استمارة التسجيل){% else %}Nouvelle Inscription Famille{% endif %}
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

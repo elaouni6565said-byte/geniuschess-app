@@ -1,0 +1,297 @@
+﻿{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "planning.title" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.5rem;">
+    <div class="page-header-titles">
+        <h2>🗓️ {% trans "planning.title" %}</h2>
+        <p>{% trans "planning.subtitle" %}</p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:session_add' %}" class="btn btn-primary">
+            ➕ {% trans "planning_crud.add_session" %}
+        </a>
+    </div>
+</div>
+
+<!-- BARRE D'ONGLETS AGENDAT : 3 MODES (QUOTIDIEN, MENSUEL, ANNUEL) -->
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.75rem; background: white; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+    
+    <!-- Sélecteur de vue (Tabs) -->
+    <div class="agenda-tabs">
+        <a href="?view=daily{% if sel_date %}&date={{ sel_date|date:'Y-m-d' }}{% endif %}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+           class="agenda-tab-btn {% if current_view == 'daily' %}active{% endif %}">
+            📅 {% trans "planning.view_daily" %}
+        </a>
+        <a href="?view=monthly{% if year %}&year={{ year }}&month={{ month }}{% endif %}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+           class="agenda-tab-btn {% if current_view == 'monthly' %}active{% endif %}">
+            🗓️ {% trans "planning.view_monthly" %}
+        </a>
+        <a href="?view=annual{% if year %}&year={{ year }}{% endif %}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+           class="agenda-tab-btn {% if current_view == 'annual' %}active{% endif %}">
+            📆 {% trans "planning.view_annual" %}
+        </a>
+    </div>
+
+    <!-- Filtre par salle -->
+    <form method="GET" action="" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+        <input type="hidden" name="view" value="{{ current_view }}">
+        {% if current_view == 'daily' and sel_date %}<input type="hidden" name="date" value="{{ sel_date|date:'Y-m-d' }}">{% endif %}
+        {% if current_view == 'monthly' %}<input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">{% endif %}
+        {% if current_view == 'annual' %}<input type="hidden" name="year" value="{{ year }}">{% endif %}
+
+        <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">🏛️ {% trans "planning_crud.room" %} :</span>
+        <select name="room" onchange="this.form.submit()" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; height: auto;">
+            <option value="">Toutes les salles</option>
+            {% for r in rooms %}
+                <option value="{{ r.id }}" {% if selected_room == r.id %}selected{% endif %}>
+                    {{ r|trans_field:CURRENT_LANG }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+
+<!-- ========================================================================= -->
+<!-- 1. VUE QUOTIDIENNE (DAILY VIEW)                                          -->
+<!-- ========================================================================= -->
+{% if current_view == 'daily' %}
+<div class="card" style="margin-bottom: 2rem;">
+    <!-- Entête de navigation journalière -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <a href="?view=daily&date={{ prev_date }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-secondary btn-sm" title="{% trans 'planning.prev_day' %}">
+                ◀ {% trans "planning.prev_day" %}
+            </a>
+            <a href="?view=daily&date={{ today|date:'Y-m-d' }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-outline btn-sm {% if is_today %}active{% endif %}">
+                📍 {% trans "planning.today" %}
+            </a>
+            <a href="?view=daily&date={{ next_date }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-secondary btn-sm" title="{% trans 'planning.next_day' %}">
+                {% trans "planning.next_day" %} ▶
+            </a>
+        </div>
+
+        <div style="text-align: center;">
+            <h3 style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 0.15rem;">
+                <b>{{ day_name }}</b> — {% local_date sel_date %}
+            </h3>
+            <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 600;">
+                {{ day_sessions|length }} {% trans "planning.sessions_scheduled" %}
+            </span>
+        </div>
+
+        <!-- Date picker -->
+        <form method="GET" action="" style="display: inline-flex; align-items: center; gap: 0.4rem;">
+            <input type="hidden" name="view" value="daily">
+            {% if selected_room %}<input type="hidden" name="room" value="{{ selected_room }}">{% endif %}
+            <input type="date" name="date" value="{{ sel_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; height: auto;">
+        </form>
+    </div>
+
+    <!-- Timeline horaire de la journée -->
+    <div class="daily-timeline-wrapper">
+        {% for row in hourly_timeline %}
+        <div class="daily-timeline-row">
+            <div class="daily-timeline-hour">
+                {{ row.hour }}
+            </div>
+            <div class="daily-timeline-content">
+                {% for s in row.sessions %}
+                <div style="background: white; border: 1px solid var(--border-color); border-inline-start: 5px solid {{ s.group.subject.color }}; border-radius: var(--radius-sm); padding: 0.65rem 1rem; box-shadow: var(--shadow-sm); min-width: 260px; max-width: 360px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                            <b style="color: var(--primary-navy); font-size: 0.95rem;">{{ s.group.subject|trans_field:CURRENT_LANG }}</b>
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--accent-orange);">
+                                <bdi>{{ s.start_time|time:"H:i" }} - {{ s.end_time|time:"H:i" }}</bdi>
+                            </span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.2rem;">
+                            👥 {{ s.group|trans_field:CURRENT_LANG }}
+                        </p>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">
+                            📍 {{ s.room|trans_field:CURRENT_LANG }}
+                        </p>
+                        <p style="font-size: 0.8rem; color: var(--primary-blue);">
+                            👨‍🏫 {{ s|trans_field:CURRENT_LANG }}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.35rem; justify-content: flex-end; margin-top: 0.5rem; border-top: 1px solid #F1F5F9; padding-top: 0.4rem;">
+                        <a href="{% url 'portal:session_edit' s.id %}" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="{% trans 'crud.edit' %}">✏️</a>
+                        <a href="{% url 'portal:session_delete' s.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="{% trans 'crud.delete' %}">🗑️</a>
+                    </div>
+                </div>
+                {% empty %}
+                <span style="color: #CBD5E1; font-size: 0.8rem; font-style: italic;">—</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+<!-- ========================================================================= -->
+<!-- 2. VUE MENSUELLE (MONTHLY VIEW)                                          -->
+<!-- ========================================================================= -->
+{% if current_view == 'monthly' %}
+<div class="card" style="margin-bottom: 2rem;">
+    <!-- Entête de navigation mensuelle -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <a href="?view=monthly&year={{ prev_year }}&month={{ prev_month }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-secondary btn-sm" title="{% trans 'planning.prev_month' %}">
+                ◀ {% trans "planning.prev_month" %}
+            </a>
+            <a href="?view=monthly&year={{ today.year }}&month={{ today.month }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-outline btn-sm">
+                📍 {% trans "planning.current_month" %}
+            </a>
+            <a href="?view=monthly&year={{ next_year }}&month={{ next_month }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-secondary btn-sm" title="{% trans 'planning.next_month' %}">
+                {% trans "planning.next_month" %} ▶
+            </a>
+        </div>
+
+        <div style="text-align: center;">
+            <h3 style="font-size: 1.4rem; color: var(--primary-navy); margin: 0;">
+                <b>{{ month_name }} {{ year }}</b>
+            </h3>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">
+                💡 Cliquez sur un jour pour ouvrir sa vue journalière
+            </span>
+        </div>
+    </div>
+
+    <!-- Grille Calendrier Mensuelle 7 Colonnes -->
+    <div class="calendar-grid">
+        <!-- Ligne d'en-tête des 7 jours -->
+        {% for wday in weekdays_header %}
+        <div class="calendar-header-cell">
+            {{ wday }}
+        </div>
+        {% endfor %}
+
+        <!-- Cellules des jours du mois -->
+        {% for week in month_weeks %}
+            {% for day in week %}
+            <div class="calendar-cell {% if not day.is_current_month %}other-month{% endif %} {% if day.is_today %}is-today{% endif %}">
+                <div class="calendar-date-header">
+                    <a href="?view=daily&date={{ day.date_str }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+                       class="calendar-date-number" style="text-decoration: none;" title="Ouvrir la vue quotidienne du {{ day.date_str }}">
+                        {{ day.day_num }}
+                    </a>
+                    {% if day.sessions %}
+                        <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">
+                            {{ day.sessions|length }} cours
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Pastilles de cours de la journée -->
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    {% for s in day.sessions %}
+                    <a href="?view=daily&date={{ day.date_str }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+                       class="calendar-session-chip" 
+                       style="background: {{ s.group.subject.color }};"
+                       title="{{ s.group.subject|trans_field:CURRENT_LANG }} ({{ s.start_time|time:'H:i' }} - {{ s.end_time|time:'H:i' }})">
+                        <span style="font-weight: bold;"><bdi>{{ s.start_time|time:"H:i" }}</bdi></span> {{ s.group.subject|trans_field:CURRENT_LANG }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+<!-- ========================================================================= -->
+<!-- 3. VUE ANNUELLE (ANNUAL VIEW)                                            -->
+<!-- ========================================================================= -->
+{% if current_view == 'annual' %}
+<div class="card" style="margin-bottom: 2rem;">
+    <!-- Entête de navigation annuelle -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <a href="?view=annual&year={{ prev_year }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-secondary btn-sm">
+                ◀ {{ prev_year }}
+            </a>
+            <a href="?view=annual&year={{ today.year }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-outline btn-sm {% if year == today.year %}active{% endif %}">
+                📍 {% trans "planning.current_year" %}
+            </a>
+            <a href="?view=annual&year={{ next_year }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-secondary btn-sm">
+                {{ next_year }} ▶
+            </a>
+        </div>
+
+        <div style="text-align: center;">
+            <h3 style="font-size: 1.4rem; color: var(--primary-navy); margin: 0;">
+                <b>Année Scolaire & Civile {{ year }}</b>
+            </h3>
+            <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: bold; margin-top: 0.35rem;">
+                🏆 {{ total_year_sessions }} séances programmées sur l'année
+            </span>
+        </div>
+
+        <div>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">
+                💡 Cliquez sur un mois pour afficher son calendrier
+            </span>
+        </div>
+    </div>
+
+    <!-- Matrice des 12 Mois de l'Année -->
+    <div class="annual-months-grid">
+        {% for m in annual_months %}
+        <div class="annual-month-card {% if m.is_current_month %}is-current{% endif %}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem;">
+                <h4 style="color: var(--primary-navy); font-size: 1.15rem; margin: 0;">
+                    {{ m.month_name }}
+                </h4>
+                <span class="badge" style="background: var(--primary-navy); color: white; font-size: 0.8rem;">
+                    {{ m.total_sessions }} séances
+                </span>
+            </div>
+
+            <!-- Répartition par discipline pour ce mois -->
+            <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.25rem;">
+                {% for sub in m.subject_counts %}
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
+                    <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                        <span style="width: 10px; height: 10px; border-radius: 50%; background: {{ sub.subj.color }};"></span>
+                        {{ sub.subj|trans_field:CURRENT_LANG }}
+                    </span>
+                    <b>{{ sub.count }}</b>
+                </div>
+                {% empty %}
+                <span style="font-size: 0.82rem; color: var(--text-muted); font-style: italic;">
+                    Aucune séance active
+                </span>
+                {% endfor %}
+            </div>
+
+            <a href="?view=monthly&year={{ m.year }}&month={{ m.month_num }}{% if selected_room %}&room={{ selected_room }}{% endif %}" 
+               class="btn btn-outline btn-sm" style="width: 100%; text-align: center; font-size: 0.82rem;">
+                🗓️ {% trans "planning.open_month" %}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

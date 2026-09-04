@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}Supprimer le Paiement — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 540px; margin: 3rem auto;">
+    <div class="card" style="padding: 2.25rem; border-top: 5px solid var(--danger); box-shadow: var(--shadow-lg);">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">⚠️</div>
+            <h2 style="color: var(--danger); font-size: 1.4rem; margin-bottom: 0.5rem;">
+                {% if CURRENT_LANG == 'ar' %}
+                    تأكيد حذف وإلغاء الأداء
+                {% else %}
+                    Confirmation de Suppression de Paiement
+                {% endif %}
+            </h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                {% if CURRENT_LANG == 'ar' %}
+                    هل أنت متأكد من رغبتك في حذف هذا الوصل المالي ؟ هذه العملية ستقوم بإعادة احتساب المبلغ المتبقي على التلميذ.
+                {% else %}
+                    Êtes-vous sûr de vouloir supprimer ce paiement ? Cette action recalculera automatiquement le solde impayé de l'élève.
+                {% endif %}
+            </p>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                <span style="color: var(--text-muted); font-size: 0.85rem;">N° de Reçu :</span>
+                <b>#{{ payment.receipt_number }}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                <span style="color: var(--text-muted); font-size: 0.85rem;">Élève :</span>
+                <b>{{ payment.student.get_bilingual_full_name }}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted); font-size: 0.85rem;">Montant :</span>
+                <b style="color: var(--primary-navy);">{{ payment.amount }} DH</b>
+            </div>
+        </div>
+
+        {% if error_msg %}
+            <div class="alert-banner alert-danger" style="margin-bottom: 1.25rem; border-radius: var(--radius-md); padding: 0.75rem 1rem;">
+                <span style="font-weight: 700;">⚠️ {{ error_msg }}</span>
+            </div>
+        {% endif %}
+
+        <form method="POST">
+            {% csrf_token %}
+
+            <div style="background: #FEF9C3; border: 2px solid #FACC15; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #854D0E; margin-bottom: 0.35rem;">
+                    🔐 {% if CURRENT_LANG == 'ar' %}الرمز السري الخاص لتأكيد الحذف (إلزامي) :{% else %}Code Spécial d'Autorisation (Obligatoire) :{% endif %}
+                </label>
+                <input type="password" name="security_code" required class="search-input" 
+                       placeholder="Code spécial (ex: 6565)" 
+                       style="background: white; letter-spacing: 0.25em; font-weight: bold; border: 2px solid #EAB308;">
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: center;">
+                <a href="{{ cancel_url }}" class="btn btn-outline" style="flex: 1; text-align: center;">
+                    {% trans "crud.cancel" %}
+                </a>
+                <button type="submit" class="btn btn-sm" style="flex: 1; background: #DC2626; color: white; font-weight: 700; border: none; padding: 0.65rem 1rem;">
+                    🗑️ {% if CURRENT_LANG == 'ar' %}تأكيد الحذف{% else %}Supprimer définitivement{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

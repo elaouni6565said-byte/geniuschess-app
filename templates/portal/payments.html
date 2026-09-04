@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "payments.title" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>{% trans "payments.title" %}</h2>
+        <p>{% trans "payments.subtitle" %}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'portal:payment_add' %}" class="btn btn-primary">
+            ➕ {% if CURRENT_LANG == 'ar' %}تسجيل أداء جديد{% else %}Enregistrer un Paiement{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- Unpaid Dues Notice / Impayés (47.7 & 47.11) -->
+{% if unpaid_invoices %}
+<div class="card" style="border-inline-start: 4px solid var(--danger);">
+    <div class="card-header">
+        <h3 class="card-title" style="color: var(--danger);">
+            ⚠️ {% trans "nav.unpaid" %} ({{ unpaid_invoices.count }})
+        </h3>
+        <a href="{% url 'portal:run_reminders' %}" class="btn btn-accent btn-sm">
+            🔔 {% trans "dashboard.run_reminders_btn" %}
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% trans "payments.student" %}</th>
+                    <th>{% trans "payments.month_paid" %}</th>
+                    <th>{% trans "payments.amount_due" %}</th>
+                    <th>{% trans "payments.amount_paid" %}</th>
+                    <th>{% trans "payments.balance" %}</th>
+                    <th>{% trans "payments.status" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in unpaid_invoices %}
+                <tr>
+                    <td><b>{{ inv.student|trans_field:CURRENT_LANG }}</b></td>
+                    <td>{{ inv|trans_field:CURRENT_LANG }}</td>
+                    <td>{% money inv.amount_due %}</td>
+                    <td>{% money inv.amount_paid %}</td>
+                    <td style="color: var(--danger); font-weight: bold;">{% money inv.get_balance %}</td>
+                    <td>
+                        <span class="badge {% if inv.status == 'partial' %}badge-partial{% else %}badge-unpaid{% endif %}">
+                            {% if CURRENT_LANG == 'ar' %}{{ inv.status_label_ar }}{% else %}{{ inv.status_label_fr }}{% endif %}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Payments History & Multi-Lingual PDF Generator (47.7) -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">🧾 {% trans "nav.receipts" %}</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% trans "payments.receipt_no" %}</th>
+                    <th>{% trans "payments.student" %}</th>
+                    <th>{% trans "payments.amount" %}</th>
+                    <th>{% trans "payments.payment_date" %}</th>
+                    <th>{% trans "payments.method" %}</th>
+                    <th style="text-align: center;">Reçu PDF</th>
+                    <th style="text-align: center;">{% trans "crud.actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td><b>#{{ p.receipt_number }}</b></td>
+                    <td>{{ p.student|trans_field:CURRENT_LANG }}</td>
+                    <td style="font-weight: bold; color: var(--primary-blue);">{% money p.amount %}</td>
+                    <td>{% local_date p.payment_date %}</td>
+                    <td>{{ p|trans_field:CURRENT_LANG }}</td>
+                    <td style="text-align: center;">
+                        <div style="display: inline-flex; gap: 0.35rem;">
+                            <!-- PDF Français -->
+                            <a href="{% url 'portal:receipt_pdf' p.id %}?lang=fr" 
+                               target="_blank" class="btn btn-outline btn-sm" title="Reçu PDF en Français">
+                                🇫🇷 FR
+                            </a>
+                            <!-- PDF Arabe RTL -->
+                            <a href="{% url 'portal:receipt_pdf' p.id %}?lang=ar" 
+                               target="_blank" class="btn btn-outline btn-sm" title="وصل أداء بالعربية مع RTL">
+                                🇲🇦 AR
+                            </a>
+                            <!-- PDF Bilingue -->
+                            <a href="{% url 'portal:receipt_pdf' p.id %}?lang=bilingual" 
+                               target="_blank" class="btn btn-secondary btn-sm" title="Reçu PDF Bilingue">
+                                🌐
+                            </a>
+                        </div>
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: inline-flex; gap: 0.35rem;">
+                            <a href="{% url 'portal:payment_edit' p.id %}" class="btn btn-secondary btn-sm" title="Modifier ce paiement (sécurisé par code PIN)">
+                                ✏️
+                            </a>
+                            <a href="{% url 'portal:payment_delete' p.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;" title="Annuler / Supprimer ce paiement (sécurisé par code PIN)">
+                                🗑️
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                        {% trans "common.not_found" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

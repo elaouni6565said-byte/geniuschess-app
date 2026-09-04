@@ -1,0 +1,108 @@
+﻿{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "activity_crud.list_title" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>🎯 {% trans "activity_crud.list_title" %}</h2>
+        <p>Gestion des disciplines (Échecs, Robotique, Calcul mental), des groupes d'apprentissage et des tarifs</p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="{% url 'portal:activity_add' %}" class="btn btn-primary">
+            ➕ {% trans "activity_crud.add_activity" %}
+        </a>
+        <a href="{% url 'portal:group_add' %}" class="btn btn-secondary">
+            ➕ {% trans "activity_crud.add_group" %}
+        </a>
+    </div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2rem;">
+    {% for s in subjects %}
+    <div class="card" style="border-top: 4px solid {{ s.color }};">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.85rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.8rem; background: #F1F5F9; width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-md);">
+                    {% if 'échec' in s.name_fr|lower %}♟️
+                    {% elif 'robot' in s.name_fr|lower %}🤖
+                    {% elif 'calcul' in s.name_fr|lower %}🧮
+                    {% else %}🎯{% endif %}
+                </span>
+                <div>
+                    <h3 style="font-size: 1.3rem; color: var(--primary-navy); margin-bottom: 0.2rem;">
+                        {{ s|trans_field:CURRENT_LANG }}
+                    </h3>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        {% if CURRENT_LANG == 'ar' %}{{ s.name_fr }}{% else %}{{ s.name_ar }}{% endif %}
+                        • {{ s.groups.count }} groupe(s)
+                    </span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <a href="{% url 'portal:group_add' %}?subject_id={{ s.id }}" class="btn btn-outline btn-sm">
+                    ➕ Ajouter un groupe
+                </a>
+                <a href="{% url 'portal:activity_delete' s.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;" title="{% trans 'crud.delete' %}">
+                    🗑️
+                </a>
+            </div>
+        </div>
+
+        <!-- Groups within this Subject -->
+        <div class="table-responsive">
+            <table class="gca-table" style="font-size: 0.9rem;">
+                <thead>
+                    <tr style="background: #F8FAFC;">
+                        <th>{% trans "activity_crud.group_name_fr" %}</th>
+                        <th>{% trans "activity_crud.group_name_ar" %}</th>
+                        <th>{% trans "activity_crud.level" %}</th>
+                        <th>{% trans "activity_crud.monthly_fee" %}</th>
+                        <th>{% trans "activity_crud.students_count" %}</th>
+                        <th style="text-align: center;">{% trans "crud.actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in s.groups.all %}
+                    <tr>
+                        <td><b>{{ g.name_fr }}</b></td>
+                        <td style="font-weight: 600; color: var(--primary-navy);">{{ g.name_ar }}</td>
+                        <td>
+                            <span class="badge" style="background: #F1F5F9; color: #334155;">
+                                {{ g.level|trans_field:CURRENT_LANG|default:"Tous niveaux" }}
+                            </span>
+                        </td>
+                        <td>
+                            <b style="color: var(--primary-blue);">{% money g.monthly_fee %}</b>
+                        </td>
+                        <td>
+                            <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: bold;">
+                                👥 {{ g.students.count }}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <a href="{% url 'portal:group_delete' g.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;" title="{% trans 'crud.delete' %}">
+                                🗑️
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                            Aucun groupe créé pour cette activité. Cliquez sur "Ajouter un groupe" pour commencer.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card" style="text-align: center; padding: 3rem;">
+        <p style="color: var(--text-muted);">{% trans "common.not_found" %}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% load static gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}استمارة تسجيل الأسرة — Genius Chess Academy{% else %}Inscription Famille — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto; padding: 0 1rem;">
+    
+    <!-- En-tête avec Logo -->
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <img src="{% static 'img/logo.png' %}" alt="Genius Chess Academy" 
+             style="width: 105px; height: 105px; object-fit: contain; margin-bottom: 0.75rem; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.15));">
+        <h2 style="color: var(--primary-navy); font-size: 1.6rem; margin-bottom: 0.4rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                استمارة تسجيل أسرة جديدة
+            {% else %}
+                Formulaire d'Inscription Famille
+            {% endif %}
+        </h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 600px; margin: 0 auto; line-height: 1.5;">
+            {% if CURRENT_LANG == 'ar' %}
+                مرحباً بكم في أكاديمية جينيوس للشطرنج والذكاء الذهني. يرجى إدخال المعلومات بدقة لتسجيل أبنائكم وبناتكم.
+            {% else %}
+                Bienvenue à Genius Chess Academy. Remplissez ce formulaire pour inscrire vos enfants. Les informations renseignées permettront de créer immédiatement vos accès personnalisés.
+            {% endif %}
+        </p>
+    </div>
+
+    {% if error_msg %}
+        <div class="alert-banner alert-danger" style="margin-bottom: 1.5rem; border-radius: var(--radius-md); padding: 1rem 1.25rem;">
+            <span style="font-weight: 600;">⚠️ {{ error_msg }}</span>
+        </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'portal:register' %}" id="registration-form">
+        {% csrf_token %}
+
+        <!-- SECTION 1 : TUTEUR LÉGAL / ولي الأمر -->
+        <div class="card" style="margin-bottom: 1.75rem; border-top: 4px solid var(--primary-navy); box-shadow: var(--shadow-md);">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <h3 class="card-title" style="font-size: 1.15rem; color: var(--primary-navy);">
+                    👨‍👩‍👧 {% if CURRENT_LANG == 'ar' %}بيانات ولي الأمر / المسؤول القانوني{% else %}Informations de la Tutelle (Parent / Tuteur){% endif %}
+                </h3>
+            </div>
+
+            <div style="padding-top: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                
+                <!-- Champs obligatoires Tuteur -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                            {% if CURRENT_LANG == 'ar' %}الاسم الكامل بالفرنسية (إلزامي) *{% else %}Nom et Prénom (Français) *{% endif %}
+                        </label>
+                        <input type="text" name="parent_name_fr" required class="search-input" 
+                               placeholder="Ex: Karim Alaoui" value="{{ request.POST.parent_name_fr }}">
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                            {% if CURRENT_LANG == 'ar' %}الاسم والنسب بالعربية (إلزامي) *{% else %}Nom et Prénom (Arabe) *{% endif %}
+                        </label>
+                        <input type="text" name="parent_name_ar" required dir="rtl" class="search-input" 
+                               placeholder="مثال: كريم العلوي" value="{{ request.POST.parent_name_ar }}">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        {% if CURRENT_LANG == 'ar' %}رقم الهاتف (إلزامي) *{% else %}Numéro de Téléphone *{% endif %}
+                    </label>
+                    <input type="tel" name="parent_phone" required class="search-input" 
+                           placeholder="Ex: 0661112233" value="{{ request.POST.parent_phone }}">
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">
+                        {% if CURRENT_LANG == 'ar' %}سيُستخدم هذا الرقم لتسجيل الدخول والتواصل معكم.{% else %}Ce numéro servira d'identifiant de connexion pour votre espace.{% endif %}
+                    </small>
+                </div>
+
+                <!-- Champs facultatifs Tuteur -->
+                <div style="margin-top: 0.5rem; padding-top: 1rem; border-top: 1px dashed var(--border-color);">
+                    <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem;">
+                        {% if CURRENT_LANG == 'ar' %}معلومات اختيارية (حرية الاختيار) :{% else %}Informations facultatives (libre de choix) :{% endif %}
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.82rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--text-muted);">
+                                {% if CURRENT_LANG == 'ar' %}البريد الإلكتروني (اختياري){% else %}Adresse Email (Facultatif){% endif %}
+                            </label>
+                            <input type="email" name="parent_email" class="search-input" 
+                                   placeholder="parent@example.com" value="{{ request.POST.parent_email }}">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.82rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--text-muted);">
+                                {% if CURRENT_LANG == 'ar' %}العنوان / مقر السكنى (اختياري){% else %}Adresse / Domicile (Facultatif){% endif %}
+                            </label>
+                            <input type="text" name="parent_address" class="search-input" 
+                                   placeholder="Ex: Hay Riad, Rabat" value="{{ request.POST.parent_address }}">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SECTION 2 : ENFANTS (FILS / FILLES) / الأبناء والبنات -->
+        <div class="card" style="margin-bottom: 2rem; border-top: 4px solid var(--accent-gold); box-shadow: var(--shadow-md);">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <h3 class="card-title" style="font-size: 1.15rem; color: var(--primary-navy);">
+                    👶 {% if CURRENT_LANG == 'ar' %}الأبناء والبنات المراد تسجيلهم{% else %}Enfants (Fils & Filles à inscrire){% endif %}
+                </h3>
+                <button type="button" id="btn-add-child" class="btn btn-secondary btn-sm" style="font-size: 0.85rem;">
+                    ➕ {% if CURRENT_LANG == 'ar' %}إضافة ابن/ابنة آخر{% else %}Ajouter un autre enfant{% endif %}
+                </button>
+            </div>
+
+            <!-- Conteneur des blocs enfants -->
+            <div id="children-container" style="padding-top: 1rem; display: flex; flex-direction: column; gap: 1.25rem;">
+                
+                <!-- Bloc Enfant 1 (par défaut) -->
+                <div class="child-block" style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; position: relative;">
+                    <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>🧒 <span class="child-num-label">{% if CURRENT_LANG == 'ar' %}الطفل رقم 1{% else %}Enfant n° 1{% endif %}</span></span>
+                    </div>
+
+                    <!-- Champs obligatoires Enfant -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                                {% if CURRENT_LANG == 'ar' %}الاسم الكامل بالفرنسية (إلزامي) *{% else %}Nom & Prénom (Français) *{% endif %}
+                            </label>
+                            <input type="text" name="child_name_fr[]" required class="search-input" 
+                                   placeholder="Ex: Adam Alaoui" style="background: white;">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                                {% if CURRENT_LANG == 'ar' %}الاسم والنسب بالعربية (إلزامي) *{% else %}Nom & Prénom (Arabe) *{% endif %}
+                            </label>
+                            <input type="text" name="child_name_ar[]" required dir="rtl" class="search-input" 
+                                   placeholder="مثال: آدم العلوي" style="background: white;">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                            {% if CURRENT_LANG == 'ar' %}تاريخ الازدياد (إلزامي) *{% else %}Date de Naissance *{% endif %}
+                        </label>
+                        <input type="date" name="child_birth_date[]" required class="search-input" style="background: white; max-width: 320px;">
+                    </div>
+
+                    <!-- Champs facultatifs Enfant -->
+                    <div style="padding-top: 0.75rem; border-top: 1px dashed #CBD5E1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--text-muted);">
+                                {% if CURRENT_LANG == 'ar' %}مؤسسة التمدرس (اختياري){% else %}École de scolarité (Facultatif){% endif %}
+                            </label>
+                            <input type="text" name="child_school[]" class="search-input" 
+                                   placeholder="Ex: École Al Jabr" style="background: white;">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--text-muted);">
+                                {% if CURRENT_LANG == 'ar' %}المستوى الدراسي (اختياري){% else %}Niveau de scolarité (Facultatif){% endif %}
+                            </label>
+                            <input type="text" name="child_grade_level[]" class="search-input" 
+                                   placeholder="Ex: CM1, 5ème, Primaire..." style="background: white;">
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Bouton Ajouter Enfant en bas -->
+            <div style="text-align: center; margin-top: 1rem;">
+                <button type="button" id="btn-add-child-bottom" class="btn btn-outline btn-sm" style="border: 1px dashed var(--primary-navy); background: white;">
+                    ➕ {% if CURRENT_LANG == 'ar' %}إضافة ابن أو ابنة أخرى{% else %}Inscrire un autre enfant (Frère / Sœur){% endif %}
+                </button>
+            </div>
+        </div>
+
+        <!-- BOUTON SOUMETTRE -->
+        <div style="text-align: center; margin-bottom: 3rem;">
+            <button type="submit" class="btn btn-primary" style="padding: 0.9rem 2.5rem; font-size: 1.1rem; font-weight: 700; box-shadow: var(--shadow-md);">
+                ✨ {% if CURRENT_LANG == 'ar' %}تأكيد وإرسال طلب التسجيل{% else %}Valider l'Inscription de la Famille{% endif %}
+            </button>
+            <div style="margin-top: 1rem;">
+                <a href="{% url 'portal:login' %}" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: underline;">
+                    ← {% if CURRENT_LANG == 'ar' %}العودة إلى صفحة تسجيل الدخول{% else %}Retour à la page de connexion{% endif %}
+                </a>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<!-- SCRIPT DYNAMIQUE POUR L'AJOUT D'ENFANTS -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('children-container');
+    const btnTop = document.getElementById('btn-add-child');
+    const btnBottom = document.getElementById('btn-add-child-bottom');
+    const isAr = "{{ CURRENT_LANG }}" === "ar";
+
+    let childCount = 1;
+
+    function addChildBlock() {
+        childCount++;
+        const block = document.createElement('div');
+        block.className = 'child-block';
+        block.style.cssText = 'background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; position: relative; animation: fadeIn 0.3s ease;';
+        
+        block.innerHTML = `
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                <span>🧒 <span class="child-num-label">${isAr ? 'الطفل رقم ' + childCount : 'Enfant n° ' + childCount}</span></span>
+                <button type="button" class="btn-remove-child btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.75rem; padding: 0.2rem 0.5rem;" title="Supprimer cet enfant">
+                    🗑️ ${isAr ? 'حذف' : 'Supprimer'}
+                </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        ${isAr ? 'الاسم الكامل بالفرنسية (إلزامي) *' : 'Nom & Prénom (Français) *'}
+                    </label>
+                    <input type="text" name="child_name_fr[]" required class="search-input" 
+                           placeholder="Ex: Sara Alaoui" style="background: white;">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        ${isAr ? 'الاسم والنسب بالعربية (إلزامي) *' : 'Nom & Prénom (Arabe) *'}
+                    </label>
+                    <input type="text" name="child_name_ar[]" required dir="rtl" class="search-input" 
+                           placeholder="مثال: سارة العلوي" style="background: white;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                    ${isAr ? 'تاريخ الازدياد (إلزامي) *' : 'Date de Naissance *'}
+                </label>
+                <input type="date" name="child_birth_date[]" required class="search-input" style="background: white; max-width: 320px;">
+            </div>
+
+            <div style="padding-top: 0.75rem; border-top: 1px dashed #CBD5E1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--text-muted);">
+                        ${isAr ? 'مؤسسة التمدرس (اختياري)' : 'École de scolarité (Facultatif)'}
+                    </label>
+                    <input type="text" name="child_school[]" class="search-input" 
+                           placeholder="Ex: Lycée Descartes" style="background: white;">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--text-muted);">
+                        ${isAr ? 'المستوى الدراسي (اختياري)' : 'Niveau de scolarité (Facultatif)'}
+                    </label>
+                    <input type="text" name="child_grade_level[]" class="search-input" 
+                           placeholder="Ex: CE2, Collège..." style="background: white;">
+                </div>
+            </div>
+        `;
+
+        container.appendChild(block);
+
+        block.querySelector('.btn-remove-child').addEventListener('click', function() {
+            block.remove();
+            renumberChildren();
+        });
+    }
+
+    function renumberChildren() {
+        const blocks = container.querySelectorAll('.child-block');
+        childCount = blocks.length;
+        blocks.forEach((b, index) => {
+            const num = index + 1;
+            const label = b.querySelector('.child-num-label');
+            if (label) {
+                label.textContent = isAr ? 'الطفل رقم ' + num : 'Enfant n° ' + num;
+            }
+        });
+    }
+
+    btnTop.addEventListener('click', addChildBlock);
+    btnBottom.addEventListener('click', addChildBlock);
+});
+</script>
+{% endblock %}

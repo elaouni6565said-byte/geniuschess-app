@@ -1,0 +1,17 @@
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+*.zip
+*.b64
+.vscode/
+.idea/
+*.log
+local_settings.py
+db.sqlite3
+staticfiles/
+media/

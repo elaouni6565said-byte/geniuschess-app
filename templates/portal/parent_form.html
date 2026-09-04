@@ -1,0 +1,90 @@
+﻿{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>👨‍👩‍👧 {{ title }}</h2>
+        <p>Enregistrement des coordonnées parentales et paramétrage du compte famille</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'portal:parents_list' %}" class="btn btn-secondary btn-sm">
+            ← {% trans "crud.back_to_list" %}
+        </a>
+    </div>
+</div>
+
+<div class="card" style="max-width: 700px; margin: 0 auto; padding: 2rem;">
+    <form method="POST" action="">
+        {% csrf_token %}
+
+        {% if form.errors %}
+            <div class="alert-banner alert-danger" style="margin-bottom: 1.5rem;">
+                <b>⚠️ Attention :</b> Veuillez corriger les champs signalés.
+                {{ form.errors }}
+            </div>
+        {% endif %}
+
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                {% trans "parent_crud.full_name_fr" %} *
+            </label>
+            {{ form.full_name_fr }}
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                {% trans "parent_crud.full_name_ar" %} *
+            </label>
+            {{ form.full_name_ar }}
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;">
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "parent_crud.phone" %} *
+                </label>
+                {{ form.phone }}
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "parent_crud.cin" %}
+                </label>
+                {{ form.cin }}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "parent_crud.email" %}
+                </label>
+                {{ form.email }}
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "parent_crud.preferred_language" %}
+                </label>
+                {{ form.preferred_language }}
+            </div>
+        </div>
+
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1.5rem;">
+            <p style="font-size: 0.85rem; color: #1E40AF; margin: 0;">
+                ℹ️ <b>Compte Espace Parent :</b> Un compte utilisateur avec identifiant et mot de passe (<code>Parent@2026</code>) sera automatiquement créé pour ce parent afin qu'il puisse suivre l'emploi du temps et les présences de ses enfants.
+            </p>
+        </div>
+
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+            <a href="{% url 'portal:parents_list' %}" class="btn btn-secondary">
+                {% trans "crud.cancel" %}
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem;">
+                💾 {% trans "crud.save" %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

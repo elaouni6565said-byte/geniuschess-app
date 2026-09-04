@@ -1,0 +1,117 @@
+{% load static gca_tags %}
+<!DOCTYPE html>
+<html lang="{{ CURRENT_LANG }}" dir="{{ CURRENT_DIR }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Official Bilingual Navbar -->
+    <header class="gca-navbar">
+        <div class="brand-section">
+            <a href="{% if request.user.is_authenticated and request.user.is_parent_role %}{% url 'portal:parent_space' %}{% else %}{% url 'portal:dashboard' %}{% endif %}" style="display: inline-flex; align-items: center; text-decoration: none;">
+                <img src="{% static 'img/logo.png' %}" alt="Logo Genius Chess Academy" class="brand-logo-img">
+            </a>
+            <div class="brand-titles">
+                <h1>{% trans "app_name" %}</h1>
+                <span>{% trans "app_tagline" %}</span>
+            </div>
+        </div>
+
+        <nav>
+            <ul class="nav-links">
+                {% if request.user.is_authenticated and request.user.is_admin_role or request.user.is_authenticated and request.user.is_superuser %}
+                    <li class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <a href="{% url 'portal:dashboard' %}">📊 {% trans "nav.dashboard" %}</a>
+                    </li>
+                    <li class="nav-item {% if 'students' in request.resolver_match.url_name or 'student_' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:students' %}">🎓 {% trans "nav.students" %}</a>
+                    </li>
+                    <li class="nav-item {% if 'parents_list' in request.resolver_match.url_name or 'parent_add' in request.resolver_match.url_name or 'parent_edit' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:parents_list' %}">👨‍👩‍👦 {% trans "nav.parents" %}</a>
+                    </li>
+                    <li class="nav-item {% if 'activit' in request.resolver_match.url_name or 'group' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:activities_list' %}">🎯 {% trans "nav.activities" %}</a>
+                    </li>
+                    <li class="nav-item {% if 'planning' in request.resolver_match.url_name or 'session' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:planning' %}">📅 {% trans "nav.planning" %}</a>
+                    </li>
+                    <li class="nav-item {% if request.resolver_match.url_name == 'payments' %}active{% endif %}">
+                        <a href="{% url 'portal:payments' %}">💳 {% trans "nav.payments" %}</a>
+                    </li>
+                    <li class="nav-item {% if request.resolver_match.url_name == 'parent_space' %}active{% endif %}">
+                        <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
+                    </li>
+                {% elif request.user.is_authenticated and request.user.is_parent_role %}
+                    <li class="nav-item active">
+                        <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+        <!-- User Auth & Session Status -->
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-inline-end: 0.5rem;">
+            {% if request.user.is_authenticated %}
+                <span style="background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                    👑 {{ request.user.username }}
+                </span>
+                <a href="{% url 'portal:logout' %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; padding: 0.3rem 0.6rem; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.15);" title="{% trans 'auth.logout_btn' %}">
+                    🚪 {% trans "auth.logout_btn" %}
+                </a>
+            {% else %}
+                <a href="{% url 'portal:login' %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; padding: 0.3rem 0.6rem; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.15);">
+                    🔒 {% trans "auth.login_btn" %}
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- 47.1 Language Selector Widget -->
+        <div class="lang-switcher-widget">
+            <a href="{% url 'portal:set_language' 'fr' %}" 
+               class="lang-btn {% if CURRENT_LANG == 'fr' %}active{% endif %}" 
+               title="Passer en Français">
+                <span>🇫🇷</span> <span>Français</span>
+            </a>
+            <a href="{% url 'portal:set_language' 'ar' %}" 
+               class="lang-btn {% if CURRENT_LANG == 'ar' %}active{% endif %}" 
+               title="التحويل إلى العربية">
+                <span>🇲🇦</span> <span>العربية</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-wrapper">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert-banner alert-{{ message.tags }}">
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Localized Footer -->
+    <footer class="gca-footer">
+        <p>© 2026 <b>{% trans "app_name" %}</b> — {% trans "receipt.academy_sub" %} • Sidi Kacem / Rabat, Maroc</p>
+        <p style="margin-top: 0.25rem; font-size: 0.75rem;">
+            {% if CURRENT_LANG == 'fr' %}
+                Langue active : <b>Français (LTR)</b> • Appuyez sur <code>Alt + L</code> pour basculer en Arabe.
+            {% else %}
+                اللغة المفعلة : <b>العربية (RTL)</b> • اضغط على <code>Alt + L</code> للتحويل إلى الفرنسية.
+            {% endif %}
+        </p>
+    </footer>
+
+    <script src="{% static 'js/gca-bilingual.js' %}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,92 @@
+﻿{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>📅 {{ title }}</h2>
+        <p>Programmation d'un créneau hebdomadaire (Groupe, Jour, Horaire, Salle, Formateur)</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'portal:planning' %}" class="btn btn-secondary btn-sm">
+            ← {% trans "crud.back_to_list" %}
+        </a>
+    </div>
+</div>
+
+<div class="card" style="max-width: 700px; margin: 0 auto; padding: 2rem;">
+    <form method="POST" action="">
+        {% csrf_token %}
+
+        {% if form.errors %}
+            <div class="alert-banner alert-danger" style="margin-bottom: 1.5rem;">
+                <b>⚠️ Attention :</b> Veuillez corriger les champs signalés.
+                {{ form.errors }}
+            </div>
+        {% endif %}
+
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                {% trans "planning_crud.group" %} *
+            </label>
+            {{ form.group }}
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;">
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "planning_crud.day" %} *
+                </label>
+                {{ form.day_of_week }}
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "planning_crud.room" %}
+                </label>
+                {{ form.room }}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;">
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "planning_crud.start_time" %} *
+                </label>
+                {{ form.start_time }}
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "planning_crud.end_time" %} *
+                </label>
+                {{ form.end_time }}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "planning_crud.trainer_fr" %}
+                </label>
+                {{ form.trainer_name_fr }}
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "planning_crud.trainer_ar" %}
+                </label>
+                {{ form.trainer_name_ar }}
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+            <a href="{% url 'portal:planning' %}" class="btn btn-secondary">
+                {% trans "crud.cancel" %}
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem;">
+                💾 {% trans "crud.save" %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

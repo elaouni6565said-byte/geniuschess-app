@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "students.title" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>{% trans "students.title" %}</h2>
+        <p>{% trans "students.subtitle" %}</p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <!-- Add Student Button -->
+        <a href="{% url 'portal:student_add' %}" class="btn btn-primary">
+            ➕ {% trans "student_crud.add_title" %}
+        </a>
+        <a href="{% url 'portal:export_students_excel' %}" class="btn btn-secondary">
+            📥 {% trans "students.export_excel" %}
+        </a>
+    </div>
+</div>
+
+<!-- Bilingual Search & Filter Bar (47.13) -->
+<form method="GET" action="{% url 'portal:students' %}" class="filter-bar">
+    <div class="search-input-wrapper">
+        <input type="text" name="q" value="{{ query }}" class="search-input"
+               placeholder="{% trans 'students.search_placeholder' %}">
+    </div>
+
+    <select name="activity" class="filter-select">
+        <option value="">{% trans "students.all_activities" %}</option>
+        {% for act in activities %}
+            <option value="{{ act.id }}" {% if selected_activity == act.id %}selected{% endif %}>
+                {{ act|trans_field:CURRENT_LANG }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-primary">
+        🔍 {% trans "students.filter_btn" %}
+    </button>
+    {% if query or selected_activity %}
+        <a href="{% url 'portal:students' %}" class="btn btn-outline">
+            ✕ {% trans "students.reset_btn" %}
+        </a>
+    {% endif %}
+</form>
+
+<!-- Students Table -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>Matricule</th>
+                    <th>{% trans "students.name_fr" %}</th>
+                    <th>{% trans "students.name_ar" %}</th>
+                    <th>{% trans "students.activity" %} (Multi)</th>
+                    <th>{% trans "students.parent" %}</th>
+                    <th>{% trans "students.phone" %}</th>
+                    <th>{% trans "students.status" %}</th>
+                    <th style="text-align: center;">{% trans "crud.actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for st in students %}
+                <tr>
+                    <td><b>{{ st.registration_number }}</b></td>
+                    <td>{{ st.first_name_fr }} {{ st.last_name_fr }}</td>
+                    <td style="font-weight: 600; color: var(--primary-navy);">{{ st.first_name_ar }} {{ st.last_name_ar }}</td>
+                    <td>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                            {% for g in st.groups.all %}
+                                <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.78rem;">
+                                    {{ g.subject|trans_field:CURRENT_LANG }} ({{ g|trans_field:CURRENT_LANG }})
+                                </span>
+                            {% empty %}
+                                <span style="color: var(--text-muted); font-size: 0.8rem;">Sans groupe</span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td>
+                        <div>{{ st.parent|trans_field:CURRENT_LANG }}</div>
+                        {% with last_seen=st.get_last_parent_visit %}
+                            {% if last_seen %}
+                                <div style="font-size: 0.72rem; color: #047857; margin-top: 3px;" title="Dernière consultation par le parent">
+                                    👁️ {{ last_seen|date:"d/m/Y H:i" }}
+                                </div>
+                            {% else %}
+                                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">
+                                    👁️ {% if CURRENT_LANG == 'ar' %}لم يُعاين بعد{% else %}Non consulté{% endif %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td><bdi>{{ st.parent.phone }}</bdi></td>
+                    <td>
+                        {% if st.active %}
+                            <span class="badge badge-paid">✓ Actif</span>
+                        {% else %}
+                            <span class="badge badge-unpaid">✕ Inactif</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: inline-flex; gap: 0.4rem;">
+                            <a href="{% url 'portal:student_edit' st.id %}" class="btn btn-secondary btn-sm" title="{% trans 'crud.edit' %}">
+                                ✏️
+                            </a>
+                            <a href="{% url 'portal:student_delete' st.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;" title="{% trans 'crud.delete' %}">
+                                🗑️
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                        <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">🔍 {% trans "students.no_students_found" %}</p>
+                        <p style="font-size: 0.85rem;">Essayez avec un autre mot-clé (ex: <i>Mohamed</i> ou <i>محمد</i>).</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

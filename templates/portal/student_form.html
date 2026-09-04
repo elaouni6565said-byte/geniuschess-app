@@ -1,0 +1,143 @@
+﻿{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>🎓 {{ title }}</h2>
+        <p>{% trans "student_crud.multi_help" %}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'portal:students' %}" class="btn btn-secondary btn-sm">
+            ← {% trans "crud.back_to_list" %}
+        </a>
+    </div>
+</div>
+
+<div class="card" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+    <form method="POST" action="">
+        {% csrf_token %}
+
+        {% if form.errors %}
+            <div class="alert-banner alert-danger" style="margin-bottom: 1.5rem;">
+                <b>⚠️ Attention :</b> Veuillez corriger les champs signalés.
+                {{ form.errors }}
+            </div>
+        {% endif %}
+
+        <!-- 1. Identification & Matricule -->
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+            <h4 style="color: var(--primary-navy); margin-bottom: 1rem; font-size: 1.05rem;">
+                📋 1. {% trans "student_crud.registration_number" %} & Statut
+            </h4>
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        {% trans "student_crud.registration_number" %}
+                    </label>
+                    {{ form.registration_number }}
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">(Laissez vide pour auto-génération GCA-2026-XXX)</small>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.5rem;">
+                    {{ form.active }}
+                    <label style="font-weight: 600; font-size: 0.88rem; cursor: pointer;">
+                        {% trans "student_crud.active_status" %}
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Noms en Français et Arabe -->
+        <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: var(--primary-navy); margin-bottom: 1rem; font-size: 1.05rem;">
+                👤 2. Identité de l'élève (Français & Arabe)
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1rem;">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        {% trans "student_crud.first_name_fr" %} *
+                    </label>
+                    {{ form.first_name_fr }}
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        {% trans "student_crud.last_name_fr" %} *
+                    </label>
+                    {{ form.last_name_fr }}
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1rem;">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        {% trans "student_crud.first_name_ar" %}
+                    </label>
+                    {{ form.first_name_ar }}
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        {% trans "student_crud.last_name_ar" %}
+                    </label>
+                    {{ form.last_name_ar }}
+                </div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                    {% trans "student_crud.birth_date" %}
+                </label>
+                {{ form.birth_date }}
+            </div>
+        </div>
+
+        <!-- 3. Choix du Parent -->
+        <div style="margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h4 style="color: var(--primary-navy); font-size: 1.05rem;">
+                    👨‍👩‍👧 3. {% trans "student_crud.parent" %} *
+                </h4>
+                <a href="{% url 'portal:parent_add' %}" target="_blank" class="btn btn-outline btn-sm" style="font-size: 0.78rem;">
+                    ➕ Créer un nouveau parent
+                </a>
+            </div>
+            {{ form.parent }}
+        </div>
+
+        <!-- 4. Multi-Activités & Groupes (Exigence clé) -->
+        <div style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+            <div style="margin-bottom: 0.75rem;">
+                <h4 style="color: #166534; font-size: 1.05rem; display: flex; align-items: center; gap: 0.4rem;">
+                    <span>🎯</span> {% trans "student_crud.groups_activities" %}
+                </h4>
+                <p style="font-size: 0.85rem; color: #15803D; margin-top: 0.25rem;">
+                    💡 <b>Important :</b> {% trans "student_crud.multi_help" %}
+                </p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; margin-top: 1rem;">
+                {% for choice in form.groups %}
+                <div style="background: white; border: 1px solid #BBF7D0; border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; display: flex; align-items: center; gap: 0.6rem; transition: box-shadow 0.2s;">
+                    {{ choice.tag }}
+                    <label for="{{ choice.id_for_label }}" style="font-size: 0.88rem; cursor: pointer; color: var(--text-main); font-weight: 500;">
+                        {{ choice.choice_label }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Boutons de Soumission -->
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+            <a href="{% url 'portal:students' %}" class="btn btn-secondary">
+                {% trans "crud.cancel" %}
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.75rem; font-size: 0.95rem;">
+                💾 {% trans "crud.save" %}
+            </button>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
