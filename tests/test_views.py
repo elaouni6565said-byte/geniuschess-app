@@ -760,6 +760,26 @@ def test_device_switcher_and_responsive_elements():
     assert 'هاتف' in html_ar
     assert 'تلقائي' in html_ar
     assert 'dir="rtl"' in html_ar
+    # 3. Switching device mode to PC via endpoint
+    resp_set_pc = client.get('/set-device-mode/pc/', follow=True)
+    assert resp_set_pc.status_code == 200
+    html_set_pc = resp_set_pc.content.decode('utf-8')
+    assert 'data-device-mode="pc"' in html_set_pc
+    assert 'content="width=1200' in html_set_pc
+    assert client.cookies['gca_device_mode'].value == 'pc'
+
+    # 4. Switching device mode to Mobile via endpoint
+    resp_set_mobile = client.get('/set-device-mode/mobile/', follow=True)
+    assert resp_set_mobile.status_code == 200
+    html_set_mobile = resp_set_mobile.content.decode('utf-8')
+    assert 'data-device-mode="mobile"' in html_set_mobile
+    assert 'width=device-width' in html_set_mobile
+    assert client.cookies['gca_device_mode'].value == 'mobile'
+
+    # 5. Switching device mode via query param ?device=pc
+    resp_param = client.get('/?device=pc')
+    assert resp_param.status_code == 200
+    assert 'data-device-mode="pc"' in resp_param.content.decode('utf-8')
 
 
 

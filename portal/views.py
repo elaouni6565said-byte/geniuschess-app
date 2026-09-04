@@ -43,6 +43,21 @@ def set_language(request, lang):
     return response
 
 
+def set_device_mode(request, mode):
+    """
+    Sets the active device display mode: 'pc', 'mobile', or 'auto'.
+    Saves in session and cookie, then redirects back to the previous page.
+    """
+    if mode not in ('pc', 'mobile', 'auto'):
+        mode = 'auto'
+    
+    request.session['gca_device_mode'] = mode
+    next_url = request.META.get('HTTP_REFERER', '/')
+    response = redirect(next_url)
+    response.set_cookie('gca_device_mode', mode, max_age=365*24*60*60, samesite='Lax')
+    return response
+
+
 def reconcile_orphan_payments():
     orphans = Payment.objects.filter(invoice__isnull=True).select_related('student')
     for p in orphans:

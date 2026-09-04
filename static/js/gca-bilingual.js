@@ -63,7 +63,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.setAttribute('data-device-mode', mode);
         try {
             localStorage.setItem('gca_device_mode', mode);
+            document.cookie = "gca_device_mode=" + mode + ";path=/;max-age=31536000;SameSite=Lax";
         } catch (e) {}
+
+        const vp = document.getElementById('gcaViewport');
+        if (vp) {
+            if (mode === 'pc') {
+                vp.setAttribute('content', 'width=1200, initial-scale=0.35, user-scalable=yes');
+            } else {
+                vp.setAttribute('content', 'width=device-width, initial-scale=1.0');
+            }
+        }
 
         // Update button states
         deviceBtns.forEach(btn => {
@@ -89,14 +99,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize current mode on UI
-    const initialMode = localStorage.getItem('gca_device_mode') || 'auto';
+    const initialMode = localStorage.getItem('gca_device_mode') || document.documentElement.getAttribute('data-device-mode') || 'auto';
     setDeviceMode(initialMode, false);
 
     deviceBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
-            e.preventDefault();
             const targetMode = btn.dataset.mode;
+            if (!targetMode) return;
+
+            // On mobile devices, allow link navigation to set-device-mode for 100% viewport recalculation
+            const isSmallScreen = window.innerWidth <= 768;
             setDeviceMode(targetMode, true);
+
+            if (isSmallScreen) {
+                return; // Let browser perform navigation to set_device_mode URL
+            }
+            e.preventDefault();
         });
     });
 

@@ -924,48 +924,132 @@ html[data-device-mode="pc"] .filter-bar .search-input-wrapper {
 }
 
 /* --------------------------------------------------------------------------
-   2. MODE SMARTPHONE SUR ÉCRAN ORDINATEUR (Simulateur mobile)
+   2. MODE SMARTPHONE FORCÉ (html[data-device-mode="mobile"])
    -------------------------------------------------------------------------- */
-@media (min-width: 992px) {
-  html[data-device-mode="mobile"] body {
-    background-color: #0b1528;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-    background-size: 20px 20px;
-    padding: 24px 0;
-  }
+html[data-device-mode="mobile"] .main-wrapper {
+  max-width: 720px !important;
+  margin: 1.25rem auto !important;
+  padding: 0 1rem !important;
+}
 
-  html[data-device-mode="mobile"] .gca-navbar {
-    max-width: 480px;
-    margin: 0 auto;
-    border-radius: 20px 20px 0 0;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-bottom: none;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
-    position: relative;
-  }
+html[data-device-mode="mobile"] .brand-titles span {
+  display: none !important;
+}
 
-  html[data-device-mode="mobile"] .main-wrapper {
-    max-width: 480px;
-    margin: 0 auto;
-    background: var(--bg-main);
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
-    border-inline: 1px solid var(--border-color);
-    padding: 1.25rem 1rem;
-    min-height: calc(100vh - 160px);
-  }
+html[data-device-mode="mobile"] .user-auth-pill .btn-text {
+  display: none !important;
+}
 
-  html[data-device-mode="mobile"] .gca-footer {
-    max-width: 480px;
-    margin: 0 auto;
-    border-radius: 0 0 20px 20px;
-    border: 1px solid var(--border-color);
-    border-top: none;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
-  }
+html[data-device-mode="mobile"] .device-btn .device-label {
+  display: none !important;
+}
+
+html[data-device-mode="mobile"] .lang-btn .lang-text {
+  display: none !important;
+}
+
+html[data-device-mode="mobile"] .mobile-nav-toggle {
+  display: flex !important;
+}
+
+html[data-device-mode="mobile"] .gca-nav-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--primary-navy);
+  padding: 0.85rem 1rem;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 1000;
+}
+
+html[data-device-mode="mobile"] .gca-nav-menu.is-open {
+  display: flex !important;
+  flex-direction: column;
+  animation: gcaSlideDown 0.22s ease-out;
+}
+
+html[data-device-mode="mobile"] .nav-links {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  width: 100%;
+  gap: 0.35rem;
+}
+
+html[data-device-mode="mobile"] .nav-item a {
+  padding: 0.75rem 1rem;
+  font-size: 0.92rem;
+  border-radius: var(--radius-sm);
+  justify-content: flex-start;
+}
+
+html[data-device-mode="mobile"] .dashboard-main-grid,
+html[data-device-mode="mobile"] div[style*="grid-template-columns"],
+html[data-device-mode="mobile"] form[style*="grid-template-columns"] {
+  grid-template-columns: 1fr !important;
+}
+
+html[data-device-mode="mobile"] .grid-kpi {
+  grid-template-columns: 1fr !important;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+html[data-device-mode="mobile"] .page-header {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.85rem;
+}
+
+html[data-device-mode="mobile"] .page-header-titles h2 {
+  font-size: 1.35rem;
+}
+
+html[data-device-mode="mobile"] .page-actions {
+  flex-direction: column !important;
+  width: 100% !important;
+  gap: 0.5rem;
+}
+
+html[data-device-mode="mobile"] .page-actions .btn {
+  width: 100% !important;
+  justify-content: center;
+}
+
+html[data-device-mode="mobile"] .filter-bar {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+html[data-device-mode="mobile"] .filter-bar .search-input-wrapper {
+  min-width: 100% !important;
+  width: 100% !important;
+}
+
+html[data-device-mode="mobile"] .filter-bar .filter-select,
+html[data-device-mode="mobile"] .filter-bar .btn {
+  width: 100% !important;
+  justify-content: center;
+}
+
+html[data-device-mode="mobile"] .table-responsive {
+  width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+html[data-device-mode="mobile"] .table-responsive .gca-table {
+  min-width: 580px;
 }
 
 /* --------------------------------------------------------------------------
-   3. RÈGLES SMARTPHONE COMMUNES (Mobile Forcé OU Écran <= 991px en Auto)
+   3. RÈGLES RESPONSIVES STANDARD (ÉCRANS <= 991px en mode Auto)
    -------------------------------------------------------------------------- */
 @media (max-width: 991px) {
   html:not([data-device-mode="pc"]) .gca-navbar {
@@ -1015,6 +1099,12 @@ html[data-device-mode="pc"] .filter-bar .search-input-wrapper {
   html:not([data-device-mode="pc"]) .main-wrapper {
     padding: 0 1rem;
     margin: 1rem auto;
+  }
+
+  html:not([data-device-mode="pc"]) .dashboard-main-grid,
+  html:not([data-device-mode="pc"]) div[style*="grid-template-columns"],
+  html:not([data-device-mode="pc"]) form[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
   }
 
   html:not([data-device-mode="pc"]) .grid-kpi {
@@ -1084,112 +1174,12 @@ html[data-device-mode="pc"] .filter-bar .search-input-wrapper {
   }
 
   html:not([data-device-mode="pc"]) .table-responsive .gca-table {
-    min-width: 620px;
+    min-width: 580px;
   }
 }
 
 /* --------------------------------------------------------------------------
-   4. RÈGLES FORCÉES QUAND MODE SMARTPHONE EST ACTIVÉ (Tous écrans)
-   -------------------------------------------------------------------------- */
-html[data-device-mode="mobile"] .gca-navbar {
-  padding: 0.65rem 0.85rem;
-}
-
-html[data-device-mode="mobile"] .mobile-nav-toggle {
-  display: flex !important;
-}
-
-html[data-device-mode="mobile"] .gca-nav-menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: var(--primary-navy);
-  padding: 0.85rem 1rem;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  z-index: 1000;
-}
-
-html[data-device-mode="mobile"] .gca-nav-menu.is-open {
-  display: flex !important;
-  flex-direction: column;
-  animation: gcaSlideDown 0.22s ease-out;
-}
-
-html[data-device-mode="mobile"] .nav-links {
-  flex-direction: column !important;
-  align-items: stretch !important;
-  width: 100%;
-  gap: 0.35rem;
-}
-
-html[data-device-mode="mobile"] .nav-item a {
-  padding: 0.75rem 1rem;
-  font-size: 0.92rem;
-  border-radius: var(--radius-sm);
-  justify-content: flex-start;
-}
-
-html[data-device-mode="mobile"] .grid-kpi {
-  grid-template-columns: 1fr !important;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-html[data-device-mode="mobile"] .page-header {
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 0.85rem;
-}
-
-html[data-device-mode="mobile"] .page-header-titles h2 {
-  font-size: 1.35rem;
-}
-
-html[data-device-mode="mobile"] .page-actions {
-  flex-direction: column !important;
-  width: 100% !important;
-  gap: 0.5rem;
-}
-
-html[data-device-mode="mobile"] .page-actions .btn {
-  width: 100% !important;
-  justify-content: center;
-}
-
-html[data-device-mode="mobile"] .filter-bar {
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 0.75rem;
-  padding: 1rem;
-}
-
-html[data-device-mode="mobile"] .filter-bar .search-input-wrapper {
-  min-width: 100% !important;
-  width: 100% !important;
-}
-
-html[data-device-mode="mobile"] .filter-bar .filter-select,
-html[data-device-mode="mobile"] .filter-bar .btn {
-  width: 100% !important;
-  justify-content: center;
-}
-
-html[data-device-mode="mobile"] .table-responsive {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-}
-
-html[data-device-mode="mobile"] .table-responsive .gca-table {
-  min-width: 600px;
-}
-
-/* --------------------------------------------------------------------------
-   5. COMPACT RESPONSIVE DETAILS (PETITS ÉCRANS & MOBILE)
+   4. COMPACT RESPONSIVE DETAILS (ÉCRANS <= 640px)
    -------------------------------------------------------------------------- */
 @media (max-width: 640px) {
   .brand-titles span {

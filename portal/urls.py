@@ -6,6 +6,7 @@ app_name = 'portal'
 urlpatterns = [
     path('', views.dashboard_view, name='dashboard'),
     path('set-language/<str:lang>/', views.set_language, name='set_language'),
+    path('set-device-mode/<str:mode>/', views.set_device_mode, name='set_device_mode'),
     path('students/', views.students_list_view, name='students'),
     path('students/export-excel/', views.export_students_excel_view, name='export_students_excel'),
     path('planning/', views.planning_view, name='planning'),

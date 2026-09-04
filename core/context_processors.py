@@ -21,6 +21,7 @@ def bilingual_context(request):
         'CURRENT_LANG': lang,
         'CURRENT_DIR': direction,
         'IS_RTL': is_rtl,
+        'CURRENT_DEVICE_MODE': getattr(request, 'DEVICE_MODE', 'auto'),
         'SUPPORTED_LANGUAGES': SUPPORTED_LANGUAGES,
         't': translate_helper,
         'format_currency': currency_helper,

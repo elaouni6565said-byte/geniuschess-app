@@ -1,16 +1,36 @@
 {% load static gca_tags %}
 <!DOCTYPE html>
-<html lang="{{ CURRENT_LANG }}" dir="{{ CURRENT_DIR }}">
+<html lang="{{ CURRENT_LANG }}" dir="{{ CURRENT_DIR }}" data-device-mode="{{ CURRENT_DEVICE_MODE|default:'auto' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% if CURRENT_DEVICE_MODE == 'pc' %}
+        <meta name="viewport" id="gcaViewport" content="width=1200, initial-scale=0.35, user-scalable=yes">
+    {% else %}
+        <meta name="viewport" id="gcaViewport" content="width=device-width, initial-scale=1.0">
+    {% endif %}
     <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260904.5">
     <script>
         (function() {
-            var savedMode = localStorage.getItem('gca_device_mode') || 'auto';
-            document.documentElement.setAttribute('data-device-mode', savedMode);
+            var urlParams = new URLSearchParams(window.location.search);
+            var queryDevice = urlParams.get('device');
+            var savedMode = queryDevice || localStorage.getItem('gca_device_mode') || '{{ CURRENT_DEVICE_MODE|default:"auto" }}';
+            if (['pc', 'mobile', 'auto'].indexOf(savedMode) !== -1) {
+                document.documentElement.setAttribute('data-device-mode', savedMode);
+                try { 
+                    localStorage.setItem('gca_device_mode', savedMode);
+                    document.cookie = "gca_device_mode=" + savedMode + ";path=/;max-age=31536000;SameSite=Lax";
+                } catch(e){}
+                var vp = document.getElementById('gcaViewport');
+                if (vp) {
+                    if (savedMode === 'pc') {
+                        vp.setAttribute('content', 'width=1200, initial-scale=0.35, user-scalable=yes');
+                    } else {
+                        vp.setAttribute('content', 'width=device-width, initial-scale=1.0');
+                    }
+                }
+            }
         })();
     </script>
     {% block extra_head %}{% endblock %}
@@ -81,18 +101,27 @@
 
             <!-- Device Display Mode Switcher (PC / Smartphone / Auto) -->
             <div class="device-switcher-widget" id="gcaDeviceSwitcher" role="group" aria-label="{% trans 'device.title' %}">
-                <button type="button" class="device-btn" data-mode="pc" title="{% trans 'device.pc_title' %}">
+                <a href="{% url 'portal:set_device_mode' 'pc' %}" 
+                   class="device-btn {% if CURRENT_DEVICE_MODE == 'pc' %}active{% endif %}" 
+                   data-mode="pc" 
+                   title="{% trans 'device.pc_title' %}">
                     <span class="device-icon">💻</span>
                     <span class="device-label">{% trans "device.pc" %}</span>
-                </button>
-                <button type="button" class="device-btn" data-mode="mobile" title="{% trans 'device.mobile_title' %}">
+                </a>
+                <a href="{% url 'portal:set_device_mode' 'mobile' %}" 
+                   class="device-btn {% if CURRENT_DEVICE_MODE == 'mobile' %}active{% endif %}" 
+                   data-mode="mobile" 
+                   title="{% trans 'device.mobile_title' %}">
                     <span class="device-icon">📱</span>
                     <span class="device-label">{% trans "device.mobile" %}</span>
-                </button>
-                <button type="button" class="device-btn" data-mode="auto" title="{% trans 'device.auto_title' %}">
+                </a>
+                <a href="{% url 'portal:set_device_mode' 'auto' %}" 
+                   class="device-btn {% if CURRENT_DEVICE_MODE == 'auto' %}active{% endif %}" 
+                   data-mode="auto" 
+                   title="{% trans 'device.auto_title' %}">
                     <span class="device-icon">🔄</span>
                     <span class="device-label">{% trans "device.auto" %}</span>
-                </button>
+                </a>
             </div>
 
             <!-- 47.1 Language Selector Widget -->
@@ -147,7 +176,7 @@
         </p>
     </footer>
 
-    <script src="{% static 'js/gca-bilingual.js' %}"></script>
+    <script src="{% static 'js/gca-bilingual.js' %}?v=20260904.5"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>
