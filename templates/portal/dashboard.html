@@ -9,7 +9,10 @@
         <h2>{% trans "dashboard.title" %}</h2>
         <p>{% trans "dashboard.subtitle" %}</p>
     </div>
-    <div class="page-actions">
+    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+        <a href="{% url 'portal:whatsapp_reminders' %}" class="btn btn-sm" style="background: #22C55E; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; box-shadow: 0 2px 4px rgba(34, 197, 94, 0.25);">
+            📲 {% if CURRENT_LANG == 'ar' %}تذكيرات واتساب (13:00){% else %}Rappels WhatsApp (13h00){% endif %}
+        </a>
         <a href="{% url 'portal:run_reminders' %}" class="btn btn-accent" title="{% trans 'dashboard.run_reminders_btn' %}">
             🔔 {% trans "dashboard.run_reminders_btn" %}
         </a>

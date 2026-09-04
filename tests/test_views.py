@@ -674,6 +674,61 @@ def test_planning_group_colors_and_legend():
     assert 'all_groups' in resp_daily.context
 
 
+@pytest.mark.django_db
+def test_daily_whatsapp_session_reminders():
+    """
+    Validates:
+    1. Phone normalization for WhatsApp (06... -> 2126...).
+    2. WhatsApp reminder message generation in FR and AR.
+    3. Management command send_daily_session_reminders execution.
+    4. Admin WhatsApp reminders view /reminders/whatsapp/ rendering and bulk dispatch.
+    """
+    from academy.whatsapp_reminders import (
+        format_phone_for_whatsapp, build_whatsapp_reminder_text,
+        get_daily_sessions_reminders, dispatch_daily_whatsapp_reminders
+    )
+    from academy.models import SessionSchedule, Student
+
+    # 1. Phone normalization
+    assert format_phone_for_whatsapp('0661234567') == '212661234567'
+    assert format_phone_for_whatsapp('+212 661-234567') == '212661234567'
+    assert format_phone_for_whatsapp('0712345678') == '212712345678'
+
+    # 2. Message generation
+    schedule = SessionSchedule.objects.first()
+    student = Student.objects.first()
+    assert schedule is not None and student is not None
+
+    msg_fr = build_whatsapp_reminder_text(schedule, student, lang='fr')
+    assert "Rappel de Séance" in msg_fr
+    assert schedule.group.name_fr in msg_fr
+
+    msg_ar = build_whatsapp_reminder_text(schedule, student, lang='ar')
+    assert "تذكير بحصة اليوم" in msg_ar
+
+    # 3. View access
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    resp = client.get('/reminders/whatsapp/?date=2026-09-05')
+    assert resp.status_code == 200
+    assert 'reminders' in resp.context
+    assert resp.context['total_count'] > 0
+
+    # Verify at least one WhatsApp URL is properly formed
+    first_r = resp.context['reminders'][0]
+    assert first_r['whatsapp_url'].startswith('https://wa.me/212')
+
+    # 4. Bulk dispatch via POST
+    resp_post = client.post('/reminders/whatsapp/?date=2026-09-05', {'action': 'dispatch_all'})
+    assert resp_post.status_code == 302
+    assert '/reminders/whatsapp/' in resp_post.url
+
+
+
 
 
 

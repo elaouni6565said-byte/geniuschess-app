@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% if CURRENT_LANG == 'ar' %}تذكيرات واتساب للحصص{% else %}Rappels WhatsApp Séances{% endif %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.5rem;">
+    <div class="page-header-titles">
+        <h2>📲 {% if CURRENT_LANG == 'ar' %}تذكيرات واتساب للحصص اليومية (الساعة 13:00){% else %}Rappels WhatsApp des Séances (13h00){% endif %}</h2>
+        <p>
+            {% if CURRENT_LANG == 'ar' %}
+                إرسال تذكيرات الحضور لأولياء الأمور عبر واتساب تلقائياً كل يوم على الساعة 13:00
+            {% else %}
+                Envoi quotidien automatisé à 13h00 des messages de rappel de séances aux parents par WhatsApp
+            {% endif %}
+        </p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+        <a href="{% url 'portal:planning' %}" class="btn btn-outline">
+            🗓️ {% trans "nav.planning" %}
+        </a>
+    </div>
+</div>
+
+<!-- INFO BANNER SUR L'AUTOMATISATION À 13H00 -->
+<div class="card" style="background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%); border: 1px solid #86EFAC; margin-bottom: 1.75rem; padding: 1.25rem 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: #22C55E; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.3);">
+                ⏰
+            </div>
+            <div>
+                <h4 style="color: #166534; font-size: 1.05rem; margin-bottom: 0.2rem;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        التذكير الآلي مبرمج يومياً على الساعة 13:00 زوالاً
+                    {% else %}
+                        Tâche planifiée automatique : Tous les jours à 13h00 précises
+                    {% endif %}
+                </h4>
+                <p style="font-size: 0.85rem; color: #15803D; margin: 0;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        يقوم النظام بفحص جدول اليوم وإرسال إشعارات التذكير وتجهيز رسائل الواتساب المخصصة بلغة كل ولي أمر (فرنسية / عربية).
+                    {% else %}
+                        Le serveur analyse les cours du jour, génère les messages personnalisés dans la langue choisie par chaque parent (FR / AR) et notifie les familles.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="dispatch_all">
+            <button type="submit" class="btn btn-primary" style="background: #15803D; border-color: #15803D; white-space: nowrap; box-shadow: var(--shadow-sm);">
+                🔔 {% if CURRENT_LANG == 'ar' %}إرسال جميع الإشعارات الآن{% else %}Notifier tous les parents maintenant{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- BARRE DE SÉLECTION DE LA DATE -->
+<div class="card" style="margin-bottom: 1.75rem; padding: 1rem 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <h3 style="font-size: 1.2rem; color: var(--primary-navy); margin: 0;">
+                📅 <b>{{ day_name }}</b> — {% local_date target_date %}
+            </h3>
+            {% if is_today %}
+                <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700;">
+                    📍 {% if CURRENT_LANG == 'ar' %}اليوم{% else %}Aujourd'hui{% endif %}
+                </span>
+            {% endif %}
+            <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 600;">
+                {{ total_count }} {% if CURRENT_LANG == 'ar' %}تلميذ مبرمج{% else %}élève(s) concerné(s){% endif %}
+            </span>
+        </div>
+
+        <form method="GET" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
+                {% if CURRENT_LANG == 'ar' %}تغيير اليوم :{% else %}Changer la date :{% endif %}
+            </label>
+            <input type="date" name="date" value="{{ target_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; height: auto;">
+        </form>
+    </div>
+</div>
+
+<!-- LISTE DES RAPPELS DU JOUR -->
+<div class="card">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+        <h3 class="card-title">
+            📋 {% if CURRENT_LANG == 'ar' %}قائمة الحصص ورسائل الواتساب المقترحة{% else %}Séances du Jour & Messages WhatsApp Prêts à l'Envoi{% endif %}
+        </h3>
+    </div>
+
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% trans "planning.time" %}</th>
+                    <th>{% trans "planning_crud.group" %}</th>
+                    <th>{% trans "students.name" %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}ولي الأمر{% else %}Parent / Tuteur{% endif %}</th>
+                    <th>WhatsApp</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}معاينة الرسالة{% else %}Aperçu Message{% endif %}</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reminders %}
+                <tr>
+                    <td>
+                        <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 700; white-space: nowrap;">
+                            🕒 {{ r.time_str }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge" style="background: {{ r.group_color }}; color: white; font-weight: 700;">
+                            👥 {{ r.schedule.group|trans_field:CURRENT_LANG }}
+                        </span>
+                        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+                            🏛️ {{ r.schedule.room|trans_field:CURRENT_LANG }}
+                        </div>
+                    </td>
+                    <td>
+                        <b>{{ r.student|trans_field:CURRENT_LANG }}</b>
+                        <div style="font-size: 0.78rem; color: var(--text-muted);">
+                            Matricule: {{ r.student.registration_number }}
+                        </div>
+                    </td>
+                    <td>
+                        <div>{{ r.parent|trans_field:CURRENT_LANG }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            Langue: {% if r.language == 'ar' %}🇲🇦 Arabe{% else %}🇫🇷 Français{% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if r.whatsapp_phone %}
+                            <bdi style="font-family: monospace; font-size: 0.88rem; color: #0F172A; font-weight: 600;">
+                                +{{ r.whatsapp_phone }}
+                            </bdi>
+                        {% else %}
+                            <span style="color: var(--danger); font-size: 0.8rem;">⚠️ Numéro absent</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <details style="cursor: pointer;">
+                            <summary style="font-size: 0.8rem; color: var(--primary-blue); font-weight: 600;">
+                                👁️ {% if CURRENT_LANG == 'ar' %}عرض نص الرسالة{% else %}Voir le texte{% endif %}
+                            </summary>
+                            <div style="margin-top: 0.5rem; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.78rem; white-space: pre-line; max-width: 380px;">
+                                {{ r.message_text }}
+                            </div>
+                        </details>
+                    </td>
+                    <td style="text-align: center;">
+                        {% if r.whatsapp_url %}
+                            <a href="{{ r.whatsapp_url }}" target="_blank" 
+                               class="btn btn-sm" 
+                               style="background: #25D366; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3);"
+                               title="Ouvrir WhatsApp Web / Mobile avec le message pré-rempli">
+                                <span>📲 WhatsApp</span>
+                            </a>
+                        {% else %}
+                            <button class="btn btn-sm" disabled style="opacity: 0.5;">
+                                ✕ Indisponible
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                        <p style="font-size: 1.15rem; margin-bottom: 0.4rem;">☕ {% if CURRENT_LANG == 'ar' %}لا توجد حصص مبرمجة في هذا اليوم{% else %}Aucune séance programmée ce jour-là{% endif %}</p>
+                        <p style="font-size: 0.85rem;">Sélectionnez une autre date ou consultez le <a href="{% url 'portal:planning' %}" style="color: var(--primary-blue); font-weight: 600;">Planning</a>.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

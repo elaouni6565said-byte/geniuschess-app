@@ -15,6 +15,7 @@ urlpatterns = [
     path('payments/<int:payment_id>/delete/', views.payment_delete_view, name='payment_delete'),
     path('payments/<int:payment_id>/pdf/', views.download_receipt_pdf_view, name='receipt_pdf'),
     path('reminders/run/', views.run_reminders_view, name='run_reminders'),
+    path('reminders/whatsapp/', views.whatsapp_reminders_view, name='whatsapp_reminders'),
     path('parent/', views.parent_space_view, name='parent_space'),
     path('register/', views.register_view, name='register'),
     path('login/', views.login_view, name='login'),

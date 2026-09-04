@@ -1242,3 +1242,43 @@ def payment_delete_view(request, payment_id):
     return render(request, 'portal/payment_confirm_delete.html', context)
 
 
+@admin_required
+def whatsapp_reminders_view(request):
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    from datetime import date, datetime
+    from academy.whatsapp_reminders import get_daily_sessions_reminders, dispatch_daily_whatsapp_reminders
+    from core.i18n import FRENCH_DAYS, ARABIC_DAYS
+
+    date_param = request.GET.get('date')
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    if request.method == 'POST' and request.POST.get('action') == 'dispatch_all':
+        res = dispatch_daily_whatsapp_reminders(target_date)
+        msg = (
+            f"✓ {res['notifications_created']} notification(s) de rappel envoyée(s) aux parents pour le {target_date.strftime('%d/%m/%Y')}."
+            if lang == 'fr' else
+            f"✓ تم إرسال {res['notifications_created']} تذكير(ات) لأولياء الأمور بنجاح ليوم {target_date.strftime('%d/%m/%Y')}."
+        )
+        messages.success(request, msg)
+        return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
+    reminders = get_daily_sessions_reminders(target_date)
+    day_name = ARABIC_DAYS.get(target_date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(target_date.weekday(), '')
+
+    context = {
+        'target_date': target_date,
+        'day_name': day_name,
+        'reminders': reminders,
+        'total_count': len(reminders),
+        'is_today': target_date == date.today(),
+    }
+    return render(request, 'portal/whatsapp_reminders.html', context)
+
+
+
