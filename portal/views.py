@@ -18,7 +18,8 @@ from academy.models import (
 from finance.models import Payment, Invoice
 from finance.receipt_pdf import generate_receipt_pdf
 from finance.reminders import generate_monthly_reminders
-from portal.excel_export import export_students_to_excel
+from portal.excel_export import export_students_to_excel, export_paid_payments_to_excel, export_unpaid_invoices_to_excel
+from portal.planning_pdf import generate_master_planning_pdf
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from portal.decorators import admin_required
 
@@ -144,11 +145,62 @@ def students_list_view(request):
 
 @admin_required
 def export_students_excel_view(request):
+    """Export the complete list of all students (active & inactive) to Excel."""
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    students = Student.objects.filter(active=True).select_related('parent').prefetch_related('groups__subject')
+    students = Student.objects.all().select_related('parent').prefetch_related('groups__subject').order_by('last_name_fr', 'first_name_fr')
     excel_data = export_students_to_excel(students, lang=lang)
 
-    filename = f"GCA_Eleves_{lang}.xlsx"
+    filename = f"GCA_Tous_Eleves_{lang}.xlsx"
+    response = HttpResponse(
+        excel_data,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@admin_required
+def download_planning_pdf_view(request):
+    """Export the official master timetable of the academy to a Landscape A4 PDF."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    room_id = request.GET.get('room')
+    room = None
+    schedules = SessionSchedule.objects.select_related('group', 'group__subject', 'room').all()
+    if room_id and room_id.isdigit():
+        schedules = schedules.filter(room_id=int(room_id))
+        room = Room.objects.filter(id=int(room_id)).first()
+
+    pdf_data = generate_master_planning_pdf(schedules, lang=lang, room=room)
+    filename = f"GCA_Planning_Officiel_{lang}.pdf"
+    response = HttpResponse(pdf_data, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@admin_required
+def export_paid_payments_excel_view(request):
+    """Export the list of paid payments / encaissements to an official Excel workbook."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    payments = Payment.objects.select_related('student', 'student__parent', 'invoice', 'invoice__group', 'invoice__group__subject').order_by('-payment_date', '-id')
+    excel_data = export_paid_payments_to_excel(payments, lang=lang)
+
+    filename = f"GCA_Liste_Payants_{lang}.xlsx"
+    response = HttpResponse(
+        excel_data,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@admin_required
+def export_unpaid_invoices_excel_view(request):
+    """Export the list of unpaid/partially paid students (Impayés) to an official Excel workbook."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    unpaid_invoices = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'student__parent', 'group', 'group__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
+    excel_data = export_unpaid_invoices_to_excel(unpaid_invoices, lang=lang)
+
+    filename = f"GCA_Liste_Impayes_{lang}.xlsx"
     response = HttpResponse(
         excel_data,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

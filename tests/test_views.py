@@ -782,6 +782,51 @@ def test_device_switcher_and_responsive_elements():
     assert 'data-device-mode="pc"' in resp_param.content.decode('utf-8')
 
 
+@pytest.mark.django_db
+def test_admin_exports_planning_pdf_and_excels():
+    """
+    Validates:
+    1. Admin Planning PDF export in FR, AR, Bilingual.
+    2. Admin Paid Payments Excel export in FR and AR.
+    3. Admin Unpaid Invoices Excel export in FR and AR.
+    4. Admin All Students Excel export.
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    # 1. Planning PDF export
+    for lang in ('fr', 'ar', 'bilingual'):
+        resp_pdf = client.get(f'/planning/pdf/?lang={lang}')
+        assert resp_pdf.status_code == 200
+        assert resp_pdf['Content-Type'] == 'application/pdf'
+        assert resp_pdf.content.startswith(b'%PDF-')
+        assert len(resp_pdf.content) > 1000
+
+    # 2. Paid Payments Excel export
+    for lang in ('fr', 'ar'):
+        resp_paid = client.get(f'/payments/export-paid-excel/?lang={lang}')
+        assert resp_paid.status_code == 200
+        assert 'openxmlformats' in resp_paid['Content-Type']
+        assert len(resp_paid.content) > 1000
+
+    # 3. Unpaid Invoices Excel export
+    for lang in ('fr', 'ar'):
+        resp_unpaid = client.get(f'/payments/export-unpaid-excel/?lang={lang}')
+        assert resp_unpaid.status_code == 200
+        assert 'openxmlformats' in resp_unpaid['Content-Type']
+        assert len(resp_unpaid.content) > 1000
+
+    # 4. All Students Excel export
+    resp_students = client.get('/students/export-excel/?lang=fr')
+    assert resp_students.status_code == 200
+    assert 'openxmlformats' in resp_students['Content-Type']
+    assert len(resp_students.content) > 1000
+
+
+
 
 
 

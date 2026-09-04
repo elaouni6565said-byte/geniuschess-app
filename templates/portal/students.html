@@ -14,8 +14,8 @@
         <a href="{% url 'portal:student_add' %}" class="btn btn-primary">
             ➕ {% trans "student_crud.add_title" %}
         </a>
-        <a href="{% url 'portal:export_students_excel' %}" class="btn btn-secondary">
-            📥 {% trans "students.export_excel" %}
+        <a href="{% url 'portal:export_students_excel' %}" class="btn btn-secondary" style="font-weight: 600;">
+            📥 {% if CURRENT_LANG == 'ar' %}تصدير جميع التلاميذ (Excel){% else %}Exporter Tous les Élèves (Excel){% endif %}
         </a>
     </div>
 </div>
