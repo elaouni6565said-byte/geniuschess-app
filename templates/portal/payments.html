@@ -80,8 +80,11 @@
 
 <!-- Payments History & Multi-Lingual PDF Generator (47.7) -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
         <h3 class="card-title">🧾 {% trans "nav.receipts" %}</h3>
+        <a href="{% url 'portal:export_paid_excel' %}" class="btn btn-secondary btn-sm" style="font-weight: 600;">
+            📥 {% if CURRENT_LANG == 'ar' %}تصدير لائحة الأداءات (Excel){% else %}Exporter l'état des paiements (Excel){% endif %}
+        </a>
     </div>
     <div class="table-responsive">
         <table class="gca-table">

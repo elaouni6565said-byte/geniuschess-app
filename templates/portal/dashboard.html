@@ -9,7 +9,16 @@
         <h2>{% trans "dashboard.title" %}</h2>
         <p>{% trans "dashboard.subtitle" %}</p>
     </div>
-    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:export_paid_excel' %}" class="btn btn-secondary" style="font-weight: 600;">
+            📥 {% if CURRENT_LANG == 'ar' %}تصدير الأداءات (Excel){% else %}Exporter Payants (Excel){% endif %}
+        </a>
+        <a href="{% url 'portal:export_unpaid_excel' %}" class="btn btn-outline" style="background: white; border-color: var(--danger); color: var(--danger); font-weight: 600;">
+            ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير المتأخرات (Excel){% else %}Exporter Impayés (Excel){% endif %}
+        </a>
+        <a href="{% url 'portal:planning_pdf' %}?lang={{ CURRENT_LANG }}" target="_blank" class="btn btn-outline" style="background: white; border-color: #CBD5E1; color: var(--primary-navy); font-weight: 600;">
+            📄 {% if CURRENT_LANG == 'ar' %}تحميل البرنامج (PDF){% else %}Exporter Planning (PDF){% endif %}
+        </a>
         <a href="{% url 'portal:whatsapp_reminders' %}" class="btn btn-sm" style="background: #22C55E; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; box-shadow: 0 2px 4px rgba(34, 197, 94, 0.25);">
             📲 {% if CURRENT_LANG == 'ar' %}تذكيرات واتساب (13:00){% else %}Rappels WhatsApp (13h00){% endif %}
         </a>
@@ -25,6 +34,9 @@
         <div class="kpi-content">
             <h4>{% trans "dashboard.total_students" %}</h4>
             <div class="kpi-value">{{ total_students }}</div>
+            <a href="{% url 'portal:export_students_excel' %}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--primary-blue); text-decoration: underline;">
+                📥 {% if CURRENT_LANG == 'ar' %}تصدير التلاميذ (Excel){% else %}Exporter élèves (Excel){% endif %}
+            </a>
         </div>
         <div class="kpi-icon blue">🎓</div>
     </div>
@@ -33,6 +45,9 @@
         <div class="kpi-content">
             <h4>{% trans "dashboard.active_groups" %}</h4>
             <div class="kpi-value">{{ active_groups }}</div>
+            <a href="{% url 'portal:planning_pdf' %}?lang={{ CURRENT_LANG }}" target="_blank" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--primary-navy); text-decoration: underline;">
+                📄 {% if CURRENT_LANG == 'ar' %}برنامج الحصص (PDF){% else %}Planning des cours (PDF){% endif %}
+            </a>
         </div>
         <div class="kpi-icon navy">👥</div>
     </div>
@@ -41,6 +56,9 @@
         <div class="kpi-content">
             <h4>{% trans "dashboard.monthly_revenue" %}</h4>
             <div class="kpi-value" style="color: var(--success);">{% money total_revenue %}</div>
+            <a href="{% url 'portal:export_paid_excel' %}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--success); text-decoration: underline;">
+                📥 {% if CURRENT_LANG == 'ar' %}تصدير لائحة المداخيل (Excel){% else %}Exporter l'état des paiements (Excel){% endif %}
+            </a>
         </div>
         <div class="kpi-icon green">💰</div>
     </div>
@@ -49,6 +67,9 @@
         <div class="kpi-content">
             <h4>{% trans "dashboard.unpaid_total" %}</h4>
             <div class="kpi-value" style="color: var(--danger);">{% money total_unpaid %}</div>
+            <a href="{% url 'portal:export_unpaid_excel' %}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--danger); text-decoration: underline;">
+                ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير لائحة المتأخرات (Excel){% else %}Exporter les impayés (Excel){% endif %}
+            </a>
         </div>
         <div class="kpi-icon red">⚠️</div>
     </div>
@@ -58,11 +79,16 @@
 <div class="dashboard-main-grid">
     <!-- Recent Payments Card -->
     <div class="card">
-        <div class="card-header">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
             <h3 class="card-title">💳 {% trans "dashboard.recent_payments" %}</h3>
-            <a href="{% url 'portal:payments' %}" class="btn btn-outline btn-sm">
-                {% trans "common.all" %} <span class="icon-dir">→</span>
-            </a>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <a href="{% url 'portal:export_paid_excel' %}" class="btn btn-secondary btn-sm" style="font-weight: 600;">
+                    📥 {% if CURRENT_LANG == 'ar' %}تصدير لائحة الأداءات (Excel){% else %}Exporter l'état de paiement (Excel){% endif %}
+                </a>
+                <a href="{% url 'portal:payments' %}" class="btn btn-outline btn-sm">
+                    {% trans "common.all" %} <span class="icon-dir">→</span>
+                </a>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="gca-table">
