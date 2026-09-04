@@ -728,6 +728,41 @@ def test_daily_whatsapp_session_reminders():
     assert '/reminders/whatsapp/' in resp_post.url
 
 
+@pytest.mark.django_db
+def test_device_switcher_and_responsive_elements():
+    """Verify PC/Mobile/Auto device switcher and responsive navigation elements in French and Arabic."""
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    # 1. French dashboard
+    resp_fr = client.get('/?lang=fr')
+    assert resp_fr.status_code == 200
+    html_fr = resp_fr.content.decode('utf-8')
+    assert 'id="gcaDeviceSwitcher"' in html_fr
+    assert 'data-mode="pc"' in html_fr
+    assert 'data-mode="mobile"' in html_fr
+    assert 'data-mode="auto"' in html_fr
+    assert 'id="gcaMobileNavToggle"' in html_fr
+    assert 'id="gcaNavMenu"' in html_fr
+    assert 'id="footerActiveDeviceLabel"' in html_fr
+    assert 'PC' in html_fr
+    assert 'Mobile' in html_fr
+
+    # 2. Arabic dashboard
+    resp_ar = client.get('/?lang=ar')
+    assert resp_ar.status_code == 200
+    html_ar = resp_ar.content.decode('utf-8')
+    assert 'id="gcaDeviceSwitcher"' in html_ar
+    assert 'حاسوب' in html_ar
+    assert 'هاتف' in html_ar
+    assert 'تلقائي' in html_ar
+    assert 'dir="rtl"' in html_ar
+
+
+
 
 
 

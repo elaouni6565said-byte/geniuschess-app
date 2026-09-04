@@ -7,6 +7,12 @@
     <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
     <link rel="stylesheet" href="{% static 'css/gca-style.css' %}">
+    <script>
+        (function() {
+            var savedMode = localStorage.getItem('gca_device_mode') || 'auto';
+            document.documentElement.setAttribute('data-device-mode', savedMode);
+        })();
+    </script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -23,7 +29,7 @@
             </div>
         </div>
 
-        <nav>
+        <nav class="gca-nav-menu" id="gcaNavMenu">
             <ul class="nav-links">
                 {% if request.user.is_authenticated and request.user.is_admin_role or request.user.is_authenticated and request.user.is_superuser %}
                     <li class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
@@ -55,34 +61,60 @@
             </ul>
         </nav>
 
-        <!-- User Auth & Session Status -->
-        <div style="display: flex; align-items: center; gap: 0.6rem; margin-inline-end: 0.5rem;">
-            {% if request.user.is_authenticated %}
-                <span style="background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem;">
-                    👑 {{ request.user.username }}
-                </span>
-                <a href="{% url 'portal:logout' %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; padding: 0.3rem 0.6rem; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.15);" title="{% trans 'auth.logout_btn' %}">
-                    🚪 {% trans "auth.logout_btn" %}
-                </a>
-            {% else %}
-                <a href="{% url 'portal:login' %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; padding: 0.3rem 0.6rem; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.15);">
-                    🔒 {% trans "auth.login_btn" %}
-                </a>
-            {% endif %}
-        </div>
+        <!-- Navbar Controls: User + Device Switcher + Language Switcher + Hamburger -->
+        <div class="navbar-controls">
+            <!-- User Auth & Session Status -->
+            <div class="user-auth-pill">
+                {% if request.user.is_authenticated %}
+                    <span class="user-name-badge" title="{{ request.user.username }}">
+                        👑 {{ request.user.username }}
+                    </span>
+                    <a href="{% url 'portal:logout' %}" class="btn btn-secondary btn-sm" title="{% trans 'auth.logout_btn' %}">
+                        🚪 <span class="btn-text">{% trans "auth.logout_btn" %}</span>
+                    </a>
+                {% else %}
+                    <a href="{% url 'portal:login' %}" class="btn btn-secondary btn-sm">
+                        🔒 <span class="btn-text">{% trans "auth.login_btn" %}</span>
+                    </a>
+                {% endif %}
+            </div>
 
-        <!-- 47.1 Language Selector Widget -->
-        <div class="lang-switcher-widget">
-            <a href="{% url 'portal:set_language' 'fr' %}" 
-               class="lang-btn {% if CURRENT_LANG == 'fr' %}active{% endif %}" 
-               title="Passer en Français">
-                <span>🇫🇷</span> <span>Français</span>
-            </a>
-            <a href="{% url 'portal:set_language' 'ar' %}" 
-               class="lang-btn {% if CURRENT_LANG == 'ar' %}active{% endif %}" 
-               title="التحويل إلى العربية">
-                <span>🇲🇦</span> <span>العربية</span>
-            </a>
+            <!-- Device Display Mode Switcher (PC / Smartphone / Auto) -->
+            <div class="device-switcher-widget" id="gcaDeviceSwitcher" role="group" aria-label="{% trans 'device.title' %}">
+                <button type="button" class="device-btn" data-mode="pc" title="{% trans 'device.pc_title' %}">
+                    <span class="device-icon">💻</span>
+                    <span class="device-label">{% trans "device.pc" %}</span>
+                </button>
+                <button type="button" class="device-btn" data-mode="mobile" title="{% trans 'device.mobile_title' %}">
+                    <span class="device-icon">📱</span>
+                    <span class="device-label">{% trans "device.mobile" %}</span>
+                </button>
+                <button type="button" class="device-btn" data-mode="auto" title="{% trans 'device.auto_title' %}">
+                    <span class="device-icon">🔄</span>
+                    <span class="device-label">{% trans "device.auto" %}</span>
+                </button>
+            </div>
+
+            <!-- 47.1 Language Selector Widget -->
+            <div class="lang-switcher-widget">
+                <a href="{% url 'portal:set_language' 'fr' %}" 
+                   class="lang-btn {% if CURRENT_LANG == 'fr' %}active{% endif %}" 
+                   title="Passer en Français">
+                    <span>🇫🇷</span> <span class="lang-text">Français</span>
+                </a>
+                <a href="{% url 'portal:set_language' 'ar' %}" 
+                   class="lang-btn {% if CURRENT_LANG == 'ar' %}active{% endif %}" 
+                   title="التحويل إلى العربية">
+                    <span>🇲🇦</span> <span class="lang-text">العربية</span>
+                </a>
+            </div>
+
+            <!-- Mobile Hamburger Toggle Button -->
+            <button type="button" class="mobile-nav-toggle" id="gcaMobileNavToggle" aria-label="Menu" aria-expanded="false">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </button>
         </div>
     </header>
 
@@ -102,12 +134,16 @@
     <!-- Localized Footer -->
     <footer class="gca-footer">
         <p>© 2026 <b>{% trans "app_name" %}</b> — {% trans "receipt.academy_sub" %} • Sidi Kacem / Rabat, Maroc</p>
-        <p style="margin-top: 0.25rem; font-size: 0.75rem;">
+        <p style="margin-top: 0.35rem; font-size: 0.78rem;">
             {% if CURRENT_LANG == 'fr' %}
                 Langue active : <b>Français (LTR)</b> • Appuyez sur <code>Alt + L</code> pour basculer en Arabe.
             {% else %}
                 اللغة المفعلة : <b>العربية (RTL)</b> • اضغط على <code>Alt + L</code> للتحويل إلى الفرنسية.
             {% endif %}
+            <span class="footer-mode-separator"> • </span>
+            <span class="footer-device-indicator">
+                {% trans "device.title" %} : <b id="footerActiveDeviceLabel">Auto</b>
+            </span>
         </p>
     </footer>
 

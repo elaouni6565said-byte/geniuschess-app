@@ -152,6 +152,71 @@ a:hover {
   border-bottom: 2.5px solid var(--accent-orange);
 }
 
+/* Navbar Controls Container */
+.navbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.user-auth-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.user-name-badge {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* Device Mode Switcher (PC / Smartphone / Auto) */
+.device-switcher-widget {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2.5px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.device-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: #CBD5E1;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+.device-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.device-btn.active {
+  background: var(--primary-blue);
+  color: #FFFFFF;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+}
+
 /* Language Switcher Widget (47.1) */
 .lang-switcher-widget {
   display: flex;
@@ -167,7 +232,7 @@ a:hover {
   align-items: center;
   gap: 0.35rem;
   padding: 0.35rem 0.75rem;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   border-radius: 9999px;
   color: #CBD5E1;
   font-weight: 600;
@@ -182,6 +247,73 @@ a:hover {
   background: var(--accent-orange);
   color: #FFFFFF;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Mobile Hamburger Button */
+.mobile-nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4.5px;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.mobile-nav-toggle .bar {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: #FFFFFF;
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.mobile-nav-toggle.open .bar:nth-child(1) {
+  transform: translateY(6.5px) rotate(45deg);
+}
+
+.mobile-nav-toggle.open .bar:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-nav-toggle.open .bar:nth-child(3) {
+  transform: translateY(-6.5px) rotate(-45deg);
+}
+
+/* Toast Feedback Notification */
+.gca-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--primary-navy);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 0.65rem 1.35rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.gca-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* ==========================================================================
@@ -705,4 +837,400 @@ html[dir="rtl"] .gca-table th {
     border: 2px solid var(--primary-blue);
     background: #FAFCFF;
 }
+
+/* ==========================================================================
+   DISPLAY MODE SYSTEM: PC / SMARTPHONE / AUTO & RESPONSIVE RULES
+   ========================================================================== */
+
+/* Animation for mobile menu dropdown */
+@keyframes gcaSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   1. MODE PC FORCÉ (Desktop View Override)
+   -------------------------------------------------------------------------- */
+html[data-device-mode="pc"] body {
+  min-width: 1080px;
+  overflow-x: auto;
+}
+
+html[data-device-mode="pc"] .gca-navbar {
+  position: sticky;
+  top: 0;
+  display: flex !important;
+  justify-content: space-between !important;
+}
+
+html[data-device-mode="pc"] .gca-nav-menu {
+  display: flex !important;
+  position: static !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+html[data-device-mode="pc"] .nav-links {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+html[data-device-mode="pc"] .mobile-nav-toggle {
+  display: none !important;
+}
+
+html[data-device-mode="pc"] .main-wrapper {
+  max-width: 1320px !important;
+  width: 100% !important;
+  margin: 1.5rem auto !important;
+  padding: 0 1.5rem !important;
+}
+
+html[data-device-mode="pc"] .grid-kpi {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+}
+
+html[data-device-mode="pc"] .page-header {
+  flex-direction: row !important;
+  align-items: center !important;
+}
+
+html[data-device-mode="pc"] .page-actions {
+  flex-direction: row !important;
+  width: auto !important;
+}
+
+html[data-device-mode="pc"] .page-actions .btn {
+  width: auto !important;
+}
+
+html[data-device-mode="pc"] .filter-bar {
+  flex-direction: row !important;
+}
+
+html[data-device-mode="pc"] .filter-bar .search-input-wrapper {
+  min-width: 250px !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. MODE SMARTPHONE SUR ÉCRAN ORDINATEUR (Simulateur mobile)
+   -------------------------------------------------------------------------- */
+@media (min-width: 992px) {
+  html[data-device-mode="mobile"] body {
+    background-color: #0b1528;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+    padding: 24px 0;
+  }
+
+  html[data-device-mode="mobile"] .gca-navbar {
+    max-width: 480px;
+    margin: 0 auto;
+    border-radius: 20px 20px 0 0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: none;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
+    position: relative;
+  }
+
+  html[data-device-mode="mobile"] .main-wrapper {
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--bg-main);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
+    border-inline: 1px solid var(--border-color);
+    padding: 1.25rem 1rem;
+    min-height: calc(100vh - 160px);
+  }
+
+  html[data-device-mode="mobile"] .gca-footer {
+    max-width: 480px;
+    margin: 0 auto;
+    border-radius: 0 0 20px 20px;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. RÈGLES SMARTPHONE COMMUNES (Mobile Forcé OU Écran <= 991px en Auto)
+   -------------------------------------------------------------------------- */
+@media (max-width: 991px) {
+  html:not([data-device-mode="pc"]) .gca-navbar {
+    padding: 0.65rem 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
+  html:not([data-device-mode="pc"]) .mobile-nav-toggle {
+    display: flex;
+  }
+
+  html:not([data-device-mode="pc"]) .gca-nav-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--primary-navy);
+    padding: 0.85rem 1rem;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    z-index: 1000;
+  }
+
+  html:not([data-device-mode="pc"]) .gca-nav-menu.is-open {
+    display: flex;
+    flex-direction: column;
+    animation: gcaSlideDown 0.22s ease-out;
+  }
+
+  html:not([data-device-mode="pc"]) .nav-links {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.35rem;
+  }
+
+  html:not([data-device-mode="pc"]) .nav-item a {
+    padding: 0.75rem 1rem;
+    font-size: 0.92rem;
+    border-radius: var(--radius-sm);
+    justify-content: flex-start;
+  }
+
+  html:not([data-device-mode="pc"]) .main-wrapper {
+    padding: 0 1rem;
+    margin: 1rem auto;
+  }
+
+  html:not([data-device-mode="pc"]) .grid-kpi {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+  }
+
+  html:not([data-device-mode="pc"]) .kpi-card {
+    padding: 1rem;
+  }
+
+  html:not([data-device-mode="pc"]) .kpi-content .kpi-value {
+    font-size: 1.35rem;
+  }
+
+  html:not([data-device-mode="pc"]) .kpi-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  html:not([data-device-mode="pc"]) .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  html:not([data-device-mode="pc"]) .page-header-titles h2 {
+    font-size: 1.35rem;
+  }
+
+  html:not([data-device-mode="pc"]) .page-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  html:not([data-device-mode="pc"]) .page-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  html:not([data-device-mode="pc"]) .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  html:not([data-device-mode="pc"]) .filter-bar .search-input-wrapper {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  html:not([data-device-mode="pc"]) .filter-bar .filter-select,
+  html:not([data-device-mode="pc"]) .filter-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  html:not([data-device-mode="pc"]) .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+  }
+
+  html:not([data-device-mode="pc"]) .table-responsive .gca-table {
+    min-width: 620px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. RÈGLES FORCÉES QUAND MODE SMARTPHONE EST ACTIVÉ (Tous écrans)
+   -------------------------------------------------------------------------- */
+html[data-device-mode="mobile"] .gca-navbar {
+  padding: 0.65rem 0.85rem;
+}
+
+html[data-device-mode="mobile"] .mobile-nav-toggle {
+  display: flex !important;
+}
+
+html[data-device-mode="mobile"] .gca-nav-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--primary-navy);
+  padding: 0.85rem 1rem;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 1000;
+}
+
+html[data-device-mode="mobile"] .gca-nav-menu.is-open {
+  display: flex !important;
+  flex-direction: column;
+  animation: gcaSlideDown 0.22s ease-out;
+}
+
+html[data-device-mode="mobile"] .nav-links {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  width: 100%;
+  gap: 0.35rem;
+}
+
+html[data-device-mode="mobile"] .nav-item a {
+  padding: 0.75rem 1rem;
+  font-size: 0.92rem;
+  border-radius: var(--radius-sm);
+  justify-content: flex-start;
+}
+
+html[data-device-mode="mobile"] .grid-kpi {
+  grid-template-columns: 1fr !important;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+html[data-device-mode="mobile"] .page-header {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.85rem;
+}
+
+html[data-device-mode="mobile"] .page-header-titles h2 {
+  font-size: 1.35rem;
+}
+
+html[data-device-mode="mobile"] .page-actions {
+  flex-direction: column !important;
+  width: 100% !important;
+  gap: 0.5rem;
+}
+
+html[data-device-mode="mobile"] .page-actions .btn {
+  width: 100% !important;
+  justify-content: center;
+}
+
+html[data-device-mode="mobile"] .filter-bar {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+html[data-device-mode="mobile"] .filter-bar .search-input-wrapper {
+  min-width: 100% !important;
+  width: 100% !important;
+}
+
+html[data-device-mode="mobile"] .filter-bar .filter-select,
+html[data-device-mode="mobile"] .filter-bar .btn {
+  width: 100% !important;
+  justify-content: center;
+}
+
+html[data-device-mode="mobile"] .table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+html[data-device-mode="mobile"] .table-responsive .gca-table {
+  min-width: 600px;
+}
+
+/* --------------------------------------------------------------------------
+   5. COMPACT RESPONSIVE DETAILS (PETITS ÉCRANS & MOBILE)
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .brand-titles span {
+    display: none;
+  }
+  .brand-titles h1 {
+    font-size: 1.05rem;
+  }
+  .brand-logo-img {
+    width: 36px;
+    height: 36px;
+  }
+  .user-auth-pill .btn-text {
+    display: none;
+  }
+  .device-btn .device-label {
+    display: none;
+  }
+  .lang-btn .lang-text {
+    display: none;
+  }
+  .device-btn, .lang-btn {
+    padding: 0.32rem 0.5rem;
+  }
+  .gca-navbar {
+    padding: 0.5rem 0.75rem;
+  }
+  .navbar-controls {
+    gap: 0.35rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .user-auth-pill .user-name-badge {
+    max-width: 75px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .brand-titles h1 {
+    font-size: 0.95rem;
+  }
+}
+
 

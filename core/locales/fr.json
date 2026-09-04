@@ -326,5 +326,14 @@
     "room": "Salle de cours",
     "trainer_fr": "Formateur (FR)",
     "trainer_ar": "المدرب (AR)"
+  },
+  "device": {
+    "title": "Mode d'affichage",
+    "pc": "PC",
+    "mobile": "Mobile",
+    "auto": "Auto",
+    "pc_title": "Mode Ordinateur / Grand écran",
+    "mobile_title": "Mode Smartphone / Mobile",
+    "auto_title": "Mode Automatique (Selon l'écran)"
   }
 }
