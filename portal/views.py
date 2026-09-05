@@ -1371,13 +1371,22 @@ def whatsapp_reminders_view(request):
     else:
         target_date = date.today()
 
+    has_gateway = bool(getattr(settings, 'WHATSAPP_GATEWAY_URL', '') or getattr(settings, 'WHATSAPP_TOKEN', ''))
+
     if request.method == 'POST' and request.POST.get('action') == 'dispatch_all':
         res = dispatch_daily_whatsapp_reminders(target_date)
-        msg = (
-            f"✓ {res['notifications_created']} notification(s) de rappel envoyée(s) aux parents pour le {target_date.strftime('%d/%m/%Y')}."
-            if lang == 'fr' else
-            f"✓ تم إرسال {res['notifications_created']} تذكير(ات) لأولياء الأمور بنجاح ليوم {target_date.strftime('%d/%m/%Y')}."
-        )
+        if res.get('whatsapp_sent_via_api', 0) > 0:
+            msg = (
+                f"✓ {res['whatsapp_sent_via_api']} message(s) WhatsApp envoyé(s) directement via l'API pour le {target_date.strftime('%d/%m/%Y')}."
+                if lang == 'fr' else
+                f"✓ تم إرسال {res['whatsapp_sent_via_api']} رسالة واتساب بنجاح عبر بوابة API ليوم {target_date.strftime('%d/%m/%Y')}."
+            )
+        else:
+            msg = (
+                f"✓ {res['notifications_created']} notification(s) de rappel enregistrée(s) pour le {target_date.strftime('%d/%m/%Y')}."
+                if lang == 'fr' else
+                f"✓ تم تسجيل {res['notifications_created']} إشعار تذكير بنجاح ليوم {target_date.strftime('%d/%m/%Y')}."
+            )
         messages.success(request, msg)
         return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
 
@@ -1390,6 +1399,7 @@ def whatsapp_reminders_view(request):
         'reminders': reminders,
         'total_count': len(reminders),
         'is_today': target_date == date.today(),
+        'has_gateway': has_gateway,
     }
     return render(request, 'portal/whatsapp_reminders.html', context)
 

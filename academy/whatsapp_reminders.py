@@ -11,13 +11,16 @@ def format_phone_for_whatsapp(phone):
     Normalizes a Moroccan phone number to international WhatsApp format.
     E.g.: '0661234567' -> '212661234567'
           '+212 661-234567' -> '212661234567'
+          '00212661234567' -> '212661234567'
     """
     if not phone:
         return ""
-    clean = re.sub(r'[^\d+]', '', str(phone).strip())
-    if clean.startswith('+'):
-        clean = clean[1:]
-    if clean.startswith('0'):
+    clean = re.sub(r'[^\d]', '', str(phone).strip())
+    if clean.startswith('00212'):
+        clean = clean[2:]
+    elif clean.startswith('2120') and len(clean) >= 12:
+        clean = '212' + clean[4:]
+    elif clean.startswith('0'):
         clean = '212' + clean[1:]
     elif not clean.startswith('212') and len(clean) == 9:
         clean = '212' + clean
@@ -102,9 +105,11 @@ def get_daily_sessions_reminders(target_date=None):
             wa_phone = format_phone_for_whatsapp(phone)
             msg_text = build_whatsapp_reminder_text(sch, st, lang=lang)
             encoded_msg = urllib.parse.quote(msg_text)
+            # WhatsApp Click to Chat URL (standard format wa.me, works seamlessly on Web and Mobile)
             wa_url = f"https://wa.me/{wa_phone}?text={encoded_msg}" if wa_phone else ""
 
             reminders_data.append({
+                'id': f"{sch.id}_{st.id}",
                 'schedule': sch,
                 'student': st,
                 'parent': parent,
@@ -121,16 +126,58 @@ def get_daily_sessions_reminders(target_date=None):
     return reminders_data
 
 
+def send_whatsapp_via_gateway(phone, message):
+    """
+    Sends a WhatsApp message via an external API Gateway if configured in settings.
+    Supports UltraMsg, Wasapi, Green API or generic Webhook.
+    """
+    import json
+    import urllib.request
+    import urllib.error
+
+    gateway_url = getattr(settings, 'WHATSAPP_GATEWAY_URL', '').strip()
+    token = getattr(settings, 'WHATSAPP_TOKEN', '').strip()
+    instance_id = getattr(settings, 'WHATSAPP_INSTANCE_ID', '').strip()
+
+    if not (gateway_url or (token and instance_id)):
+        return {'success': False, 'error': 'No WhatsApp Gateway configured.'}
+
+    wa_phone = format_phone_for_whatsapp(phone)
+    if not wa_phone:
+        return {'success': False, 'error': 'Invalid phone number.'}
+
+    try:
+        if 'ultramsg.com' in gateway_url or instance_id:
+            url = gateway_url if gateway_url else f"https://api.ultramsg.com/{instance_id}/messages/chat"
+            payload = urllib.parse.urlencode({
+                'token': token,
+                'to': f"+{wa_phone}",
+                'body': message,
+            }).encode('utf-8')
+            req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                return {'success': True, 'response': res_data, 'sent_to': wa_phone}
+        else:
+            payload = json.dumps({'phone': wa_phone, 'message': message, 'token': token}).encode('utf-8')
+            req = urllib.request.Request(gateway_url, data=payload, headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return {'success': True, 'sent_to': wa_phone}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
 def dispatch_daily_whatsapp_reminders(target_date=None):
     """
     Automatic dispatcher executed at 13:00 daily (via cron or admin button).
-    Dispatches in-app notifications to parents and prepares WhatsApp logs.
+    Dispatches in-app notifications to parents and sends WhatsApp messages if API gateway is configured.
     """
     if target_date is None:
         target_date = date.today()
 
     items = get_daily_sessions_reminders(target_date)
     created_notifs = 0
+    wa_sent_via_api = 0
 
     for item in items:
         parent = item['parent']
@@ -166,9 +213,15 @@ def dispatch_daily_whatsapp_reminders(target_date=None):
             )
             created_notifs += 1
 
+            # Dispatch via Gateway if configured
+            res_gateway = send_whatsapp_via_gateway(item['whatsapp_phone'], item['message_text'])
+            if res_gateway.get('success'):
+                wa_sent_via_api += 1
+
     return {
         'total_reminders': len(items),
         'notifications_created': created_notifs,
+        'whatsapp_sent_via_api': wa_sent_via_api,
         'items': items,
         'date': target_date,
     }

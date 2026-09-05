@@ -16,7 +16,13 @@
         </p>
     </div>
     <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-        <a href="{% url <!-- BANNER STATUT DE LA PASSERELLE WHATSAPP -->
+        <a href="{% url 'portal:planning' %}" class="btn btn-secondary btn-sm">
+            ← {% trans "crud.back_to_list" %}
+        </a>
+    </div>
+</div>
+
+<!-- BANNER STATUT DE LA PASSERELLE WHATSAPP -->
 {% if has_gateway %}
 <div class="card" style="background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%); border: 1px solid #86EFAC; margin-bottom: 1.75rem; padding: 1.25rem 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
@@ -264,8 +270,11 @@
                 {% empty %}
                 <tr>
                     <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
-                        <p style="font-size: 1.15rem; margin-bottom: 0.4rem;">☕ {% if CURRENT_LANG == 'ar' %}لا توجد حصص مبرمجة في هذا اليوم{% else %}Aucune séance programmée ce jour-là{% endif %}</p>
-                        <p style="font-size: 0.85rem;">Sélectionnez une autre date ou consultez le <a href="{% url 'portal:planning' %}" style="color: var(--primary-blue); font-weight: 600;">Planning</a>.</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">☕ {% if CURRENT_LANG == 'ar' %}لا توجد حصص مبرمجة أو تلاميذ مسجلين في هذا اليوم ({{ day_name }}){% else %}Aucune séance programmée ou aucun élève inscrit ce jour-là ({{ day_name }}){% endif %}</p>
+                        <p style="font-size: 0.9rem; margin-bottom: 1rem;">{% if CURRENT_LANG == 'ar' %}استخدم أداة اختيار التاريخ أعلاه لمعاينة الحصص المبرمجة لأيام أخرى (مثلاً يوم السبت).{% else %}Utilisez le sélecteur de date ci-dessus pour afficher les cours des autres jours (par exemple le Samedi).{% endif %}</p>
+                        <a href="{% url 'portal:planning' %}" class="btn btn-outline btn-sm" style="color: var(--primary-blue); font-weight: 600;">
+                            🗓️ {% if CURRENT_LANG == 'ar' %}عرض جدول البرنامج الأسبوعي{% else %}Consulter le Planning Complet{% endif %}
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}
