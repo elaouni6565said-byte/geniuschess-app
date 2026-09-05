@@ -40,8 +40,10 @@ urlpatterns = [
     # Activités & Groupes CRUD
     path('activities/', views.activities_list_view, name='activities_list'),
     path('activities/add/', views.activity_create_view, name='activity_add'),
+    path('activities/<int:subject_id>/edit/', views.activity_edit_view, name='activity_edit'),
     path('activities/<int:subject_id>/delete/', views.activity_delete_view, name='activity_delete'),
     path('groups/add/', views.group_create_view, name='group_add'),
+    path('groups/<int:group_id>/edit/', views.group_edit_view, name='group_edit'),
     path('groups/<int:group_id>/delete/', views.group_delete_view, name='group_delete'),
 
     # Planning CRUD

@@ -880,6 +880,29 @@ def activity_create_view(request):
 
 
 @admin_required
+def activity_edit_view(request, subject_id):
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    subject = get_object_or_404(Subject, id=subject_id)
+    if request.method == 'POST':
+        form = SubjectForm(request.POST, instance=subject)
+        if form.is_valid():
+            subj = form.save()
+            msg = get_translation('crud.updated_success', lang=lang)
+            messages.success(request, f"✓ {msg} ({subj.get_bilingual_name()})")
+            return redirect('portal:activities_list')
+    else:
+        form = SubjectForm(instance=subject)
+
+    context = {
+        'form': form,
+        'is_edit': True,
+        'subject': subject,
+        'title': get_translation('activity_crud.edit_activity', lang=lang),
+    }
+    return render(request, 'portal/activity_form.html', context)
+
+
+@admin_required
 def activity_delete_view(request, subject_id):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     subject = get_object_or_404(Subject, id=subject_id)
@@ -915,6 +938,29 @@ def group_create_view(request):
         'form': form,
         'is_edit': False,
         'title': get_translation('activity_crud.add_group', lang=lang),
+    }
+    return render(request, 'portal/group_form.html', context)
+
+
+@admin_required
+def group_edit_view(request, group_id):
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    group = get_object_or_404(Group, id=group_id)
+    if request.method == 'POST':
+        form = GroupForm(request.POST, instance=group)
+        if form.is_valid():
+            grp = form.save()
+            msg = get_translation('crud.updated_success', lang=lang)
+            messages.success(request, f"✓ {msg} ({grp.name_fr})")
+            return redirect('portal:activities_list')
+    else:
+        form = GroupForm(instance=group)
+
+    context = {
+        'form': form,
+        'is_edit': True,
+        'group': group,
+        'title': get_translation('activity_crud.edit_group', lang=lang),
     }
     return render(request, 'portal/group_form.html', context)
 

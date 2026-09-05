@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load gca_tags %}
 
 {% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
@@ -7,7 +7,7 @@
 <div class="page-header">
     <div class="page-header-titles">
         <h2>🎯 {{ title }}</h2>
-        <p>Création d'une nouvelle discipline pédagogique (ex: Échecs, Robotique, Calcul mental...)</p>
+        <p>{% if is_edit %}{% if CURRENT_LANG == 'ar' %}تعديل معلومات النشاط والمواصفات{% else %}Modification des paramètres de l'activité pédagogique{% endif %}{% else %}{% if CURRENT_LANG == 'ar' %}إضافة نشاط تربوي جديد (مثل: الشطرنج، الروبوتيك، الحساب الذهني...){% else %}Création d'une nouvelle discipline pédagogique (ex: Échecs, Robotique, Calcul mental...){% endif %}{% endif %}</p>
     </div>
     <div class="page-actions">
         <a href="{% url 'portal:activities_list' %}" class="btn btn-secondary btn-sm">

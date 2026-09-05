@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load gca_tags %}
 
 {% block title %}{% trans "activity_crud.list_title" %} — {% trans "app_name" %}{% endblock %}
@@ -41,9 +41,12 @@
                 </div>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <a href="{% url 'portal:activity_edit' s.id %}" class="btn btn-secondary btn-sm" style="font-weight: 600; display: inline-flex; align-items: center; gap: 0.3rem;" title="{% trans 'activity_crud.edit_activity' %}">
+                    ✏️ {% if CURRENT_LANG == 'ar' %}تعديل النشاط{% else %}Modifier l'activité{% endif %}
+                </a>
                 <a href="{% url 'portal:group_add' %}?subject_id={{ s.id }}" class="btn btn-outline btn-sm">
-                    ➕ Ajouter un groupe
+                    ➕ {% if CURRENT_LANG == 'ar' %}إضافة مجموعة{% else %}Ajouter un groupe{% endif %}
                 </a>
                 <a href="{% url 'portal:activity_delete' s.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;" title="{% trans 'crud.delete' %}">
                     🗑️
@@ -82,7 +85,10 @@
                                 👥 {{ g.students.count }}
                             </span>
                         </td>
-                        <td style="text-align: center;">
+                        <td style="text-align: center; white-space: nowrap;">
+                            <a href="{% url 'portal:group_edit' g.id %}" class="btn btn-secondary btn-sm" style="margin-inline-end: 0.3rem;" title="{% trans 'activity_crud.edit_group' %}">
+                                ✏️
+                            </a>
                             <a href="{% url 'portal:group_delete' g.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;" title="{% trans 'crud.delete' %}">
                                 🗑️
                             </a>

@@ -305,7 +305,9 @@
   "activity_crud": {
     "list_title": "تدبير الأنشطة والمجموعات",
     "add_activity": "نشاط جديد",
+    "edit_activity": "تعديل النشاط",
     "add_group": "مجموعة جديدة",
+    "edit_group": "تعديل المجموعة",
     "name_fr": "Nom de l'activité (FR)",
     "name_ar": "اسم النشاط (بالعربية)",
     "group_name_fr": "Nom du groupe (FR)",

@@ -16,32 +16,27 @@
         </p>
     </div>
     <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-        <a href="{% url 'portal:planning' %}" class="btn btn-outline">
-            🗓️ {% trans "nav.planning" %}
-        </a>
-    </div>
-</div>
-
-<!-- INFO BANNER SUR L'AUTOMATISATION À 13H00 -->
+        <a href="{% url <!-- BANNER STATUT DE LA PASSERELLE WHATSAPP -->
+{% if has_gateway %}
 <div class="card" style="background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%); border: 1px solid #86EFAC; margin-bottom: 1.75rem; padding: 1.25rem 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div style="display: flex; align-items: center; gap: 1rem;">
             <div style="width: 48px; height: 48px; border-radius: 50%; background: #22C55E; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.3);">
-                ⏰
+                ⚡
             </div>
             <div>
                 <h4 style="color: #166534; font-size: 1.05rem; margin-bottom: 0.2rem;">
                     {% if CURRENT_LANG == 'ar' %}
-                        التذكير الآلي مبرمج يومياً على الساعة 13:00 زوالاً
+                        🟢 بوابة واتساب API متصلة — الإرسال التلقائي مفعّل
                     {% else %}
-                        Tâche planifiée automatique : Tous les jours à 13h00 précises
+                        🟢 Passerelle WhatsApp API Connectée — Envoi Automatique Actif
                     {% endif %}
                 </h4>
                 <p style="font-size: 0.85rem; color: #15803D; margin: 0;">
                     {% if CURRENT_LANG == 'ar' %}
-                        يقوم النظام بفحص جدول اليوم وإرسال إشعارات التذكير وتجهيز رسائل الواتساب المخصصة بلغة كل ولي أمر (فرنسية / عربية).
+                        النظام جاهز لإرسال رسائل الواتساب الفعلية إلى هواتف أولياء الأمور تلقائياً.
                     {% else %}
-                        Le serveur analyse les cours du jour, génère les messages personnalisés dans la langue choisie par chaque parent (FR / AR) et notifie les familles.
+                        Le serveur est configuré pour transmettre directement les messages WhatsApp aux téléphones des parents sans intervention.
                     {% endif %}
                 </p>
             </div>
@@ -51,11 +46,53 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="dispatch_all">
             <button type="submit" class="btn btn-primary" style="background: #15803D; border-color: #15803D; white-space: nowrap; box-shadow: var(--shadow-sm);">
-                🔔 {% if CURRENT_LANG == 'ar' %}إرسال جميع الإشعارات الآن{% else %}Notifier tous les parents maintenant{% endif %}
+                ⚡ {% if CURRENT_LANG == 'ar' %}إرسال جميع رسائل واتساب الآن{% else %}Envoyer tous les WhatsApp via l'API{% endif %}
             </button>
         </form>
     </div>
 </div>
+{% else %}
+<div class="card" style="background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border: 1px solid #93C5FD; margin-bottom: 1.75rem; padding: 1.25rem 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: #2563EB; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);">
+                📲
+            </div>
+            <div>
+                <h4 style="color: #1E40AF; font-size: 1.05rem; margin-bottom: 0.2rem;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        وضع الإرسال المباشر عبر واتساب (شبه تلقائي)
+                    {% else %}
+                        Mode WhatsApp Direct (Semi-Automatique)
+                    {% endif %}
+                </h4>
+                <p style="font-size: 0.85rem; color: #1E3A8A; margin: 0; max-width: 720px;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        الرسائل مجهّزة ومخصصة لكل تلميذ (المادة، التوقيت، القاعة، المؤطر). اضغط على زر <b>«واتساب»</b> بجانب كل ولي أمر أو استخدم <b>«الإرسال المتسلسل»</b> لفتح محادثة واتساب مع الرسالة مكتوبة مسبقاً، واضغط إرسال فقط !
+                    {% else %}
+                        Les messages sont déjà rédigés et personnalisés pour chaque famille (heure, matière, salle, coach). Cliquez sur <b>« 📲 WhatsApp »</b> ou lancez <b>« L'envoi en série »</b> pour ouvrir WhatsApp avec le texte pré-rempli et envoyer d'un simple clic !
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+            {% if reminders %}
+            <button type="button" onclick="startFastWhatsAppQueue()" class="btn btn-primary" style="background: #25D366; border-color: #25D366; color: white; font-weight: 700; box-shadow: 0 4px 6px -1px rgba(37, 211, 102, 0.35);">
+                🚀 {% if CURRENT_LANG == 'ar' %}بدء الإرسال المتسلسل{% else %}Lancer l'Envoi en Série{% endif %}
+            </button>
+            {% endif %}
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="dispatch_all">
+                <button type="submit" class="btn btn-outline" style="background: white; border-color: #93C5FD; color: #1E40AF; font-weight: 600;">
+                    🔔 {% if CURRENT_LANG == 'ar' %}تسجيل إشعارات الموقع{% else %}Notifier sur le site{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- BARRE DE SÉLECTION DE LA DATE -->
 <div class="card" style="margin-bottom: 1.75rem; padding: 1rem 1.25rem;">
@@ -83,30 +120,85 @@
     </div>
 </div>
 
+<!-- MODALE / BOÎTE DE DIALOGUE : ENVOI GUIDÉ EN SÉRIE -->
+<div id="gcaFastQueueModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: white; border-radius: var(--radius-lg); max-width: 540px; width: 92%; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border-color); animation: fadeIn 0.2s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; font-size: 1.2rem; color: var(--primary-navy); display: flex; align-items: center; gap: 0.5rem;">
+                🚀 <span>{% if CURRENT_LANG == 'ar' %}إرسال التذكيرات المتسلسل{% else %}Envoi WhatsApp Guidé en Série{% endif %}</span>
+            </h3>
+            <button type="button" onclick="closeFastWhatsAppQueue()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- Progress bar -->
+        <div style="background: #E2E8F0; border-radius: 999px; height: 8px; margin-bottom: 1.25rem; overflow: hidden;">
+            <div id="queueProgressBar" style="background: #25D366; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span id="queueStepCounter" style="font-size: 0.85rem; font-weight: 700; color: var(--primary-blue);">Parent 1 / 3</span>
+                <span id="queueTimeBadge" class="badge" style="background: #E0F2FE; color: #0369A1;">10:00 - 11:30</span>
+            </div>
+            <h4 id="queueParentName" style="margin: 0 0 0.25rem 0; font-size: 1.05rem; color: #0F172A;">Karim Alaoui</h4>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                👶 <span id="queueStudentName">Mohamed Alaoui</span> • 📞 <bdi id="queuePhone">+212 661112233</bdi>
+            </div>
+            <div id="queueMessagePreview" style="font-size: 0.8rem; background: white; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; white-space: pre-line; max-height: 140px; overflow-y: auto;">
+                Message...
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="button" onclick="copyQueueMessage()" class="btn btn-secondary btn-sm" id="queueCopyBtn">
+                📋 {% if CURRENT_LANG == 'ar' %}نسخ النص{% else %}Copier le texte{% endif %}
+            </button>
+            <a id="queueWhatsAppLink" href="#" target="_blank" onclick="markQueueCurrentSent()" class="btn btn-primary" style="background: #25D366; border-color: #25D366; font-weight: 700;">
+                📲 {% if CURRENT_LANG == 'ar' %}فتح واتساب والإرسال{% else %}Ouvrir WhatsApp & Envoyer{% endif %}
+            </a>
+            <button type="button" onclick="nextQueueItem()" class="btn btn-outline" id="queueNextBtn">
+                {% if CURRENT_LANG == 'ar' %}التالي ⬅️{% else %}Suivant ➡️{% endif %}
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- LISTE DES RAPPELS DU JOUR -->
 <div class="card">
-    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
         <h3 class="card-title">
             📋 {% if CURRENT_LANG == 'ar' %}قائمة الحصص ورسائل الواتساب المقترحة{% else %}Séances du Jour & Messages WhatsApp Prêts à l'Envoi{% endif %}
         </h3>
+        {% if reminders %}
+        <button type="button" onclick="startFastWhatsAppQueue()" class="btn btn-sm" style="background: #25D366; color: white; border: none; font-weight: 700;">
+            🚀 {% if CURRENT_LANG == 'ar' %}إرسال متسلسل سريع{% else %}Mode Envoi Rapide{% endif %}
+        </button>
+        {% endif %}
     </div>
 
     <div class="table-responsive">
         <table class="gca-table">
             <thead>
                 <tr>
+                    <th>Statut</th>
                     <th>{% trans "planning.time" %}</th>
                     <th>{% trans "planning_crud.group" %}</th>
                     <th>{% trans "students.name" %}</th>
                     <th>{% if CURRENT_LANG == 'ar' %}ولي الأمر{% else %}Parent / Tuteur{% endif %}</th>
                     <th>WhatsApp</th>
                     <th>{% if CURRENT_LANG == 'ar' %}معاينة الرسالة{% else %}Aperçu Message{% endif %}</th>
-                    <th style="text-align: center;">Action</th>
+                    <th style="text-align: center;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for r in reminders %}
-                <tr>
+                <tr id="row-{{ r.id }}">
+                    <td>
+                        <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem;">
+                            <input type="checkbox" class="wa-sent-check" data-id="{{ r.id }}" onchange="toggleWaSentStatus('{{ r.id }}', this.checked)">
+                            <span id="badge-status-{{ r.id }}" class="badge" style="background: #F1F5F9; color: #64748B;">À envoyer</span>
+                        </label>
+                    </td>
                     <td>
                         <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 700; white-space: nowrap;">
                             🕒 {{ r.time_str }}
@@ -146,29 +238,32 @@
                             <summary style="font-size: 0.8rem; color: var(--primary-blue); font-weight: 600;">
                                 👁️ {% if CURRENT_LANG == 'ar' %}عرض نص الرسالة{% else %}Voir le texte{% endif %}
                             </summary>
-                            <div style="margin-top: 0.5rem; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.78rem; white-space: pre-line; max-width: 380px;">
+                            <div style="margin-top: 0.5rem; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.78rem; white-space: pre-line; max-width: 380px;" id="msg-text-{{ r.id }}">
                                 {{ r.message_text }}
                             </div>
                         </details>
                     </td>
-                    <td style="text-align: center;">
-                        {% if r.whatsapp_url %}
-                            <a href="{{ r.whatsapp_url }}" target="_blank" 
-                               class="btn btn-sm" 
-                               style="background: #25D366; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3);"
-                               title="Ouvrir WhatsApp Web / Mobile avec le message pré-rempli">
-                                <span>📲 WhatsApp</span>
-                            </a>
-                        {% else %}
-                            <button class="btn btn-sm" disabled style="opacity: 0.5;">
-                                ✕ Indisponible
+                    <td style="text-align: center; white-space: nowrap;">
+                        <div style="display: inline-flex; gap: 0.35rem; align-items: center;">
+                            <button type="button" onclick="copyIndividualMessage('{{ r.id }}')" class="btn btn-outline btn-sm" title="Copier le texte du message">
+                                📋
                             </button>
-                        {% endif %}
+                            {% if r.whatsapp_url %}
+                                <a href="{{ r.whatsapp_url }}" target="_blank" onclick="markSentRow('{{ r.id }}')"
+                                   class="btn btn-sm" 
+                                   style="background: #25D366; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.4rem 0.75rem; box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3);"
+                                   title="Ouvrir WhatsApp avec le message pré-rempli">
+                                    <span>📲 WhatsApp</span>
+                                </a>
+                            {% else %}
+                                <button class="btn btn-sm" disabled style="opacity: 0.5;">✕</button>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
                         <p style="font-size: 1.15rem; margin-bottom: 0.4rem;">☕ {% if CURRENT_LANG == 'ar' %}لا توجد حصص مبرمجة في هذا اليوم{% else %}Aucune séance programmée ce jour-là{% endif %}</p>
                         <p style="font-size: 0.85rem;">Sélectionnez une autre date ou consultez le <a href="{% url 'portal:planning' %}" style="color: var(--primary-blue); font-weight: 600;">Planning</a>.</p>
                     </td>
@@ -178,4 +273,135 @@
         </table>
     </div>
 </div>
+
+<!-- SCRIPTS INTERACTIFS : GESTION DE LA FILE D'ATTENTE WHATSAPP ET MÉMORISATION DES ENVOIS -->
+<script>
+const remindersQueue = [
+    {% for r in reminders %}
+    {
+        id: "{{ r.id }}",
+        parentName: "{{ r.parent|trans_field:CURRENT_LANG|escapejs }}",
+        studentName: "{{ r.student|trans_field:CURRENT_LANG|escapejs }}",
+        phone: "+{{ r.whatsapp_phone }}",
+        timeStr: "{{ r.time_str|escapejs }}",
+        url: "{{ r.whatsapp_url|escapejs }}",
+        text: `{{ r.message_text|escapejs }}`
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+let currentQueueIdx = 0;
+const targetDateStr = "{{ target_date|date:'Y-m-d' }}";
+
+function getSentStorageKey(id) {
+    return "gca_wa_sent_" + targetDateStr + "_" + id;
+}
+
+// Initialise checkboxes from localStorage
+document.addEventListener("DOMContentLoaded", function() {
+    remindersQueue.forEach(function(r) {
+        if (localStorage.getItem(getSentStorageKey(r.id)) === "1") {
+            const chk = document.querySelector('.wa-sent-check[data-id="' + r.id + '"]');
+            if (chk) chk.checked = true;
+            updateBadgeUI(r.id, true);
+        }
+    });
+});
+
+function toggleWaSentStatus(id, isSent) {
+    if (isSent) {
+        localStorage.setItem(getSentStorageKey(id), "1");
+    } else {
+        localStorage.removeItem(getSentStorageKey(id));
+    }
+    updateBadgeUI(id, isSent);
+}
+
+function updateBadgeUI(id, isSent) {
+    const badge = document.getElementById("badge-status-status-" + id) || document.getElementById("badge-status-" + id);
+    if (badge) {
+        if (isSent) {
+            badge.style.background = "#DCFCE7";
+            badge.style.color = "#15803D";
+            badge.innerText = "✓ Envoyé";
+        } else {
+            badge.style.background = "#F1F5F9";
+            badge.style.color = "#64748B";
+            badge.innerText = "À envoyer";
+        }
+    }
+}
+
+function markSentRow(id) {
+    const chk = document.querySelector('.wa-sent-check[data-id="' + id + '"]');
+    if (chk) chk.checked = true;
+    toggleWaSentStatus(id, true);
+}
+
+// Mode d'envoi rapide en série
+function startFastWhatsAppQueue() {
+    if (!remindersQueue.length) return;
+    currentQueueIdx = 0;
+    renderQueueItem();
+    const modal = document.getElementById("gcaFastQueueModal");
+    modal.style.display = "flex";
+}
+
+function closeFastWhatsAppQueue() {
+    document.getElementById("gcaFastQueueModal").style.display = "none";
+}
+
+function renderQueueItem() {
+    if (currentQueueIdx >= remindersQueue.length) {
+        alert("🎉 Bravo ! Tous les rappels ont été passés en revue !");
+        closeFastWhatsAppQueue();
+        return;
+    }
+    const item = remindersQueue[currentQueueIdx];
+    const total = remindersQueue.length;
+    const progress = Math.round(((currentQueueIdx + 1) / total) * 100);
+
+    document.getElementById("queueProgressBar").style.width = progress + "%";
+    document.getElementById("queueStepCounter").innerText = "Parent " + (currentQueueIdx + 1) + " / " + total;
+    document.getElementById("queueTimeBadge").innerText = item.timeStr;
+    document.getElementById("queueParentName").innerText = item.parentName;
+    document.getElementById("queueStudentName").innerText = item.studentName;
+    document.getElementById("queuePhone").innerText = item.phone;
+    document.getElementById("queueMessagePreview").innerText = item.text;
+    document.getElementById("queueWhatsAppLink").href = item.url;
+}
+
+function markQueueCurrentSent() {
+    if (currentQueueIdx < remindersQueue.length) {
+        const item = remindersQueue[currentQueueIdx];
+        markSentRow(item.id);
+    }
+}
+
+function nextQueueItem() {
+    currentQueueIdx++;
+    renderQueueItem();
+}
+
+function copyQueueMessage() {
+    if (currentQueueIdx < remindersQueue.length) {
+        const text = remindersQueue[currentQueueIdx].text;
+        navigator.clipboard.writeText(text).then(function() {
+            const btn = document.getElementById("queueCopyBtn");
+            const old = btn.innerText;
+            btn.innerText = "✓ Copié !";
+            setTimeout(function() { btn.innerText = old; }, 2000);
+        });
+    }
+}
+
+function copyIndividualMessage(id) {
+    const el = document.getElementById("msg-text-" + id);
+    if (el) {
+        navigator.clipboard.writeText(el.innerText.trim()).then(function() {
+            alert("✓ Message copié dans le presse-papier !");
+        });
+    }
+}
+</script>
 {% endblock %}

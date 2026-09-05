@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load gca_tags %}
 
 {% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
@@ -7,7 +7,7 @@
 <div class="page-header">
     <div class="page-header-titles">
         <h2>👥 {{ title }}</h2>
-        <p>Création d'un groupe d'apprentissage, attribution du niveau et tarif mensuel</p>
+        <p>{% if is_edit %}{% if CURRENT_LANG == 'ar' %}تعديل بيانات المجموعة والمستوى والواجب الشهري{% else %}Modification du groupe, du niveau et du tarif mensuel{% endif %}{% else %}{% if CURRENT_LANG == 'ar' %}إنشاء مجموعة جديدة، تحديد المستوى والواجب الشهري{% else %}Création d'un groupe d'apprentissage, attribution du niveau et tarif mensuel{% endif %}{% endif %}</p>
     </div>
     <div class="page-actions">
         <a href="{% url 'portal:activities_list' %}" class="btn btn-secondary btn-sm">

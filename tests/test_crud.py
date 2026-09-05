@@ -135,7 +135,21 @@ def test_crud_activity_and_group():
     new_subj = Subject.objects.filter(name_fr='Programmation Python').first()
     assert new_subj is not None
 
-    # 2. Create Group within this Subject
+    # 2. Edit Subject
+    resp_s_edit_get = client.get(f'/activities/{new_subj.id}/edit/')
+    assert resp_s_edit_get.status_code == 200
+    assert 'Programmation Python' in resp_s_edit_get.content.decode('utf-8')
+
+    subj_data['name_fr'] = 'Programmation Python & IA'
+    subj_data['name_ar'] = 'برمجة بايثون والذكاء الاصطناعي'
+    subj_data['color'] = '#3B82F6'
+    resp_s_edit_post = client.post(f'/activities/{new_subj.id}/edit/', subj_data)
+    assert resp_s_edit_post.status_code == 302
+    new_subj.refresh_from_db()
+    assert new_subj.name_fr == 'Programmation Python & IA'
+    assert new_subj.color == '#3B82F6'
+
+    # 3. Create Group within this Subject
     grp_data = {
         'name_fr': 'Groupe Python Jeunes',
         'name_ar': 'مجموعة بايثون للناشئين',
@@ -150,12 +164,24 @@ def test_crud_activity_and_group():
     assert new_grp is not None
     assert new_grp.monthly_fee == Decimal('350.00')
 
-    # 3. Delete Group
+    # 4. Edit Group
+    resp_g_edit_get = client.get(f'/groups/{new_grp.id}/edit/')
+    assert resp_g_edit_get.status_code == 200
+
+    grp_data['name_fr'] = 'Groupe Python Avancé'
+    grp_data['monthly_fee'] = '400.00'
+    resp_g_edit_post = client.post(f'/groups/{new_grp.id}/edit/', grp_data)
+    assert resp_g_edit_post.status_code == 302
+    new_grp.refresh_from_db()
+    assert new_grp.name_fr == 'Groupe Python Avancé'
+    assert new_grp.monthly_fee == Decimal('400.00')
+
+    # 5. Delete Group
     resp_g_del = client.post(f'/groups/{new_grp.id}/delete/')
     assert resp_g_del.status_code == 302
     assert not Group.objects.filter(id=new_grp.id).exists()
 
-    # 4. Delete Subject
+    # 6. Delete Subject
     resp_s_del = client.post(f'/activities/{new_subj.id}/delete/')
     assert resp_s_del.status_code == 302
     assert not Subject.objects.filter(id=new_subj.id).exists()
