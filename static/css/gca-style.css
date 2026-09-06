@@ -244,6 +244,17 @@ a:hover {
   0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
   50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
 }
+.pwa-nav-item {
+  display: none;
+}
+@media (max-width: 991px) {
+  html:not([data-device-mode="pc"]) .pwa-nav-item {
+    display: block;
+  }
+}
+html[data-device-mode="mobile"] .pwa-nav-item {
+  display: block;
+}
 
 .btn-pwa-mobile-item {
   width: 100%;
