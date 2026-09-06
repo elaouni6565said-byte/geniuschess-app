@@ -142,7 +142,7 @@ def draw_single_card(c, x, y, student, lang="bilingual"):
 
     c.setFillColor(GOLD_LIGHT)
     c.setFont(get_card_font(True), 7.5)
-    ar_title = prepare_arabic_text_for_pdf("أكاديمية جينيوس للشطرنج")
+    ar_title = prepare_arabic_text_for_pdf("جمعية الشطرنج القاسمي")
     c.drawString(x + 14.5 * mm, y + CARD_HEIGHT - 10.5 * mm, ar_title)
 
     # 3. Footer Bar (Navy Thin)
@@ -211,20 +211,38 @@ def draw_single_card(c, x, y, student, lang="bilingual"):
     c.setFont("Helvetica-Bold", 6.2)
     c.drawString(left_x + 2.0 * mm, mat_y + 1.2 * mm, f"ID: {student.registration_number}")
 
-    # Group / Activity
-    grp = student.groups.first()
-    grp_name = grp.name_fr if grp else "Échecs & Stratégie"
-    subj_name = grp.subject.name_fr if grp and grp.subject else "GCA Academy"
+    # Group(s) / Activity / Multi-activités
+    groups = list(student.groups.select_related('subject').all())
+    if not groups:
+        act_label = "Activité:"
+        act_name = "Échecs"
+    elif len(groups) == 1:
+        act_label = "Groupe:"
+        act_name = groups[0].name_fr
+    else:
+        subjects = []
+        for g in groups:
+            s_name = g.subject.name_fr if g.subject else g.name_fr
+            if s_name and s_name not in subjects:
+                subjects.append(s_name)
+        act_label = "Activités:"
+        act_name = " • ".join(subjects) if subjects else "Multi-activités"
 
     c.setFillColor(TEXT_MUTED)
     c.setFont("Helvetica", 5.8)
-    c.drawString(left_x, mat_y - 3.8 * mm, "Groupe:")
+    c.drawString(left_x, mat_y - 3.8 * mm, act_label)
 
+    offset_x = left_x + (12.5 * mm if len(act_label) > 7 else 11.0 * mm)
     c.setFillColor(TEXT_DARK)
-    c.setFont("Helvetica-Bold", 6.2)
-    if len(grp_name) > 24:
-        grp_name = grp_name[:22] + "..."
-    c.drawString(left_x + 11.0 * mm, mat_y - 3.8 * mm, grp_name)
+    if len(act_name) > 30:
+        c.setFont("Helvetica-Bold", 5.0)
+        if len(act_name) > 38:
+            act_name = act_name[:36] + "..."
+    elif len(act_name) > 22:
+        c.setFont("Helvetica-Bold", 5.6)
+    else:
+        c.setFont("Helvetica-Bold", 6.2)
+    c.drawString(offset_x, mat_y - 3.8 * mm, act_name)
 
     # Academic Year
     c.setFillColor(TEXT_MUTED)

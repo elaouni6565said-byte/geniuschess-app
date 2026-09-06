@@ -23,7 +23,10 @@ def test_student_card_qr_code_and_pdf_generation():
     qr_buf = make_student_qr_code_image(student)
     assert qr_buf.getvalue()[:8] == b'\x89PNG\r\n\x1a\n'
 
-    # 2. Single card PDF
+    # 2. Single card PDF (with multi-groups)
+    all_groups = list(Group.objects.all()[:2])
+    if len(all_groups) > 1:
+        student.groups.set(all_groups)
     pdf_bytes = generate_single_student_card_pdf(student)
     assert pdf_bytes.startswith(b'%PDF')
     assert len(pdf_bytes) > 1000
