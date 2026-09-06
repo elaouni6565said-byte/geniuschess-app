@@ -93,15 +93,15 @@ def generate_receipt_pdf(payment, lang="fr"):
     if lang == "ar":
         title_text = prepare_arabic_text_for_pdf("وصل الأداء")
         academy_sub = prepare_arabic_text_for_pdf("شطرنج • روبوتيك • حساب ذهني")
-        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم / الرباط - هاتف: 0661000000")
+        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: geniuschess.ma • هاتف: 06 060424142")
     elif lang == "bilingual":
         title_text = f"REÇU DE PAIEMENT / {prepare_arabic_text_for_pdf('وصل الأداء')}"
         academy_sub = f"Échecs • Robotique • Calcul Mental / {prepare_arabic_text_for_pdf('شطرنج • روبوتيك • حساب ذهني')}"
-        contact_text = "Sidi Kacem / Rabat - Tél: 06 61 00 00 00"
+        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
     else: # fr
         title_text = "REÇU DE PAIEMENT"
         academy_sub = "Échecs • Robotique • Calcul Mental"
-        contact_text = "Sidi Kacem / Rabat - Tél: 06 61 00 00 00"
+        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
 
     # Header banner Table with official logo
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -257,13 +257,14 @@ def generate_receipt_pdf(payment, lang="fr"):
         footer_msg = "Document officiel délivré par GENIUS CHESS ACADEMY. Valable comme justificatif de paiement."
         stamp_title = "Cachet & Signature de l'Administration"
 
+    stamp_box = f"[ GENIUS CHESS ACADEMY • {org_subtitle} ]" if lang != 'fr' else "[ GENIUS CHESS ACADEMY - VALIDÉ ]"
     sign_data = [
         [
             Paragraph(f"<font size=7 color='#666666'>{footer_msg}<br/>"
                       f"Réf système: GCA-SECURE-{payment.id:06d}</font>",
                       ParagraphStyle('F1', fontName=font_name, leading=10)),
             Paragraph(f"<b><font size=8 color='{NAVY.hexval()}'>{stamp_title}</font></b><br/><br/><br/>"
-                      f"<font size=6.5 color='#999999'>[ GENIUS CHESS ACADEMY • {org_subtitle} ]</font>",
+                      f"<font size=6.5 color='#999999'>{stamp_box}</font>",
                       ParagraphStyle('F2', fontName=font_name, alignment=1, leading=11)),
         ]
     ]

@@ -100,15 +100,15 @@ def generate_timetable_pdf(student, lang="fr"):
     if lang == "ar":
         title_text = prepare_arabic_text_for_pdf("جدول الحصص والتوقيت الأسبوعي")
         academy_sub = prepare_arabic_text_for_pdf("الموسم الدراسي 2026 • شطرنج • روبوتيك • حساب ذهني")
-        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم / الرباط • الموقع: geniuschess.ma • هاتف: 0661000000")
+        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: geniuschess.ma • هاتف: 06 060424142")
     elif lang == "bilingual":
         title_text = f"EMPLOI DU TEMPS / {prepare_arabic_text_for_pdf('جدول الحصص الأسبوعي')}"
         academy_sub = f"Saison 2026 • Échecs • Robotique • Calcul Mental"
-        contact_text = "Sidi Kacem / Rabat • www.geniuschess.ma • Tél: 06 61 00 00 00"
+        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
     else:
         title_text = "EMPLOI DU TEMPS HEBDOMADAIRE"
         academy_sub = "Saison Académique 2026 • Échecs • Robotique • Calcul Mental"
-        contact_text = "Sidi Kacem / Rabat • www.geniuschess.ma • Tél: 06 61 00 00 00"
+        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
 
     # Logo Header
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -332,13 +332,14 @@ def generate_timetable_pdf(student, lang="fr"):
         p2 = "• En cas d'empêchement, veuillez informer l'administration pour organiser un rattrapage."
         p3 = "• Le suivi des séances et l'assiduité sont consultables 24h/24 sur votre Espace Parent."
 
+    stamp_foot = f"GENIUS CHESS ACADEMY — {org_subtitle}" if lang != 'fr' else "GENIUS CHESS ACADEMY — Direction"
     notice_rows = [
         [
             Paragraph(f"<b><font color='{NAVY.hexval()}'>{policy_title}</font></b><br/>"
                       f"<font size=8 color='#475569'>{p1}<br/>{p2}<br/>{p3}</font>",
                       ParagraphStyle('Notes', fontName=font_name, leading=11)),
             Paragraph(f"<b>Cachet & Signature de l'Académie :</b><br/><br/><br/><br/>"
-                      f"<font size=7 color='#94A3B8'>GENIUS CHESS ACADEMY — {org_subtitle}</font>",
+                      f"<font size=7 color='#94A3B8'>{stamp_foot}</font>",
                       ParagraphStyle('Stamp', fontName=font_name, alignment=1, leading=9)),
         ]
     ]

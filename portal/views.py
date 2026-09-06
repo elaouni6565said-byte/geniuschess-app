@@ -163,7 +163,12 @@ def export_students_excel_view(request):
 @admin_required
 def download_planning_pdf_view(request):
     """Export the official master timetable of the academy to a Landscape A4 PDF."""
-    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    lang = request.GET.get('lang')
+    if not lang:
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     room_id = request.GET.get('room')
     room = None
     schedules = SessionSchedule.objects.select_related('group', 'group__subject', 'room').all()
@@ -395,7 +400,10 @@ def payments_list_view(request):
 def download_receipt_pdf_view(request, payment_id):
     lang = request.GET.get('lang')
     if not lang:
-        lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
         
     payment = get_object_or_404(Payment.objects.select_related('student__parent', 'invoice'), id=payment_id)
     
@@ -420,7 +428,10 @@ def download_timetable_pdf_view(request, student_id):
     from portal.timetable_pdf import generate_timetable_pdf
     lang = request.GET.get('lang')
     if not lang:
-        lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
         
     student = get_object_or_404(Student.objects.select_related('parent').prefetch_related('groups__subject', 'groups__schedules__room'), id=student_id)
     
