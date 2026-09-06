@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}الإغلاقات المالية والتقارير العامة — جمعية الشطرنج القاسمي{% else %}Clôtures Financières & Rapports AG — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>📑 {% if CURRENT_LANG == 'ar' %}سجل الإغلاقات المالية وتقارير الجمع العام{% else %}Clôtures Financières & Rapports de l'Assemblée Générale{% endif %}</h2>
+        <p>
+            {% if CURRENT_LANG == 'ar' %}
+                جمعية الشطرنج القاسمي • Genius Chess Academy — إغلاق الفترات، تدقيق الخزينة وإصدار التقارير المالية الرسمية
+            {% else %}
+                GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي • Clôture d'exercices, rapprochement de caisse et rapports financiers officiels
+            {% endif %}
+        </p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:expenses_list' %}" class="btn btn-outline" style="font-weight: 600;">
+            💸 {% if CURRENT_LANG == 'ar' %}المصاريف والنفقات{% else %}Dépenses & Charges{% endif %}
+        </a>
+        <a href="{% url 'portal:financial_forecast' %}" class="btn" style="background: #0369A1; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
+            📈 {% if CURRENT_LANG == 'ar' %}لوحة التوقعات (أجل 15){% else %}Tableau Prévisionnel (15){% endif %}
+        </a>
+        <a href="{% url 'portal:financial_closing_add' %}" class="btn btn-primary" style="font-weight: 700;">
+            ➕ {% if CURRENT_LANG == 'ar' %}إغلاق مالي جديد (شهري أو سنوي){% else %}Nouvelle Clôture Financière{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- Table of Closings -->
+<div class="card" style="padding: 0; overflow: hidden; box-shadow: var(--shadow-sm);">
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% if CURRENT_LANG == 'ar' %}الفترة / التمرين{% else %}Période / Exercice{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}عنوان الإغلاق{% else %}Intitulé{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}النوع{% else %}Type{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}تاريخ الإغلاق{% else %}Date Clôture{% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المداخيل (درهم){% else %}Recettes (DH){% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المصاريف (درهم){% else %}Dépenses (DH){% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}النتيجة الصافية (درهم){% else %}Résultat Net (DH){% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}الحالة والتأمين{% else %}Statut & Verrou{% endif %}</th>
+                    <th style="text-align: center; width: 140px;">{% trans "crud.actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in closings %}
+                <tr>
+                    <td style="font-weight: 700; white-space: nowrap;">
+                        {{ c.get_period_label:CURRENT_LANG }}
+                    </td>
+                    <td>
+                        <a href="{% url 'portal:financial_closing_detail' c.id %}" style="font-weight: 700; color: #0369A1; text-decoration: none;">
+                            {{ c.title }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge" style="background: {% if c.period_type == 'year' %}#FEF3C7; color: #B45309;{% else %}#E0F2FE; color: #0369A1;{% endif %} font-weight: 700;">
+                            {% if c.period_type == 'year' %}🏛️ Annuel (AG){% else %}📅 Mensuel{% endif %}
+                        </span>
+                    </td>
+                    <td style="white-space: nowrap;">
+                        {{ c.closing_date|date:"d/m/Y" }}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #16A34A; white-space: nowrap;">
+                        {{ c.total_collected|currency:CURRENT_LANG }}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #DC2626; white-space: nowrap;">
+                        {{ c.total_expense|currency:CURRENT_LANG }}
+                    </td>
+                    <td style="text-align: right; font-weight: 800; color: {% if c.net_result >= 0 %}#047857{% else %}#B91C1C{% endif %}; white-space: nowrap;">
+                        {{ c.net_result|currency:CURRENT_LANG }}
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                            <span class="badge" style="background: {% if c.status == 'approved' %}#DCFCE7; color: #166534;{% elif c.status == 'closed' %}#DBEAFE; color: #1E40AF;{% else %}#F1F5F9; color: #64748B;{% endif %}">
+                                {% if c.status == 'approved' %}✓ Approuvé
+                                {% elif c.status == 'closed' %}Clôturé
+                                {% else %}Brouillon{% endif %}
+                            </span>
+                            {% if c.is_locked %}
+                                <span title="Période verrouillée" style="font-size: 0.95rem;">🔒</span>
+                            {% else %}
+                                <span title="Période modifiable" style="font-size: 0.95rem;">🔓</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td style="text-align: center; white-space: nowrap;">
+                        <a href="{% url 'portal:financial_closing_detail' c.id %}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem;" title="Consulter">
+                            👁️
+                        </a>
+                        <a href="{% url 'portal:financial_closing_pdf' c.id %}" target="_blank" class="btn btn-sm" style="background: #0369A1; color: white; padding: 0.25rem 0.5rem;" title="Rapport PDF AG">
+                            📄
+                        </a>
+                        <a href="{% url 'portal:financial_closing_excel' c.id %}" class="btn btn-sm" style="background: #16A34A; color: white; padding: 0.25rem 0.5rem;" title="Bilan Excel">
+                            📊
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 3rem 1rem; color: #94A3B8;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📑</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">
+                            {% if CURRENT_LANG == 'ar' %}لا توجد أي إغلاقات مالية مسجلة حتى الآن{% else %}Aucune clôture financière enregistrée pour le moment.{% endif %}
+                        </div>
+                        <p style="margin-bottom: 1.25rem; font-size: 0.9rem;">
+                            {% if CURRENT_LANG == 'ar' %}يمكنك إنشاء أول إغلاق مالي وتدقيق الخزينة وطباعة تقرير الجمع العام بنقرة واحدة{% else %}Figez vos comptes mensuels ou annuels, rapprochez votre caisse et générez le Rapport Officiel pour l'AG.{% endif %}
+                        </p>
+                        <a href="{% url 'portal:financial_closing_add' %}" class="btn btn-primary">
+                            ➕ {% if CURRENT_LANG == 'ar' %}إنشاء أول إغلاق مالي{% else %}Créer la Première Clôture Financière{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

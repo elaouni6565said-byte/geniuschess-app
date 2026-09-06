@@ -229,4 +229,32 @@ class ExpenseCategoryForm(forms.ModelForm):
         }
 
 
+class FinancialClosingForm(forms.ModelForm):
+    class Meta:
+        from finance.models import FinancialClosing
+        model = FinancialClosing
+        fields = [
+            'period_type', 'year', 'month', 'title', 'status', 'closing_date',
+            'initial_cash_balance', 'initial_bank_balance',
+            'physical_cash_counted', 'bank_statement_balance',
+            'is_locked', 'treasurer_notes', 'president_notes'
+        ]
+        widgets = {
+            'period_type': forms.Select(attrs={'class': 'search-input'}),
+            'year': forms.NumberInput(attrs={'class': 'search-input'}),
+            'month': forms.Select(choices=[('', '-- Annuel (Exercice entier) --')] + [(m, f"Mois {m:02d}") for m in range(1, 13)], attrs={'class': 'search-input'}),
+            'title': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Clôture Annuelle Exercice 2026'}),
+            'status': forms.Select(attrs={'class': 'search-input'}),
+            'closing_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date'}),
+            'initial_cash_balance': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50'}),
+            'initial_bank_balance': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50'}),
+            'physical_cash_counted': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50', 'placeholder': 'Comptage physique réel du coffre'}),
+            'bank_statement_balance': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50', 'placeholder': 'Solde relevé bancaire arrêté'}),
+            'is_locked': forms.CheckboxInput(attrs={'class': 'status-checkbox'}),
+            'treasurer_notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Remarques ou explications d’écarts du Trésorier Général'}),
+            'president_notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Avis et validation du Président de l’Association'}),
+        }
+
+
+
 

@@ -205,3 +205,126 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.amount} DH ({self.expense_date})"
+
+
+class FinancialClosing(models.Model):
+    PERIOD_CHOICES = [
+        ('month', 'Mensuelle / شهري'),
+        ('year', 'Annuelle (Exercice) / سنوي'),
+    ]
+    STATUS_CHOICES = [
+        ('draft', 'Brouillon / مسودة'),
+        ('closed', 'Clôturé / مغلق'),
+        ('approved', 'Approuvé par le Bureau / مصادق عليه'),
+    ]
+
+    period_type = models.CharField(max_length=20, choices=PERIOD_CHOICES, default='month', verbose_name="Type de clôture")
+    year = models.IntegerField(verbose_name="Année / Exercice")
+    month = models.IntegerField(null=True, blank=True, verbose_name="Mois (1-12 si mensuel)")
+    title = models.CharField(max_length=200, blank=True, verbose_name="Titre / Intitulé")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Statut")
+    closing_date = models.DateField(verbose_name="Date de clôture")
+
+    # Soldes Initiaux (Report à nouveau)
+    initial_cash_balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Solde initial Caisse Espèces (DH)")
+    initial_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Solde initial Compte Bancaire (DH)")
+
+    # Flux Recettes de la période
+    total_collected_cash = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Recettes Espèces (DH)")
+    total_collected_bank = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Recettes Banque / Virements & Chèques (DH)")
+    total_collected = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Total Recettes Encaissées (DH)")
+
+    # Flux Dépenses de la période
+    total_expense_cash = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Dépenses payées en Espèces (DH)")
+    total_expense_bank = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Dépenses payées par Banque (DH)")
+    total_expense = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Total Dépenses & Charges (DH)")
+
+    # Résultat Net de la période
+    net_result = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Résultat Net (Excédent / Déficit) (DH)")
+
+    # Soldes Théoriques fin de période
+    theoretical_cash = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Solde théorique Caisse Espèces (DH)")
+    theoretical_bank = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Solde théorique Compte Bancaire (DH)")
+
+    # Rapprochement Physique & Relevé Bancaire
+    physical_cash_counted = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Comptage physique réel de Caisse (DH)")
+    bank_statement_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Solde relevé bancaire de fin de période (DH)")
+    cash_discrepancy = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Écart de Caisse (Réel - Théorique) (DH)")
+    bank_discrepancy = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Écart Bancaire (Relevé - Théorique) (DH)")
+
+    # Verrouillage & Responsabilité
+    is_locked = models.BooleanField(default=False, verbose_name="Période verrouillée (Gel des écritures)")
+    closed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Clôturé par")
+    treasurer_notes = models.TextField(blank=True, verbose_name="Observations du Trésorier Général")
+    president_notes = models.TextField(blank=True, verbose_name="Observations du Président")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Clôture financière"
+        verbose_name_plural = "Clôtures financières"
+        ordering = ['-year', '-month', '-id']
+
+    def get_period_label(self, lang='fr'):
+        from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
+        if self.period_type == 'year':
+            return f"Exercice {self.year}" if lang != 'ar' else f"السنة المالية {self.year}"
+        m_fr = FRENCH_MONTHS.get(self.month, str(self.month)).capitalize()
+        m_ar = ARABIC_MONTHS.get(self.month, str(self.month))
+        return f"{m_fr} {self.year}" if lang != 'ar' else f"{m_ar} {self.year}"
+
+    def compute_and_update_totals(self):
+        """
+        Calcule automatiquement les flux d'entrées et de sorties
+        à partir des tables Payment et Expense pour la période définie.
+        """
+        from django.db.models import Sum
+
+        # Filtres dates
+        p_qs = Payment.objects.all()
+        e_qs = Expense.objects.all()
+
+        if self.period_type == 'year':
+            p_qs = p_qs.filter(payment_date__year=self.year)
+            e_qs = e_qs.filter(expense_date__year=self.year)
+        else:
+            p_qs = p_qs.filter(payment_date__year=self.year, payment_date__month=self.month)
+            e_qs = e_qs.filter(expense_date__year=self.year, expense_date__month=self.month)
+
+        # Recettes
+        self.total_collected_cash = p_qs.filter(payment_method='cash').aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        self.total_collected_bank = p_qs.filter(payment_method__in=['transfer', 'check', 'online']).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        self.total_collected = self.total_collected_cash + self.total_collected_bank
+
+        # Dépenses
+        self.total_expense_cash = e_qs.filter(payment_method='cash').aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        self.total_expense_bank = e_qs.filter(payment_method__in=['transfer', 'check']).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        self.total_expense = self.total_expense_cash + self.total_expense_bank
+
+        # Résultat Net
+        self.net_result = self.total_collected - self.total_expense
+
+        # Soldes théoriques
+        self.theoretical_cash = self.initial_cash_balance + self.total_collected_cash - self.total_expense_cash
+        self.theoretical_bank = self.initial_bank_balance + self.total_collected_bank - self.total_expense_bank
+
+        # Écarts
+        if self.physical_cash_counted is not None:
+            self.cash_discrepancy = self.physical_cash_counted - self.theoretical_cash
+        else:
+            self.cash_discrepancy = Decimal('0.00')
+
+        if self.bank_statement_balance is not None:
+            self.bank_discrepancy = self.bank_statement_balance - self.theoretical_bank
+        else:
+            self.bank_discrepancy = Decimal('0.00')
+
+    def save(self, *args, **kwargs):
+        if not self.title:
+            self.title = f"Clôture {self.get_period_label('fr')}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.title} ({self.status}) - Résultat: {self.net_result} DH"
+

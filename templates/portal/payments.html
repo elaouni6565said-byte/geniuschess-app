@@ -25,6 +25,9 @@
         <a href="{% url 'portal:expenses_list' %}" class="btn" style="background: #475569; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
             💸 {% if CURRENT_LANG == 'ar' %}المصاريف والنفقات{% else %}Dépenses & Charges{% endif %}
         </a>
+        <a href="{% url 'portal:financial_closings' %}" class="btn" style="background: #001B57; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
+            📑 {% if CURRENT_LANG == 'ar' %}تقارير الجمع العام والإغلاقات{% else %}Clôtures & Rapports AG{% endif %}
+        </a>
         <a href="{% url 'portal:payment_add' %}" class="btn btn-primary">
             ➕ {% if CURRENT_LANG == 'ar' %}تسجيل أداء جديد{% else %}Enregistrer un Paiement{% endif %}
         </a>

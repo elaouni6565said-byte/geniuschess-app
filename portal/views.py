@@ -2,7 +2,7 @@ import os
 from decimal import Decimal
 from portal.forms import (
     StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm,
-    ExpenseForm, ExpenseCategoryForm
+    ExpenseForm, ExpenseCategoryForm, FinancialClosingForm
 )
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -19,12 +19,14 @@ from academy.models import (
     Student, Parent, Group, Subject, Room, SessionSchedule,
     Attendance, Notification, User, ParentVisitLog
 )
-from finance.models import Payment, Invoice, Expense, ExpenseCategory
+from finance.models import Payment, Invoice, Expense, ExpenseCategory, FinancialClosing
 from finance.receipt_pdf import generate_receipt_pdf
+from finance.annual_report_pdf import generate_annual_report_pdf
 from finance.reminders import generate_monthly_reminders
 from portal.excel_export import (
     export_students_to_excel, export_paid_payments_to_excel,
-    export_unpaid_invoices_to_excel, export_expenses_to_excel
+    export_unpaid_invoices_to_excel, export_expenses_to_excel,
+    export_annual_financial_report_to_excel
 )
 from portal.planning_pdf import generate_master_planning_pdf
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
@@ -2670,4 +2672,228 @@ def export_expenses_excel_view(request):
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+# ==============================================================================
+# CLÔTURES FINANCIÈRES, RAPPROCHEMENT DE CAISSE & RAPPORT AG (PHASE 2)
+# ==============================================================================
+
+@admin_required
+def financial_closings_list_view(request):
+    """
+    Console principale de gestion des clôtures périodiques et bilans d'exercices.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    closings = FinancialClosing.objects.select_related('closed_by').order_by('-year', '-month', '-id')
+
+    total_closings = closings.count()
+    annual_closings = closings.filter(period_type='year').count()
+
+    context = {
+        'closings': closings,
+        'total_closings': total_closings,
+        'annual_closings': annual_closings,
+    }
+    return render(request, 'portal/financial_closings.html', context)
+
+
+@admin_required
+def financial_closing_create_view(request):
+    """
+    Assistant de création et de calcul automatique d'une clôture financière.
+    """
+    from datetime import date
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    today = date.today()
+
+    if request.method == 'POST':
+        form = FinancialClosingForm(request.POST)
+        if form.is_valid():
+            closing = form.save(commit=False)
+            closing.closed_by = request.user
+            closing.compute_and_update_totals()
+            closing.save()
+            messages.success(
+                request,
+                f"✓ Clôture « {closing.title} » enregistrée avec succès !" if lang != 'ar' else f"✓ تم تسجيل الإغلاق « {closing.title} » بنجاح !"
+            )
+            return redirect('portal:financial_closing_detail', closing_id=closing.id)
+    else:
+        period_type = request.GET.get('type', 'year')
+        year = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month)) if period_type == 'month' else None
+
+        prev_closing = FinancialClosing.objects.filter(year__lte=year).exclude(year=year, month__gte=month if month else 13).order_by('-year', '-month').first()
+        init_cash = (prev_closing.physical_cash_counted or prev_closing.theoretical_cash) if prev_closing else Decimal('0.00')
+        init_bank = (prev_closing.bank_statement_balance or prev_closing.theoretical_bank) if prev_closing else Decimal('0.00')
+
+        initial_data = {
+            'period_type': period_type,
+            'year': year,
+            'month': month,
+            'closing_date': today,
+            'initial_cash_balance': init_cash,
+            'initial_bank_balance': init_bank,
+            'title': f"Exercice {year}" if period_type == 'year' else f"Mois {month:02d}/{year}",
+            'status': 'closed',
+        }
+        form = FinancialClosingForm(initial=initial_data)
+
+    context = {
+        'form': form,
+        'is_edit': False,
+        'title': "Nouvelle Clôture Financière / إغلاق مالي جديد",
+    }
+    return render(request, 'portal/financial_closing_form.html', context)
+
+
+@admin_required
+def financial_closing_detail_view(request, closing_id):
+    """
+    Tableau de bord exhaustif d'une clôture financière avec rapprochement de caisse.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    closing = get_object_or_404(FinancialClosing.objects.select_related('closed_by'), id=closing_id)
+
+    if not closing.is_locked:
+        closing.compute_and_update_totals()
+        closing.save()
+
+    p_qs = Payment.objects.all()
+    if closing.period_type == 'year':
+        p_qs = p_qs.filter(payment_date__year=closing.year)
+    else:
+        p_qs = p_qs.filter(payment_date__year=closing.year, payment_date__month=closing.month)
+
+    subjects_data = []
+    for sub in Subject.objects.all():
+        sub_p = p_qs.filter(invoice__group__subject=sub)
+        sub_tot = sub_p.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+        if sub_tot > 0 or sub_p.count() > 0:
+            pct = round(float((sub_tot / (closing.total_collected or Decimal('1.00')))) * 100, 1)
+            subjects_data.append({
+                'subject': sub,
+                'name': sub.get_name(lang) if hasattr(sub, 'get_name') else sub.name_fr,
+                'count': sub_p.count(),
+                'total': sub_tot,
+                'pct': pct
+            })
+
+    e_qs = Expense.objects.all()
+    if closing.period_type == 'year':
+        e_qs = e_qs.filter(expense_date__year=closing.year)
+    else:
+        e_qs = e_qs.filter(expense_date__year=closing.year, expense_date__month=closing.month)
+
+    categories_data = []
+    for cat in ExpenseCategory.objects.all():
+        cat_e = e_qs.filter(category=cat)
+        cat_tot = cat_e.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+        if cat_tot > 0 or cat_e.count() > 0:
+            pct = round(float((cat_tot / (closing.total_expense or Decimal('1.00')))) * 100, 1)
+            categories_data.append({
+                'category': cat,
+                'name': cat.get_name(lang),
+                'icon': cat.icon,
+                'color': cat.color,
+                'count': cat_e.count(),
+                'total': cat_tot,
+                'pct': pct
+            })
+
+    context = {
+        'closing': closing,
+        'subjects_data': subjects_data,
+        'categories_data': categories_data,
+    }
+    return render(request, 'portal/financial_closing_detail.html', context)
+
+
+@admin_required
+def financial_closing_toggle_lock_view(request, closing_id):
+    """Verrouille ou déverrouille une clôture financière."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    closing = get_object_or_404(FinancialClosing, id=closing_id)
+
+    if request.method == 'POST':
+        closing.is_locked = not closing.is_locked
+        closing.save(update_fields=['is_locked'])
+        if closing.is_locked:
+            messages.success(
+                request,
+                f"🔒 Période « {closing.title} » verrouillée avec succès !" if lang != 'ar' else f"🔒 تم قفل الفترة « {closing.title} » بنجاح !"
+            )
+        else:
+            messages.warning(
+                request,
+                f"🔓 Période « {closing.title} » déverrouillée !" if lang != 'ar' else f"🔓 تم إلغاء قفل الفترة « {closing.title} » !"
+            )
+    return redirect('portal:financial_closing_detail', closing_id=closing.id)
+
+
+@admin_required
+def financial_closing_delete_view(request, closing_id):
+    """Supprime une clôture non verrouillée."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    closing = get_object_or_404(FinancialClosing, id=closing_id)
+
+    if closing.is_locked:
+        messages.error(
+            request,
+            "Impossible de supprimer une période verrouillée !" if lang != 'ar' else "لا يمكن حذف فترة مقفلة ومؤكدة !"
+        )
+        return redirect('portal:financial_closing_detail', closing_id=closing.id)
+
+    if request.method == 'POST':
+        title = closing.title
+        closing.delete()
+        messages.success(
+            request,
+            f"✓ Clôture « {title} » supprimée avec succès !" if lang != 'ar' else f"✓ تم حذف الإغلاق « {title} » بنجاح !"
+        )
+        return redirect('portal:financial_closings')
+
+    return redirect('portal:financial_closing_detail', closing_id=closing.id)
+
+
+@admin_required
+def financial_annual_report_pdf_view(request, closing_id):
+    """Téléchargement du Rapport Financier Officiel de l'Assemblée Générale en PDF."""
+    lang = request.GET.get('lang')
+    if not lang:
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    closing = get_object_or_404(FinancialClosing, id=closing_id)
+    pdf_bytes = generate_annual_report_pdf(closing, lang=lang)
+
+    filename = f"Rapport_Financier_AG_{closing.year}_{lang}.pdf"
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@admin_required
+def financial_annual_report_excel_view(request, closing_id):
+    """Téléchargement du Bilan Financier Annuel Multi-Feuilles en Excel (.xlsx)."""
+    lang = request.GET.get('lang')
+    if not lang:
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    closing = get_object_or_404(FinancialClosing, id=closing_id)
+    excel_bytes = export_annual_financial_report_to_excel(closing.year, lang=lang, closing=closing)
+
+    filename = f"Bilan_Financier_AG_{closing.year}_{lang}.xlsx"
+    response = HttpResponse(
+        excel_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
 

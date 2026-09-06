@@ -34,6 +34,15 @@ urlpatterns = [
     path('expenses/categories/<int:category_id>/edit/', views.expense_category_edit_view, name='expense_category_edit'),
     path('expenses/categories/<int:category_id>/delete/', views.expense_category_delete_view, name='expense_category_delete'),
     path('expenses/export-excel/', views.export_expenses_excel_view, name='export_expenses_excel'),
+
+    # Clôtures Financières & Rapport AG (Phase 2)
+    path('closings/', views.financial_closings_list_view, name='financial_closings'),
+    path('closings/add/', views.financial_closing_create_view, name='financial_closing_add'),
+    path('closings/<int:closing_id>/', views.financial_closing_detail_view, name='financial_closing_detail'),
+    path('closings/<int:closing_id>/toggle-lock/', views.financial_closing_toggle_lock_view, name='financial_closing_toggle_lock'),
+    path('closings/<int:closing_id>/delete/', views.financial_closing_delete_view, name='financial_closing_delete'),
+    path('closings/<int:closing_id>/pdf/', views.financial_annual_report_pdf_view, name='financial_closing_pdf'),
+    path('closings/<int:closing_id>/excel/', views.financial_annual_report_excel_view, name='financial_closing_excel'),
     path('parent/', views.parent_space_view, name='parent_space'),
     path('register/', views.register_view, name='register'),
     path('login/', views.login_view, name='login'),

@@ -36,6 +36,9 @@
                 <a href="{% url 'portal:expenses_list' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-sm" style="background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 9999px; font-weight: 700; padding: 0.4rem 0.85rem;">
                     💸 {% if CURRENT_LANG == 'ar' %}سجل المصاريف والنفقات{% else %}Registre des Dépenses{% endif %}
                 </a>
+                <a href="{% url 'portal:financial_closings' %}" class="btn btn-sm" style="background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 9999px; font-weight: 700; padding: 0.4rem 0.85rem;">
+                    📑 {% if CURRENT_LANG == 'ar' %}تقارير الجمع العام والإغلاقات{% else %}Clôtures & Rapports AG{% endif %}
+                </a>
                 <form method="GET" action="{% url 'portal:financial_forecast' %}" style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); padding: 0.5rem 0.75rem; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.2);">
                     <select name="month" class="form-select form-select-sm" style="background: #0A192F; color: white; border: 1px solid #334155; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; padding: 0.25rem 0.6rem;">
                         {% for m in months_list %}

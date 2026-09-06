@@ -1,4 +1,5 @@
 import io
+from decimal import Decimal
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -584,4 +585,426 @@ def export_expenses_to_excel(expenses_queryset, lang="fr", month=None, year=None
     excel_bytes = buffer.getvalue()
     buffer.close()
     return excel_bytes
+
+
+def export_annual_financial_report_to_excel(year, lang="fr", closing=None):
+    """
+    Génère un classeur Excel complet multi-feuilles (.xlsx) du Bilan Financier Annuel
+    pour l'Assemblée Générale de l'Association جمعية الشطرنج القاسمي et Genius Chess Academy.
+    Feuille 1: Synthèse du Bilan & Trésorerie
+    Feuille 2: Détail des Recettes Encaissées
+    Feuille 3: Détail des Dépenses Acquittées
+    Feuille 4: Journal Chronologique de Trésorerie (Caisse & Banque)
+    """
+    from finance.models import Payment, Expense, ExpenseCategory
+    from academy.models import Subject
+    from django.db.models import Sum
+
+    wb = Workbook()
+
+    # Querysets
+    payments_qs = Payment.objects.filter(payment_date__year=year).select_related('student', 'invoice', 'invoice__group').order_by('payment_date', 'id')
+    expenses_qs = Expense.objects.filter(expense_date__year=year).select_related('category').order_by('expense_date', 'id')
+
+    tot_collected = payments_qs.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    tot_expense = expenses_qs.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    net_result = tot_collected - tot_expense
+
+    cash_rec = payments_qs.filter(payment_method='cash').aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    bank_rec = payments_qs.filter(payment_method__in=['transfer', 'check', 'online']).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    cash_exp = expenses_qs.filter(payment_method='cash').aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    bank_exp = expenses_qs.filter(payment_method__in=['transfer', 'check']).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    init_cash = closing.initial_cash_balance if closing else Decimal('0.00')
+    init_bank = closing.initial_bank_balance if closing else Decimal('0.00')
+
+    theo_cash = init_cash + cash_rec - cash_exp
+    theo_bank = init_bank + bank_rec - bank_exp
+
+    # =========================================================================
+    # FEUILLE 1 : BILAN SYNTHÉTIQUE & RAPPORT AG
+    # =========================================================================
+    ws1 = wb.active
+    ws1.title = "Bilan Financier AG" if lang != "ar" else "التقرير المالي للجمع العام"
+    if lang == "ar":
+        ws1.sheet_view.rightToLeft = True
+
+    title_text = f"GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي — RAPPORT FINANCIER EXERCICE {year}"
+    sub_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+
+    ws1.merge_cells("A1:G1")
+    ws1["A1"] = title_text
+    ws1["A1"].font = TITLE_FONT
+    ws1["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws1.row_dimensions[1].height = 32
+
+    ws1.merge_cells("A2:G2")
+    ws1["A2"] = sub_text
+    ws1["A2"].font = Font(name="Segoe UI", size=9, italic=True, color="64748B")
+    ws1["A2"].alignment = Alignment(horizontal="center", vertical="center")
+    ws1.row_dimensions[2].height = 18
+
+    # Section 1: KPI Summary
+    ws1["A4"] = "1. SYNTHÈSE BUDGÉTAIRE GÉNÉRALE DE L'EXERCICE"
+    ws1["A4"].font = Font(name="Segoe UI", size=11, bold=True, color="001B57")
+
+    summary_headers = ["Poste Budgétaire", "Espèces (Caisse)", "Banque (Chèque/Virement)", "Total Général (DH)", "Appréciation"]
+    ws1.row_dimensions[5].height = 24
+    for col_idx, h_text in enumerate(summary_headers, 1):
+        c = ws1.cell(row=5, column=col_idx, value=h_text)
+        c.font = HEADER_FONT
+        c.fill = NAVY_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER_THIN
+
+    summary_rows = [
+        ("TOTAL DES RECETTES ENCAISSÉES (+)", float(cash_rec), float(bank_rec), float(tot_collected), "Cotisations & droits encaissés"),
+        ("TOTAL DES DÉPENSES ACQUITTÉES (-)", float(cash_exp), float(bank_exp), float(tot_expense), "Coûts et charges d'exploitation"),
+        ("RÉSULTAT NET D'EXPLOITATION", float(cash_rec - cash_exp), float(bank_rec - bank_exp), float(net_result), "Excédent d'exercice" if net_result >= 0 else "Déficit temporaire"),
+    ]
+
+    for r_idx, row_data in enumerate(summary_rows, 6):
+        ws1.row_dimensions[r_idx].height = 22
+        for c_idx, val in enumerate(row_data, 1):
+            cell = ws1.cell(row=r_idx, column=c_idx, value=val)
+            cell.font = BOLD_DATA_FONT if r_idx == 8 else DATA_FONT
+            cell.border = BORDER_THIN
+            if c_idx in (2, 3, 4):
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+                cell.number_format = '#,##0.00 "DH"'
+                if r_idx == 8:
+                    cell.font = TOTAL_FONT if net_result >= 0 else TOTAL_RED_FONT
+                    cell.fill = TOTAL_FILL if net_result >= 0 else UNPAID_TOTAL_FILL
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    # Section 2: Trésorerie & Disponibilités
+    ws1["A10"] = "2. ÉTAT DE TRÉSORERIE ET DISPONIBILITÉS LIQUIDES"
+    ws1["A10"].font = Font(name="Segoe UI", size=11, bold=True, color="001B57")
+
+    tres_headers = ["Trésorerie", "Solde Initial", "Flux Entrées (+)", "Flux Sorties (-)", "Solde Théorique", "Solde Réel Constaté", "Écart Constaté"]
+    ws1.row_dimensions[11].height = 24
+    for col_idx, h_text in enumerate(tres_headers, 1):
+        c = ws1.cell(row=11, column=col_idx, value=h_text)
+        c.font = HEADER_FONT
+        c.fill = NAVY_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER_THIN
+
+    phys_cash_val = float(closing.physical_cash_counted) if (closing and closing.physical_cash_counted is not None) else float(theo_cash)
+    bank_stmt_val = float(closing.bank_statement_balance) if (closing and closing.bank_statement_balance is not None) else float(theo_bank)
+
+    tres_rows = [
+        ("Caisse Espèces (Coffre)", float(init_cash), float(cash_rec), float(cash_exp), float(theo_cash), phys_cash_val, float(closing.cash_discrepancy if closing else 0)),
+        ("Compte Bancaire", float(init_bank), float(bank_rec), float(bank_exp), float(theo_bank), bank_stmt_val, float(closing.bank_discrepancy if closing else 0)),
+        ("TOTAL DISPONIBILITÉS", float(init_cash + init_bank), float(tot_collected), float(tot_expense), float(theo_cash + theo_bank), phys_cash_val + bank_stmt_val, float((closing.cash_discrepancy + closing.bank_discrepancy) if closing else 0)),
+    ]
+
+    for r_idx, row_data in enumerate(tres_rows, 12):
+        ws1.row_dimensions[r_idx].height = 22
+        for c_idx, val in enumerate(row_data, 1):
+            cell = ws1.cell(row=r_idx, column=c_idx, value=val)
+            cell.font = BOLD_DATA_FONT if r_idx == 14 else DATA_FONT
+            cell.border = BORDER_TOTAL if r_idx == 14 else BORDER_THIN
+            if c_idx >= 2:
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+                cell.number_format = '#,##0.00 "DH"'
+                if r_idx == 14:
+                    cell.fill = TOTAL_FILL
+                    cell.font = TOTAL_FONT
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    # Section 3: Ventilation Dépenses par Catégorie
+    ws1["A16"] = "3. VENTILATION DES CHARGES D'EXPLOITATION PAR CATÉGORIE"
+    ws1["A16"].font = Font(name="Segoe UI", size=11, bold=True, color="001B57")
+
+    exp_cat_headers = ["Catégorie de Dépense", "Nombre d'opérations", "Part Budgétaire (%)", "Montant Total (DH)"]
+    ws1.row_dimensions[17].height = 24
+    for col_idx, h_text in enumerate(exp_cat_headers, 1):
+        c = ws1.cell(row=17, column=col_idx, value=h_text)
+        c.font = HEADER_FONT
+        c.fill = NAVY_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER_THIN
+
+    curr_r = 18
+    tot_exp_float = float(tot_expense) if tot_expense > 0 else 1.0
+    for cat in ExpenseCategory.objects.all():
+        c_exps = expenses_qs.filter(category=cat)
+        c_amt = c_exps.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+        c_cnt = c_exps.count()
+        if c_amt > 0 or c_cnt > 0:
+            ws1.row_dimensions[curr_r].height = 20
+            pct = round((float(c_amt) / tot_exp_float) * 100, 1)
+            ws1.cell(row=curr_r, column=1, value=f"{cat.icon} {cat.name_fr} ({cat.name_ar})").alignment = Alignment(horizontal="left", vertical="center")
+            ws1.cell(row=curr_r, column=2, value=c_cnt).alignment = Alignment(horizontal="center", vertical="center")
+            ws1.cell(row=curr_r, column=3, value=f"{pct}%").alignment = Alignment(horizontal="right", vertical="center")
+            amt_c = ws1.cell(row=curr_r, column=4, value=float(c_amt))
+            amt_c.alignment = Alignment(horizontal="right", vertical="center")
+            amt_c.number_format = '#,##0.00 "DH"'
+            amt_c.font = BOLD_DATA_FONT
+            for col_i in range(1, 5):
+                ws1.cell(row=curr_r, column=col_i).border = BORDER_THIN
+            curr_r += 1
+
+    # Total Ligne Dépenses
+    ws1.row_dimensions[curr_r].height = 24
+    ws1.cell(row=curr_r, column=1, value="TOTAL DES CHARGES D'EXPLOITATION").font = TOTAL_FONT
+    ws1.cell(row=curr_r, column=1).border = BORDER_TOTAL
+    ws1.cell(row=curr_r, column=2, value=expenses_qs.count()).border = BORDER_TOTAL
+    ws1.cell(row=curr_r, column=3, value="100.0%").border = BORDER_TOTAL
+    tot_exp_cell = ws1.cell(row=curr_r, column=4, value=float(tot_expense))
+    tot_exp_cell.font = TOTAL_FONT
+    tot_exp_cell.fill = TOTAL_FILL
+    tot_exp_cell.border = BORDER_TOTAL
+    tot_exp_cell.alignment = Alignment(horizontal="right", vertical="center")
+    tot_exp_cell.number_format = '#,##0.00 "DH"'
+
+    # Signatures Footer
+    curr_r += 3
+    ws1.cell(row=curr_r, column=2, value="LE TRÉSORIER GÉNÉRAL").font = TOTAL_FONT
+    ws1.cell(row=curr_r, column=5, value="LE PRÉSIDENT DE L'ASSOCIATION").font = TOTAL_FONT
+    curr_r += 1
+    ws1.cell(row=curr_r, column=2, value="أمين المال العام").font = BOLD_DATA_FONT
+    ws1.cell(row=curr_r, column=5, value="رئيس الجمعية").font = BOLD_DATA_FONT
+
+    # =========================================================================
+    # FEUILLE 2 : DÉTAIL DES RECETTES ENCAISSÉES
+    # =========================================================================
+    ws2 = wb.create_sheet(title="Recettes Encaissées" if lang != "ar" else "المقبوضات")
+    if lang == "ar":
+        ws2.sheet_view.rightToLeft = True
+
+    ws2.merge_cells("A1:H1")
+    ws2["A1"] = f"GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي — Registre Détaillé des Recettes {year}"
+    ws2["A1"].font = TITLE_FONT
+    ws2["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws2.row_dimensions[1].height = 32
+
+    rec_headers = ["N° Reçu", "Date Paiement", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)", "Activité", "Mode Règlement", "Montant Réglé (DH)"]
+    ws2.row_dimensions[3].height = 26
+    for col_idx, h_text in enumerate(rec_headers, 1):
+        c = ws2.cell(row=3, column=col_idx, value=h_text)
+        c.font = HEADER_FONT
+        c.fill = NAVY_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER_THIN
+
+    row_i = 4
+    for p in payments_qs:
+        ws2.row_dimensions[row_i].height = 20
+        st = p.student
+        grp = p.invoice.group if (p.invoice and p.invoice.group) else (st.groups.first() if st else None)
+        sub_name = grp.subject.get_bilingual_name() if (grp and grp.subject) else "-"
+
+        vals = [
+            f"#{p.receipt_number}",
+            p.payment_date.strftime("%d/%m/%Y"),
+            st.registration_number if st else "-",
+            f"{st.first_name_fr} {st.last_name_fr}".strip() if st else "-",
+            f"{st.first_name_ar} {st.last_name_ar}".strip() if st else "-",
+            sub_name,
+            p.get_method_label(lang),
+            float(p.amount)
+        ]
+        for col_idx, val in enumerate(vals, 1):
+            c = ws2.cell(row=row_i, column=col_idx, value=val)
+            c.font = DATA_FONT
+            c.border = BORDER_THIN
+            if col_idx == 8:
+                c.alignment = Alignment(horizontal="right", vertical="center")
+                c.number_format = '#,##0.00 "DH"'
+                c.font = BOLD_DATA_FONT
+            else:
+                c.alignment = Alignment(horizontal="left", vertical="center")
+        row_i += 1
+
+    # Total Recettes
+    ws2.row_dimensions[row_i].height = 26
+    ws2.merge_cells(start_row=row_i, start_column=1, end_row=row_i, end_column=7)
+    tot_rec_lbl = ws2.cell(row=row_i, column=1, value="TOTAL DES RECETTES ENCAISSÉES / مجموع المداخيل :")
+    tot_rec_lbl.font = TOTAL_FONT
+    tot_rec_lbl.fill = TOTAL_FILL
+    tot_rec_lbl.border = BORDER_TOTAL
+    tot_rec_lbl.alignment = Alignment(horizontal="right", vertical="center")
+
+    tot_rec_val = ws2.cell(row=row_i, column=8, value=float(tot_collected))
+    tot_rec_val.font = TOTAL_FONT
+    tot_rec_val.fill = TOTAL_FILL
+    tot_rec_val.border = BORDER_TOTAL
+    tot_rec_val.alignment = Alignment(horizontal="right", vertical="center")
+    tot_rec_val.number_format = '#,##0.00 "DH"'
+
+    # =========================================================================
+    # FEUILLE 3 : DÉTAIL DES DÉPENSES ACQUITTÉES
+    # =========================================================================
+    ws3 = wb.create_sheet(title="Dépenses Acquittées" if lang != "ar" else "المصاريف")
+    if lang == "ar":
+        ws3.sheet_view.rightToLeft = True
+
+    ws3.merge_cells("A1:H1")
+    ws3["A1"] = f"GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي — Registre Détaillé des Dépenses {year}"
+    ws3["A1"].font = TITLE_FONT
+    ws3["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws3.row_dimensions[1].height = 32
+
+    exp_headers = ["Date", "Libellé de la Dépense", "Catégorie", "Bénéficiaire / Fournisseur", "N° Facture / Réf", "Mode Règlement", "Montant (DH)", "Observations"]
+    ws3.row_dimensions[3].height = 26
+    for col_idx, h_text in enumerate(exp_headers, 1):
+        c = ws3.cell(row=3, column=col_idx, value=h_text)
+        c.font = HEADER_FONT
+        c.fill = NAVY_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER_THIN
+
+    row_i = 4
+    for exp in expenses_qs:
+        ws3.row_dimensions[row_i].height = 20
+        cat_name = exp.category.get_name(lang) if exp.category else "-"
+        vals = [
+            exp.expense_date.strftime("%d/%m/%Y"),
+            exp.title,
+            cat_name,
+            exp.beneficiary or "-",
+            exp.invoice_number or "-",
+            exp.get_method_label(lang),
+            float(exp.amount),
+            exp.notes or "-"
+        ]
+        for col_idx, val in enumerate(vals, 1):
+            c = ws3.cell(row=row_i, column=col_idx, value=val)
+            c.font = DATA_FONT
+            c.border = BORDER_THIN
+            if col_idx == 7:
+                c.alignment = Alignment(horizontal="right", vertical="center")
+                c.number_format = '#,##0.00 "DH"'
+                c.font = BOLD_DATA_FONT
+            else:
+                c.alignment = Alignment(horizontal="left", vertical="center")
+        row_i += 1
+
+    # Total Dépenses
+    ws3.row_dimensions[row_i].height = 26
+    ws3.merge_cells(start_row=row_i, start_column=1, end_row=row_i, end_column=6)
+    tot_exp_lbl = ws3.cell(row=row_i, column=1, value="TOTAL DES DÉPENSES ACQUITTÉES / مجموع المصاريف :")
+    tot_exp_lbl.font = TOTAL_FONT
+    tot_exp_lbl.fill = TOTAL_FILL
+    tot_exp_lbl.border = BORDER_TOTAL
+    tot_exp_lbl.alignment = Alignment(horizontal="right", vertical="center")
+
+    tot_exp_val = ws3.cell(row=row_i, column=7, value=float(tot_expense))
+    tot_exp_val.font = TOTAL_FONT
+    tot_exp_val.fill = TOTAL_FILL
+    tot_exp_val.border = BORDER_TOTAL
+    tot_exp_val.alignment = Alignment(horizontal="right", vertical="center")
+    tot_exp_val.number_format = '#,##0.00 "DH"'
+    ws3.cell(row=row_i, column=8).border = BORDER_TOTAL
+    ws3.cell(row=row_i, column=8).fill = TOTAL_FILL
+
+    # =========================================================================
+    # FEUILLE 4 : JOURNAL CHRONOLOGIQUE DE TRÉSORERIE (CAISSE & BANQUE)
+    # =========================================================================
+    ws4 = wb.create_sheet(title="Journal Trésorerie" if lang != "ar" else "سجل الخزينة")
+    if lang == "ar":
+        ws4.sheet_view.rightToLeft = True
+
+    ws4.merge_cells("A1:G1")
+    ws4["A1"] = f"GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي — Journal Chronologique des Flux de Trésorerie {year}"
+    ws4["A1"].font = TITLE_FONT
+    ws4["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws4.row_dimensions[1].height = 32
+
+    jour_headers = ["Date", "N° Pièce / Réf", "Nature & Description de l'Opération", "Compte / Caisse", "Entrée (+) DH", "Sortie (-) DH", "Solde Cumulé (DH)"]
+    ws4.row_dimensions[3].height = 26
+    for col_idx, h_text in enumerate(jour_headers, 1):
+        c = ws4.cell(row=3, column=col_idx, value=h_text)
+        c.font = HEADER_FONT
+        c.fill = NAVY_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER_THIN
+
+    # Build chronological timeline
+    timeline = []
+    for p in payments_qs:
+        acc_type = "Caisse Espèces" if p.payment_method == 'cash' else "Banque"
+        timeline.append({
+            'date': p.payment_date,
+            'ref': f"#{p.receipt_number}",
+            'desc': f"Cotisation - {p.student.get_full_name('fr')}",
+            'account': acc_type,
+            'in': float(p.amount),
+            'out': 0.0,
+        })
+
+    for exp in expenses_qs:
+        acc_type = "Caisse Espèces" if exp.payment_method == 'cash' else "Banque"
+        timeline.append({
+            'date': exp.expense_date,
+            'ref': exp.invoice_number or f"DEP-{exp.id}",
+            'desc': f"Dépense - {exp.title}",
+            'account': acc_type,
+            'in': 0.0,
+            'out': float(exp.amount),
+        })
+
+    timeline.sort(key=lambda x: (x['date'], x['ref']))
+
+    row_i = 4
+    cumul = float(init_cash + init_bank)
+
+    # Initial Balance Row
+    ws4.cell(row=row_i, column=1, value=f"01/01/{year}").border = BORDER_THIN
+    ws4.cell(row=row_i, column=2, value="REPORT").border = BORDER_THIN
+    ws4.cell(row=row_i, column=3, value="SOLDE INITIAL REPORT À NOUVEAU").border = BORDER_THIN
+    ws4.cell(row=row_i, column=4, value="Caisse & Banque").border = BORDER_THIN
+    ws4.cell(row=row_i, column=5, value="-").border = BORDER_THIN
+    ws4.cell(row=row_i, column=6, value="-").border = BORDER_THIN
+    init_cumul_c = ws4.cell(row=row_i, column=7, value=cumul)
+    init_cumul_c.border = BORDER_THIN
+    init_cumul_c.number_format = '#,##0.00 "DH"'
+    init_cumul_c.font = BOLD_DATA_FONT
+    init_cumul_c.alignment = Alignment(horizontal="right", vertical="center")
+    row_i += 1
+
+    for item in timeline:
+        ws4.row_dimensions[row_i].height = 20
+        cumul += (item['in'] - item['out'])
+        vals = [
+            item['date'].strftime("%d/%m/%Y"),
+            item['ref'],
+            item['desc'],
+            item['account'],
+            item['in'] if item['in'] > 0 else "-",
+            item['out'] if item['out'] > 0 else "-",
+            cumul
+        ]
+        for col_idx, val in enumerate(vals, 1):
+            c = ws4.cell(row=row_i, column=col_idx, value=val)
+            c.font = DATA_FONT
+            c.border = BORDER_THIN
+            if col_idx in (5, 6, 7):
+                c.alignment = Alignment(horizontal="right", vertical="center")
+                if isinstance(val, (int, float)):
+                    c.number_format = '#,##0.00 "DH"'
+                if col_idx == 7:
+                    c.font = BOLD_DATA_FONT
+            else:
+                c.alignment = Alignment(horizontal="left", vertical="center")
+        row_i += 1
+
+    # Auto-adjust column widths for all sheets
+    for ws in [ws1, ws2, ws3, ws4]:
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    excel_bytes = buffer.getvalue()
+    buffer.close()
+    return excel_bytes
+
 

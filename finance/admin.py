@@ -1,5 +1,5 @@
 from django.contrib import admin
-from finance.models import Invoice, Payment, ExpenseCategory, Expense
+from finance.models import Invoice, Payment, ExpenseCategory, Expense, FinancialClosing
 
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
@@ -24,3 +24,10 @@ class ExpenseAdmin(admin.ModelAdmin):
     list_display = ('title', 'category', 'amount', 'expense_date', 'payment_method', 'beneficiary', 'created_by')
     list_filter = ('category', 'payment_method', 'expense_date')
     search_fields = ('title', 'beneficiary', 'invoice_number', 'notes')
+
+@admin.register(FinancialClosing)
+class FinancialClosingAdmin(admin.ModelAdmin):
+    list_display = ('title', 'period_type', 'year', 'month', 'total_collected', 'total_expense', 'net_result', 'status', 'is_locked', 'closing_date')
+    list_filter = ('period_type', 'year', 'status', 'is_locked')
+    search_fields = ('title', 'treasurer_notes', 'president_notes')
+
