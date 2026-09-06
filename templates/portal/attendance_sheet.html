@@ -68,9 +68,15 @@
                     {% if CURRENT_LANG == 'ar' %}ماسح بطاقات QR Code عبر الكاميرا{% else %}Scanner Caméra — Badges QR Code{% endif %}
                 </h4>
             </div>
-            <button type="button" id="btnToggleCamera" onclick="toggleCameraScanner()" class="btn btn-primary btn-sm" style="font-weight: 700; font-size: 0.8rem; background: #2563EB;">
-                ▶️ {% if CURRENT_LANG == 'ar' %}تشغيل الكاميرا{% else %}Activer Caméra{% endif %}
-            </button>
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+                <button type="button" id="btnToggleCamera" onclick="toggleCameraScanner()" class="btn btn-primary btn-sm" style="font-weight: 700; font-size: 0.8rem; background: #2563EB;">
+                    ▶️ {% if CURRENT_LANG == 'ar' %}تشغيل الكاميرا{% else %}Activer Caméra{% endif %}
+                </button>
+                <label class="btn btn-outline btn-sm" style="margin: 0; cursor: pointer; font-size: 0.8rem; background: white; font-weight: 600; border-color: #93C5FD; color: #1E40AF;" title="Tester avec une image / capture d'écran">
+                    📁 {% if CURRENT_LANG == 'ar' %}صورة QR{% else %}Image / Capture QR{% endif %}
+                    <input type="file" id="qr-file-input" accept="image/*" style="display: none;" onchange="handleFileScan(this)">
+                </label>
+            </div>
         </div>
 
         <p style="font-size: 0.82rem; color: #1E3A8A; margin-bottom: 0.75rem;">
@@ -433,6 +439,21 @@ function onScanSuccess(decodedText, decodedResult) {
 
 function onScanFailure(error) {
     // Scan silencieux en cours...
+}
+
+// Lecture directe d'une photo / capture de QR Code sans caméra
+function handleFileScan(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const scanner = html5QrCode || new Html5Qrcode("reader");
+    scanner.scanFile(file, true)
+        .then(decodedText => {
+            onScanSuccess(decodedText, null);
+        })
+        .catch(err => {
+            alert("Aucun QR Code lisible n'a été détecté dans cette image.");
+        });
+    input.value = "";
 }
 </script>
 {% endblock %}
