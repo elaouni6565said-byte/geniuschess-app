@@ -90,13 +90,18 @@
                         <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
                     </li>
                 {% endif %}
+                <li class="nav-item pwa-nav-item" style="margin-top: 0.25rem;">
+                    <button type="button" class="btn-pwa-mobile-item" id="gcaPwaMobileMenuBtn">
+                        <span>📲</span> <span>{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على الهاتف{% else %}Installer l'application (PWA){% endif %}</span>
+                    </button>
+                </li>
             </ul>
         </nav>
 
         <!-- Navbar Controls: User + Device Switcher + Language Switcher + Hamburger -->
         <div class="navbar-controls">
-            <!-- PWA Install Button (Shown dynamically on installable devices) -->
-            <button type="button" id="gcaPwaInstallBtn" class="btn-pwa-install" style="display: none;" title="{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على جهازك{% else %}Installer l'application sur votre appareil{% endif %}">
+            <!-- PWA Install Button (Permanent & Interactive) -->
+            <button type="button" id="gcaPwaInstallBtn" class="btn-pwa-install" title="{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على جهازك{% else %}Installer l'application sur votre appareil{% endif %}">
                 <span>📲</span> <span class="btn-text">{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق{% else %}Installer l'appli{% endif %}</span>
             </button>
 
@@ -190,12 +195,118 @@
             <span class="footer-device-indicator">
                 {% trans "device.title" %} : <b id="footerActiveDeviceLabel">Auto</b>
             </span>
+            <span class="footer-mode-separator"> • </span>
+            <a href="javascript:void(0)" id="gcaPwaFooterLink" style="color: #60A5FA; text-decoration: none; font-weight: 700;">
+                📲 {% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على جهازك{% else %}Installer l'application (PWA){% endif %}
+            </a>
         </p>
     </footer>
 
+    <!-- PWA Installation Modal (Guide universel pour Android, iPhone & PC) -->
+    <div id="gcaPwaModal" class="pwa-modal-backdrop" style="display: none;">
+        <div class="pwa-modal-card">
+            <button type="button" class="pwa-modal-close" id="gcaPwaModalClose" aria-label="Fermer">&times;</button>
+            <div class="pwa-modal-header">
+                <img src="{% static 'img/icons/icon-192.png' %}" alt="Logo Genius Chess" class="pwa-modal-logo">
+                <div>
+                    <h3>{% if CURRENT_LANG == 'ar' %}تثبيت تطبيق Genius Chess Academy{% else %}Installer Genius Chess Academy{% endif %}</h3>
+                    <p>{% if CURRENT_LANG == 'ar' %}تطبيق سريع ومجاني على شاشة هاتفك بدون الحاجة إلى متجر التطبيقات{% else %}Application officielle rapide, fluide et installable sur votre écran d'accueil{% endif %}</p>
+                </div>
+            </div>
+            <div class="pwa-modal-body">
+                <!-- Native Prompt CTA (si supporté directement par le navigateur) -->
+                <div id="pwaNativePromptBox" style="display: none; text-align: center; margin-bottom: 1.25rem;">
+                    <button type="button" id="gcaPwaNativeInstallAction" class="btn btn-success" style="width: 100%; padding: 0.85rem; font-size: 1.05rem; font-weight: 700; border-radius: 9999px; box-shadow: 0 4px 12px rgba(16,185,129,0.35);">
+                        🚀 {% if CURRENT_LANG == 'ar' %}اضغط هنا لتثبيت التطبيق فوراً{% else %}Cliquez ici pour installer immédiatement{% endif %}
+                    </button>
+                </div>
+
+                <!-- Guides pas-à-pas selon la plateforme -->
+                <div class="pwa-guide-section" id="pwaGuideIos">
+                    <h4>🍎 {% if CURRENT_LANG == 'ar' %}لهواتف آيفون وآيباد (iPhone / iPad — Safari) :{% else %}Sur iPhone & iPad (Navigateur Safari) :{% endif %}</h4>
+                    <ol class="pwa-steps-list">
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                اضغط على زر <b>المشاركة (Partager ⎋)</b> الموجود في شريط الأدوات أسفل Safari.
+                            {% else %}
+                                Appuyez sur l'icône <b>Partager ⎋</b> (carré avec flèche en bas de l'écran Safari).
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                مرر للأسفل واختر <b>« إضافة إلى الصفحة الرئيسية » (Sur l'écran d'accueil ➕)</b>.
+                            {% else %}
+                                Faites défiler les options et appuyez sur <b>« Sur l'écran d'accueil » (➕)</b>.
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                اضغط على <b>« إضافة » (Ajouter)</b> في الزاوية العليا. ستظهر أيقونة الأكاديمية فوراً على هاتفك !
+                            {% else %}
+                                Appuyez sur <b>« Ajouter »</b> en haut à droite. L'icône de l'académie apparaît sur votre écran !
+                            {% endif %}
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="pwa-guide-section" id="pwaGuideAndroid">
+                    <h4>🤖 {% if CURRENT_LANG == 'ar' %}لهواتف أندرويد (Android — Google Chrome) :{% else %}Sur Android (Navigateur Google Chrome) :{% endif %}</h4>
+                    <ol class="pwa-steps-list">
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                اضغط على <b>النقاط الثلاث (⋮)</b> في الزاوية العليا لمتصفح Chrome.
+                            {% else %}
+                                Appuyez sur le menu des <b>3 points (⋮)</b> en haut à droite de Chrome.
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                اختر <b>« تثبيت التطبيق » (Installer l'application)</b> أو « إضافة إلى الشاشة الرئيسية ».
+                            {% else %}
+                                Choisissez <b>« Installer l'application »</b> (ou « Ajouter à l'écran d'accueil »).
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                أكد بالضغط على <b>تثبيت</b> لتشغيل التطبيق في وضع ملء الشاشة.
+                            {% else %}
+                                Confirmez en appuyant sur <b>Installer</b> pour ouvrir l'application en plein écran.
+                            {% endif %}
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="pwa-guide-section" id="pwaGuideDesktop">
+                    <h4>💻 {% if CURRENT_LANG == 'ar' %}على جهاز الكمبيوتر (PC / Mac) :{% else %}Sur Ordinateur (Chrome / Edge) :{% endif %}</h4>
+                    <ol class="pwa-steps-list">
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                انقر على أيقونة التثبيت <b>(💻)</b> الموجودة داخل شريط العنوان (بجانب رابط الموقع).
+                            {% else %}
+                                Cliquez sur l'icône <b>(💻)</b> située à droite dans la barre d'adresse de votre navigateur.
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if CURRENT_LANG == 'ar' %}
+                                أو من قائمة المتصفح ⋮ اختر <b>« تثبيت Genius Chess Academy »</b>.
+                            {% else %}
+                                Ou ouvrez le menu ⋮ du navigateur puis cliquez sur <b>« Installer Genius Chess Academy »</b>.
+                            {% endif %}
+                        </li>
+                    </ol>
+                </div>
+            </div>
+            <div class="pwa-modal-footer">
+                <button type="button" class="btn btn-secondary" id="gcaPwaModalDismissBtn">
+                    {% if CURRENT_LANG == 'ar' %}إغلاق{% else %}Fermer{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="{% static 'js/gca-bilingual.js' %}?v=20260904.5"></script>
     
-    <!-- PWA Service Worker Registration & Installation Handler -->
+    <!-- PWA Service Worker Registration & Universal Installation Handler -->
     <script>
         (function() {
             // 1. Enregistrement du Service Worker
@@ -211,38 +322,80 @@
                 });
             }
 
-            // 2. Gestion du prompt d'installation native
+            // 2. Éléments interactifs d'installation
             var deferredPrompt = null;
             var installBtn = document.getElementById('gcaPwaInstallBtn');
+            var mobileMenuBtn = document.getElementById('gcaPwaMobileMenuBtn');
+            var footerLink = document.getElementById('gcaPwaFooterLink');
+            var modal = document.getElementById('gcaPwaModal');
+            var modalClose = document.getElementById('gcaPwaModalClose');
+            var modalDismiss = document.getElementById('gcaPwaModalDismissBtn');
+            var nativePromptBox = document.getElementById('pwaNativePromptBox');
+            var nativeActionBtn = document.getElementById('gcaPwaNativeInstallAction');
 
+            // Capture de l'événement natif Chrome/Edge/Android
             window.addEventListener('beforeinstallprompt', function(e) {
                 e.preventDefault();
                 deferredPrompt = e;
-                if (installBtn) {
-                    installBtn.style.display = 'inline-flex';
+                if (nativePromptBox) {
+                    nativePromptBox.style.display = 'block';
                 }
             });
 
-            if (installBtn) {
-                installBtn.addEventListener('click', function() {
+            function openPwaGuide() {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(function(choiceResult) {
+                        if (choiceResult.outcome === 'accepted') {
+                            deferredPrompt = null;
+                            if (installBtn) installBtn.style.display = 'none';
+                        }
+                    });
+                } else {
+                    if (modal) {
+                        modal.style.display = 'flex';
+                    }
+                }
+            }
+
+            function closePwaGuide() {
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+
+            if (installBtn) installBtn.addEventListener('click', openPwaGuide);
+            if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', openPwaGuide);
+            if (footerLink) footerLink.addEventListener('click', openPwaGuide);
+            if (modalClose) modalClose.addEventListener('click', closePwaGuide);
+            if (modalDismiss) modalDismiss.addEventListener('click', closePwaGuide);
+
+            if (nativeActionBtn) {
+                nativeActionBtn.addEventListener('click', function() {
                     if (deferredPrompt) {
                         deferredPrompt.prompt();
                         deferredPrompt.userChoice.then(function(choiceResult) {
-                            if (choiceResult.outcome === 'accepted') {
-                                console.log('GCA PWA: Installation acceptée par l utilisateur');
-                            }
                             deferredPrompt = null;
-                            installBtn.style.display = 'none';
+                            closePwaGuide();
                         });
+                    }
+                });
+            }
+
+            // Fermeture au clic sur le fond semi-transparent
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closePwaGuide();
                     }
                 });
             }
 
             window.addEventListener('appinstalled', function() {
                 console.log('GCA PWA: Application installée avec succès !');
-                if (installBtn) {
-                    installBtn.style.display = 'none';
-                }
+                if (installBtn) installBtn.style.display = 'none';
+                if (mobileMenuBtn) mobileMenuBtn.style.display = 'none';
+                closePwaGuide();
             });
         })();
     </script>

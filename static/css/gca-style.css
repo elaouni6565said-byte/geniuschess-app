@@ -245,6 +245,138 @@ a:hover {
   50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
 }
 
+.btn-pwa-mobile-item {
+  width: 100%;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #FFFFFF !important;
+  border: none;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s ease;
+}
+.btn-pwa-mobile-item:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+/* PWA Universal Modal */
+.pwa-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 25, 47, 0.78);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.pwa-modal-card {
+  background: #FFFFFF;
+  color: var(--text-dark);
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.35), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  position: relative;
+  border: 1px solid #E2E8F0;
+}
+.pwa-modal-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.85rem;
+  font-size: 1.8rem;
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  transition: color 0.15s;
+}
+.pwa-modal-close:hover {
+  color: #0F172A;
+}
+[dir="rtl"] .pwa-modal-close {
+  right: auto;
+  left: 0.85rem;
+}
+.pwa-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 1rem;
+}
+.pwa-modal-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+.pwa-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #0A192F;
+  font-weight: 800;
+}
+.pwa-modal-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: #64748B;
+}
+.pwa-guide-section {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.pwa-guide-section h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+  color: #0F172A;
+  font-weight: 700;
+}
+.pwa-steps-list {
+  margin: 0;
+  padding-left: 1.3rem;
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.6;
+}
+[dir="rtl"] .pwa-steps-list {
+  padding-left: 0;
+  padding-right: 1.3rem;
+}
+.pwa-modal-footer {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .btn-pwa-install .btn-text {
+    display: none;
+  }
+  .btn-pwa-install {
+    padding: 0.32rem 0.5rem;
+    font-size: 0.85rem;
+  }
+}
+
 /* Language Switcher Widget (47.1) */
 .lang-switcher-widget {
   display: flex;
