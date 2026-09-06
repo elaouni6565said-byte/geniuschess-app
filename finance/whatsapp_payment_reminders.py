@@ -10,8 +10,9 @@ from core.i18n import format_currency
 
 def build_unpaid_reminder_message(invoice, lang="fr"):
     """
-    Construit le message de relance d'impayé amical, respectueux et officiel.
-    Rappelle explicitement l'échéance fixée au 15 du mois au plus tard.
+    Construit un message de relance d'impayé amical, court, bienveillant et clair.
+    Modèle inspiré du format souhaité :
+    « Bonjour M./Mme X, petit rappel amical concernant la cotisation d'échecs de Lina pour le mois en cours... »
     """
     student = invoice.student
     parent = student.parent
@@ -33,26 +34,20 @@ def build_unpaid_reminder_message(invoice, lang="fr"):
     if lang == "ar":
         message = (
             f"السلام عليكم ورحمة الله السيد(ة) {p_name_ar}،\n\n"
-            f"♟️ *تذكير بواجب الاشتراك — جمعية الشطرنج القاسمي* :\n"
-            f"نود تذكيركم بلطف بواجب الاشتراك الشهري لشهر *{period_ar}* الخاص بالتلميذ(ة) *{st_name_ar}* ({grp_ar}).\n\n"
-            f"💰 المبلغ المتبقي المستحق : *{amt_ar} درهم*.\n"
-            f"⏳ نذكركم بأن آخر أجل محدد لتسوية الواجبات الشهرية هو *15 من كل شهر كأقصى حد*.\n\n"
-            f"يمكنكم أداء الواجب لدى إدارة الأكاديمية أو مع المؤطر خلال الحصة القادمة.\n"
-            f"نشكركم جزيلاً على ثقتكم وحسن تفهمكم وتعاونكم الدائم معنا ! 🌟\n\n"
-            f"📍 أكاديمية جينيوس للشطرنج — سيدي قاسم / الرباط\n"
-            f"🌐 الموقع : https://geniuschess.ma"
+            f"تذكير ودي بخصوص واجب اشتراك الشطرنج للتلميذ(ة) {st_name_ar} ({grp_ar}) لشهر {period_ar} : "
+            f"المبلغ المتبقي هو {amt_ar} درهم.\n\n"
+            f"يمكنكم تسوية الواجب بكل أريحية خلال الحصة القادمة (آخر أجل هو 15 من هذا الشهر كأقصى حد).\n\n"
+            f"نتمنى لكم يوماً طيباً ومباركاً ! 🌟\n"
+            f"Genius Chess Academy — جمعية الشطرنج القاسمي"
         )
     else:
         message = (
             f"Bonjour M./Mme {p_name_fr},\n\n"
-            f"♟️ *Rappel de Paiement — Genius Chess Academy* :\n"
-            f"Nous vous rappelons amicalement la cotisation mensuelle pour le mois de *{period_fr}* concernant l'élève *{st_name_fr}* ({grp_fr}).\n\n"
-            f"💰 Reliquat restant dû : *{amt_fr} DH*.\n"
-            f"⏳ Nous vous rappelons que le règlement des mensualités est fixé au *15 du mois au plus tard*.\n\n"
-            f"Vous pouvez effectuer le règlement auprès de l'administration ou lors de la prochaine séance.\n"
-            f"Merci infiniment pour votre confiance et votre collaboration continue ! 🌟\n\n"
-            f"📍 Genius Chess Academy — جمعية الشطرنج القاسمي\n"
-            f"🌐 Site Web : https://geniuschess.ma"
+            f"Petit rappel amical concernant la cotisation d'échecs de {st_name_fr} ({grp_fr}) pour le mois de {period_fr} : "
+            f"reliquat de {amt_fr} DH.\n\n"
+            f"Vous pouvez régler lors de la prochaine séance (dernier délai le 15 du mois au plus tard).\n\n"
+            f"Belle journée à vous ! 🌟\n"
+            f"Genius Chess Academy — جمعية الشطرنج القاسمي"
         )
     return message
 
