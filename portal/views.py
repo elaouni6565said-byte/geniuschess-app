@@ -2312,6 +2312,20 @@ def attendance_recap_excel_view(request):
     return response
 
 
+@admin_required
+def financial_forecast_view(request):
+    """
+    Tableau de bord prévisionnel financier et taux de recouvrement du 15 du mois.
+    """
+    from finance.forecast import get_monthly_financial_forecast
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    month = request.GET.get('month')
+    year = request.GET.get('year')
+
+    forecast_data = get_monthly_financial_forecast(month=month, year=year, lang=lang)
+    return render(request, 'portal/financial_forecast.html', forecast_data)
+
+
 def pwa_manifest_view(request):
     """Sert le fichier de configuration PWA Manifest officiel."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -16,6 +16,9 @@
         <a href="{% url 'portal:export_unpaid_excel' %}" class="btn btn-outline" style="background: white; border-color: var(--danger); color: var(--danger); font-weight: 600;">
             ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير غير المؤدين / المتأخرات (Excel){% else %}Exporter les Impayés (Excel){% endif %}
         </a>
+        <a href="{% url 'portal:financial_forecast' %}" class="btn" style="background: #0369A1; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
+            📈 {% if CURRENT_LANG == 'ar' %}لوحة التوقعات ونسبة الاستخلاص (أجل 15){% else %}Tableau Prévisionnel & Recouvrement (15){% endif %}
+        </a>
         <a href="{% url 'portal:unpaid_reminders' %}" class="btn" style="background: #D97706; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
             ⏳ {% if CURRENT_LANG == 'ar' %}تذكيرات المستحقات عبر واتساب (أجل 15){% else %}Relances Impayés WhatsApp (Échéance 15){% endif %}
         </a>

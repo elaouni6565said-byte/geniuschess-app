@@ -16,6 +16,10 @@ def money(context, amount):
     lang = getattr(request, 'LANGUAGE_CODE', 'fr') if request else context.get('CURRENT_LANG', 'fr')
     return format_currency(amount, lang=lang)
 
+@register.filter(name='currency')
+def currency_filter(amount, lang='fr'):
+    return format_currency(amount, lang=lang)
+
 @register.simple_tag(takes_context=True)
 def local_date(context, dt, include_time=False, include_weekday=False):
     request = context.get('request')

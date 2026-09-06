@@ -1,0 +1,355 @@
+﻿{% extends "base.html" %}
+{% load static gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}لوحة التحكم التوقعية واستخلاص 15 من الشهر{% else %}Tableau de bord prévisionnel & Recouvrement (15 du mois){% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1300px; margin: 0 auto; padding: 1rem 0.5rem;">
+
+    <!-- Top Header Banner -->
+    <div style="background: linear-gradient(135deg, #0A192F 0%, #1E293B 100%); color: white; border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
+                    <span style="font-size: 1.8rem;">📈</span>
+                    <h2 style="margin: 0; color: #FFFFFF; font-size: 1.45rem; font-weight: 800;">
+                        {% if CURRENT_LANG == 'ar' %}
+                            لوحة التحكم التوقعية المالية واستخلاص الاشتراكات
+                        {% else %}
+                            Tableau de Bord Prévisionnel Financier & Recouvrement
+                        {% endif %}
+                    </h2>
+                </div>
+                <p style="margin: 0; color: #94A3B8; font-size: 0.9rem;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        تتبع المداخيل المتوقعة والمستخلصة، ومراقبة الالتزام بأجل 15 من كل شهر
+                    {% else %}
+                        Suivi du chiffre d'affaires attendu, encaissement réel et respect de l'échéance du 15 du mois
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Month / Year Selector Form -->
+            <form method="GET" action="{% url 'portal:financial_forecast' %}" style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); padding: 0.5rem 0.75rem; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.2);">
+                <select name="month" class="form-select form-select-sm" style="background: #0A192F; color: white; border: 1px solid #334155; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; padding: 0.25rem 0.6rem;">
+                    {% for m in months_list %}
+                        <option value="{{ m.num }}" {% if m.num == selected_month %}selected{% endif %}>
+                            {% if CURRENT_LANG == 'ar' %}{{ m.name_ar }}{% else %}{{ m.name_fr }}{% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <select name="year" class="form-select form-select-sm" style="background: #0A192F; color: white; border: 1px solid #334155; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; padding: 0.25rem 0.6rem;">
+                    {% for y in years_list %}
+                        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="btn btn-sm btn-primary" style="border-radius: 9999px; padding: 0.25rem 0.75rem; font-weight: 700;">
+                    🔍 {% if CURRENT_LANG == 'ar' %}عرض{% else %}Filtrer{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Section 1: Main 4 KPIs Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        
+        <!-- Potentiel Prévisionnel -->
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #0369A1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}الواجبات المتوقعة (المداخيل المبرمجة){% else %}Potentiel Mensuel Attendu{% endif %}
+                </span>
+                <span style="font-size: 1.2rem;">💰</span>
+            </div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #0369A1; margin-bottom: 0.35rem;">
+                {{ total_expected|currency:CURRENT_LANG }}
+            </div>
+            <div style="font-size: 0.8rem; color: #64748B;">
+                📋 {{ total_invoiced_count }} {% if CURRENT_LANG == 'ar' %}فاتورة اشتراك مسجلة{% else %}factures générées ce mois{% endif %}
+            </div>
+        </div>
+
+        <!-- Total Encaissé Réel -->
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #16A34A;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}المستخلص الفعلي{% else %}Total Encaissé Réel{% endif %}
+                </span>
+                <span style="font-size: 1.2rem;">✅</span>
+            </div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #16A34A; margin-bottom: 0.35rem;">
+                {{ total_collected|currency:CURRENT_LANG }}
+            </div>
+            <div style="font-size: 0.8rem; color: #16A34A; font-weight: 600;">
+                ✓ {{ paid_invoices_count }} {% if CURRENT_LANG == 'ar' %}اشتراك مؤدى بالكامل{% else %}soldés à 100%{% endif %}
+            </div>
+        </div>
+
+        <!-- Reste à Recouvrer (Impayés) -->
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid {% if total_remaining > 0 %}#DC2626{% else %}#16A34A{% endif %};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}المبلغ المتبقي للاستخلاص{% else %}Reste à Recouvrer (Impayés){% endif %}
+                </span>
+                <span style="font-size: 1.2rem;">⏳</span>
+            </div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: {% if total_remaining > 0 %}#DC2626{% else %}#16A34A{% endif %}; margin-bottom: 0.35rem;">
+                {{ total_remaining|currency:CURRENT_LANG }}
+            </div>
+            <div style="font-size: 0.8rem; color: #64748B;">
+                ⚠️ {{ unpaid_invoices_count }} {% if CURRENT_LANG == 'ar' %}غير مؤدى{% else %}impayés{% endif %} • {{ partial_invoices_count }} {% if CURRENT_LANG == 'ar' %}جزئي{% else %}partiels{% endif %}
+            </div>
+        </div>
+
+        <!-- Taux de Recouvrement Global -->
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #D97706;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}نسبة الاستخلاص العامة{% else %}Taux de Recouvrement Global{% endif %}
+                </span>
+                <span style="font-size: 1.2rem;">🎯</span>
+            </div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #D97706; margin-bottom: 0.35rem;">
+                {{ recovery_rate }}%
+            </div>
+            <!-- Progress Bar -->
+            <div style="background: #E2E8F0; border-radius: 9999px; height: 7px; overflow: hidden; width: 100%;">
+                <div style="background: {% if recovery_rate >= 80 %}#16A34A{% elif recovery_rate >= 50 %}#D97706{% else %}#DC2626{% endif %}; height: 100%; width: {{ recovery_rate }}%; border-radius: 9999px; transition: width 0.6s ease;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Baromètre Spécial Échéance du 15 du Mois -->
+    <div style="background: white; border-radius: var(--radius-md); padding: 1.5rem; border: 1px solid #CBD5E1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="background: #FEF3C7; color: #B45309; padding: 0.6rem 0.8rem; border-radius: 12px; font-size: 1.3rem;">
+                    📅
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; color: #0F172A;">
+                        {% if CURRENT_LANG == 'ar' %}
+                            بارومتر الالتزام بأجل 15 من الشهر (قاعدة الأكاديمية)
+                        {% else %}
+                            Baromètre de l'Échéance du 15 du Mois (Règle Officielle)
+                        {% endif %}
+                    </h3>
+                    <p style="margin: 0.2rem 0 0; font-size: 0.82rem; color: #64748B;">
+                        {% if CURRENT_LANG == 'ar' %}
+                            قياس الانضباط في تسديد الواجبات قبل انقضاء الأجل القانوني
+                        {% else %}
+                            Mesure du civisme et de la ponctualité des règlements avant la date limite
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Temporal Badge Status -->
+            <div>
+                <span class="badge" style="font-size: 0.88rem; padding: 0.45rem 0.9rem; font-weight: 700; border-radius: 9999px;
+                    {% if deadline_status == 'pending' %}background: #DBEAFE; color: #1E40AF;
+                    {% elif deadline_status == 'today' %}background: #DCFCE7; color: #166534;
+                    {% elif deadline_status == 'passed' %}background: #FEE2E2; color: #991B1B;
+                    {% else %}background: #F1F5F9; color: #475569;{% endif %}">
+                    🔔 {{ deadline_badge }}
+                </span>
+            </div>
+        </div>
+
+        <!-- 2 Comparatives sub-cards (Before 15 vs After 15) -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
+            
+            <!-- Au plus tard le 15 -->
+            <div style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius-md); padding: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <span style="font-weight: 700; font-size: 0.9rem; color: #15803D;">
+                        🟢 {% if CURRENT_LANG == 'ar' %}مستخلص في الآجال (إلى غاية 15 من الشهر){% else %}Encaissé dans les délais (Avant le 15 inclus){% endif %}
+                    </span>
+                    <span style="font-size: 1.1rem; font-weight: 800; color: #15803D;">
+                        {{ rate_at_15 }}%
+                    </span>
+                </div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: #166534; margin-bottom: 0.5rem;">
+                    {{ collected_before_15|currency:CURRENT_LANG }}
+                </div>
+                <div style="background: #DCFCE7; border-radius: 9999px; height: 8px; overflow: hidden;">
+                    <div style="background: #16A34A; height: 100%; width: {{ rate_at_15 }}%; border-radius: 9999px;"></div>
+                </div>
+                <p style="margin: 0.5rem 0 0; font-size: 0.78rem; color: #15803D;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        نسبة الانضباط والأداء الفوري قبل آخر أجل
+                    {% else %}
+                        Taux de ponctualité des familles avant l'échéance officielle
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Après le 15 -->
+            <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: var(--radius-md); padding: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <span style="font-weight: 700; font-size: 0.9rem; color: #B45309;">
+                        🟠 {% if CURRENT_LANG == 'ar' %}مستخلص بعد انقضاء الأجل (بعد 15 من الشهر){% else %}Encaissé après l'échéance (Après le 15){% endif %}
+                    </span>
+                </div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: #B45309; margin-bottom: 0.5rem;">
+                    {{ collected_after_15|currency:CURRENT_LANG }}
+                </div>
+                <div style="background: #FEF3C7; border-radius: 9999px; height: 8px; overflow: hidden;">
+                    <div style="background: #D97706; height: 100%; width: 100%; border-radius: 9999px;"></div>
+                </div>
+                <p style="margin: 0.5rem 0 0; font-size: 0.78rem; color: #B45309;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        مداخيل تم تحصيلها بعد إرسال التذكيرات الودية
+                    {% else %}
+                        Règlements reçus suite aux relances ou en séance tardive
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Action Banner CTA -->
+        <div style="background: #F8FAFC; border-radius: var(--radius-md); padding: 1rem; border: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="font-size: 0.88rem; color: #334155;">
+                {% if total_remaining > 0 %}
+                    💡 <b>{% if CURRENT_LANG == 'ar' %}توجد مبالغ متبقية للاستخلاص :{% else %}Reliquat restant à recouvrer :{% endif %}</b>
+                    {{ total_remaining|currency:CURRENT_LANG }} ({{ unpaid_invoices_count }} {% if CURRENT_LANG == 'ar' %}تلميذ في حالة تأخر{% else %}élèves en attente{% endif %}).
+                {% else %}
+                    🎉 <b>{% if CURRENT_LANG == 'ar' %}ممتاز ! تم استخلاص جميع اشتراكات هذا الشهر بنسبة 100%.{% else %}Félicitations ! 100% des cotisations du mois ont été recouvrées.{% endif %}</b>
+                {% endif %}
+            </div>
+            <div>
+                <a href="{% url 'portal:unpaid_reminders' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-primary" style="font-weight: 700; border-radius: 9999px; box-shadow: 0 4px 6px -1px rgba(3,105,161,0.25);">
+                    📲 {% if CURRENT_LANG == 'ar' %}فتح منصة التذكير عبر واتساب (أجل 15){% else %}Ouvrir la Console des Relances WhatsApp (Échéance 15){% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Ventilation par Activité & Groupes -->
+    <div style="background: white; border-radius: var(--radius-md); padding: 1.5rem; border: 1px solid #CBD5E1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 1.5rem;">
+        <div style="margin-bottom: 1rem;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">
+                🎯 {% if CURRENT_LANG == 'ar' %}توزيع المداخيل ونسب الاستخلاص حسب الأنشطة والمجموعات{% else %}Recouvrement Détaillé par Activité et Groupe{% endif %}
+            </h3>
+        </div>
+
+        {% if activities_data %}
+            {% for act in activities_data %}
+                <div style="margin-bottom: 1.5rem; border: 1px solid #E2E8F0; border-radius: var(--radius-md); overflow: hidden;">
+                    <!-- Activity Header -->
+                    <div style="background: #F8FAFC; padding: 0.85rem 1.25rem; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: {{ act.color }};"></span>
+                            <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A;">
+                                {% if CURRENT_LANG == 'ar' %}{{ act.name_ar }}{% else %}{{ act.name_fr }}{% endif %}
+                            </h4>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.88rem;">
+                            <span><b>Attendu :</b> {{ act.expected|currency:CURRENT_LANG }}</span>
+                            <span style="color: #16A34A;"><b>Encaissé :</b> {{ act.collected|currency:CURRENT_LANG }}</span>
+                            <span class="badge" style="background: {% if act.rate >= 80 %}#DCFCE7; color: #166534;{% elif act.rate >= 50 %}#FEF3C7; color: #92400E;{% else %}#FEE2E2; color: #991B1B;{% endif %} font-weight: 800;">
+                                {{ act.rate }}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Groups Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover" style="margin: 0; font-size: 0.85rem;">
+                            <thead style="background: #F1F5F9; color: #475569;">
+                                <tr>
+                                    <th>{% if CURRENT_LANG == 'ar' %}المجموعة{% else %}Groupe{% endif %}</th>
+                                    <th>{% if CURRENT_LANG == 'ar' %}عدد التلاميذ{% else %}Élèves{% endif %}</th>
+                                    <th>{% if CURRENT_LANG == 'ar' %}الواجب المتوقع{% else %}Attendu{% endif %}</th>
+                                    <th>{% if CURRENT_LANG == 'ar' %}المستخلص{% else %}Encaissé{% endif %}</th>
+                                    <th>{% if CURRENT_LANG == 'ar' %}المتبقي{% else %}Reste dû{% endif %}</th>
+                                    <th>{% if CURRENT_LANG == 'ar' %}نسبة الاستخلاص{% else %}Taux Recouvrement{% endif %}</th>
+                                    <th>{% if CURRENT_LANG == 'ar' %}الحالة{% else %}Statut{% endif %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for grp in act.groups %}
+                                    <tr>
+                                        <td>
+                                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: {{ grp.color }}; margin-right: 4px;"></span>
+                                            <b>{% if CURRENT_LANG == 'ar' %}{{ grp.name_ar }}{% else %}{{ grp.name_fr }}{% endif %}</b>
+                                        </td>
+                                        <td>{{ grp.students_count }}</td>
+                                        <td>{{ grp.expected|currency:CURRENT_LANG }}</td>
+                                        <td style="color: #16A34A; font-weight: 700;">{{ grp.collected|currency:CURRENT_LANG }}</td>
+                                        <td style="color: {% if grp.remaining > 0 %}#DC2626{% else %}#16A34A{% endif %}; font-weight: 700;">
+                                            {{ grp.remaining|currency:CURRENT_LANG }}
+                                        </td>
+                                        <td style="min-width: 140px;">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <span style="font-weight: 700; width: 42px;">{{ grp.rate }}%</span>
+                                                <div style="flex: 1; background: #E2E8F0; border-radius: 9999px; height: 6px; overflow: hidden;">
+                                                    <div style="background: {% if grp.rate >= 80 %}#16A34A{% elif grp.rate >= 50 %}#D97706{% else %}#DC2626{% endif %}; height: 100%; width: {{ grp.rate }}%; border-radius: 9999px;"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if grp.unpaid_count == 0 %}
+                                                <span class="badge" style="background: #DCFCE7; color: #166534;">✓ Soldé</span>
+                                            {% else %}
+                                                <span class="badge" style="background: #FEE2E2; color: #991B1B;">⚠️ {{ grp.unpaid_count }} en retard</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: #94A3B8; padding: 1rem;">
+                                            {% if CURRENT_LANG == 'ar' %}لا توجد مجموعات في هذا الشهر{% else %}Aucun groupe avec factures ce mois.{% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p style="text-align: center; color: #94A3B8; padding: 2rem 0;">
+                {% if CURRENT_LANG == 'ar' %}لا توجد معطيات مالية لهذا الشهر المختار.{% else %}Aucune donnée financière trouvée pour le mois sélectionné.{% endif %}
+            </p>
+        {% endif %}
+    </div>
+
+    <!-- Section 4: Historique des 6 Derniers Mois (Graphique en barres) -->
+    <div style="background: white; border-radius: var(--radius-md); padding: 1.5rem; border: 1px solid #CBD5E1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="margin-bottom: 1.25rem;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">
+                📊 {% if CURRENT_LANG == 'ar' %}تطور نسبة الاستخلاص خلال آخر 6 أشهر{% else %}Trajectoire & Évolution du Taux de Recouvrement (6 derniers mois){% endif %}
+            </h3>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; align-items: flex-end; height: 180px; padding-top: 2rem; border-bottom: 2px solid #E2E8F0;">
+            {% for h in history %}
+                <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+                    <!-- Percentage label -->
+                    <span style="font-size: 0.8rem; font-weight: 800; color: {% if h.is_current %}#0369A1{% else %}#475569{% endif %}; margin-bottom: 0.35rem;">
+                        {{ h.rate }}%
+                    </span>
+                    <!-- Bar -->
+                    <div style="width: 70%; max-width: 45px; background: {% if h.is_current %}linear-gradient(180deg, #0284C7, #0369A1){% else %}linear-gradient(180deg, #94A3B8, #64748B){% endif %}; height: {{ h.rate }}%; min-height: 4px; border-radius: 6px 6px 0 0; transition: height 0.5s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Month Labels below chart -->
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; text-align: center; margin-top: 0.6rem;">
+            {% for h in history %}
+                <span style="font-size: 0.78rem; font-weight: {% if h.is_current %}800{% else %}600{% endif %}; color: {% if h.is_current %}#0369A1{% else %}#64748B{% endif %};">
+                    {% if CURRENT_LANG == 'ar' %}{{ h.label_ar }}{% else %}{{ h.label_fr }}{% endif %}
+                    {% if h.is_current %} (Actuel){% endif %}
+                </span>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
