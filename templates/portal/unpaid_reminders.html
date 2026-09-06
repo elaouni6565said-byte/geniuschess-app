@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}منصة الموافقة على تذكيرات المستحقات عبر واتساب — أكاديمية جينيوس{% else %}Console d'Autorisation des Relances WhatsApp — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- EN-TÊTE DE PAGE -->
+<div class="page-header" style="margin-bottom: 1.25rem;">
+    <div class="page-header-titles">
+        <h2>⏳ {% if CURRENT_LANG == 'ar' %}منصة الموافقة على تذكيرات المستحقات عبر واتساب{% else %}Console d'Autorisation des Relances WhatsApp{% endif %}</h2>
+        <p>
+            {% if CURRENT_LANG == 'ar' %}
+                مراجعة واعتماد إرسال تذكيرات الاشتراكات المعلقة لأولياء الأمور بموافقة مسبقة من الإدارة (أقصى أجل هو 15 من كل شهر).
+            {% else %}
+                Vérification et validation de l'envoi des rappels de cotisations impayées avec accord préalable de l'administrateur (Échéance : 15 du mois max).
+            {% endif %}
+        </p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:export_unpaid_excel' %}" class="btn btn-outline" style="background: white; border-color: #16A34A; color: #166534; font-weight: 700;">
+            📥 {% if CURRENT_LANG == 'ar' %}تصدير غير المؤدى (Excel){% else %}Exporter Impayés (.xlsx){% endif %}
+        </a>
+        <a href="{% url 'portal:payments' %}" class="btn btn-outline" style="background: white; font-weight: 600;">
+            💳 {% if CURRENT_LANG == 'ar' %}سجل الأداءات{% else %}Retour aux Paiements{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- BANNIÈRE CONTEXTUELLE DE L'ÉCHÉANCE DU 15 DU MOIS -->
+{% if period_15_status == 'due_soon' %}
+<div style="background: #FEF3C7; border: 2px solid #F59E0B; border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.85rem;">
+    <span style="font-size: 1.8rem;">⏰</span>
+    <div>
+        <h4 style="margin: 0; color: #92400E; font-size: 1rem; font-weight: 800;">
+            {% if CURRENT_LANG == 'ar' %}
+                فترة الإشعار النشطة (من 10 إلى 15 من الشهر) — حان وقت اعتماد التذكيرات !
+            {% else %}
+                Période Idéale d'Échéance (du 10 au 15 du mois) — C'est le moment d'autoriser les relances !
+            {% endif %}
+        </h4>
+        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #78350F;">
+            {% if CURRENT_LANG == 'ar' %}
+                نحن في الأيام المحددة لتسوية الاشتراكات الشهرية قبل انتهاء الأجل في 15 من هذا الشهر. يمكنك تحديد أولياء الأمور واعتماد الإرسال بنقرة واحدة.
+            {% else %}
+                Les cotisations doivent être régularisées au plus tard le 15 du mois. Cochez les parents concernés et validez l'envoi groupé ci-dessous.
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% elif period_15_status == 'overdue' %}
+<div style="background: #FEE2E2; border: 2px solid #EF4444; border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.85rem;">
+    <span style="font-size: 1.8rem;">⚠️</span>
+    <div>
+        <h4 style="margin: 0; color: #991B1B; font-size: 1rem; font-weight: 800;">
+            {% if CURRENT_LANG == 'ar' %}
+                تجاوز أجل 15 من الشهر — مستحقات متأخرة
+            {% else %}
+                Échéance du 15 du mois dépassée — Cotisations en retard
+            {% endif %}
+        </h4>
+        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #7F1D1D;">
+            {% if CURRENT_LANG == 'ar' %}
+                المستحقات المعروضة أدناه تجاوزت تاريخ 15 من الشهر. يوصى بإرسال تذكير ودي لأولياء الأمور لتسوية وضعيتهم المالية.
+            {% else %}
+                Les cotisations listées ci-dessous ont dépassé le 15 du mois. Vous pouvez adresser un rappel courtois par WhatsApp pour inciter à la régularisation.
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% else %}
+<div style="background: #EFF6FF; border: 1px solid #93C5FD; border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.85rem;">
+    <span style="font-size: 1.5rem;">ℹ️</span>
+    <div style="font-size: 0.85rem; color: #1E40AF;">
+        {% if CURRENT_LANG == 'ar' %}
+            <b>فترة الأداء المفتوحة :</b> أمام أولياء الأمور مهلة حتى <b>15 من الشهر كأقصى حد</b> لتسوية واجباتهم الشهرية.
+        {% else %}
+            <b>Période de paiement normale :</b> Les familles ont jusqu'au <b>15 du mois au plus tard</b> pour régler leur mensualité.
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- CARTES KPI & STATISTIQUES DES IMPAYÉS -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #DC2626; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            💰 {% if CURRENT_LANG == 'ar' %}مجموع المستحقات غير المؤداة{% else %}Total Reliquats Dus{% endif %}
+        </div>
+        <div style="font-size: 1.7rem; font-weight: 800; color: #991B1B; margin-top: 0.2rem;">
+            {{ total_due_formatted }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {{ total_count }} {% if CURRENT_LANG == 'ar' %}تلميذ معني{% else %}dossier(s) concerné(s){% endif %}
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #D97706; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            ⏳ {% if CURRENT_LANG == 'ar' %}في انتظار موافقة الإرسال{% else %}En Attente d'Autorisation{% endif %}
+        </div>
+        <div style="font-size: 1.7rem; font-weight: 800; color: #D97706; margin-top: 0.2rem;">
+            {{ unnotified_count }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}لم يتم تذكيرهم هذا الشهر{% else %}Non relancés ce mois-ci{% endif %}
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #16A34A; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            ✅ {% if CURRENT_LANG == 'ar' %}تم تذكيرهم مسبقاً{% else %}Déjà Relancés{% endif %}
+        </div>
+        <div style="font-size: 1.7rem; font-weight: 800; color: #166534; margin-top: 0.2rem;">
+            {{ already_notified_count }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}أرسلت لهم رسالة واتساب{% else %}Alerte WhatsApp transmise{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- FILTRE PAR MOIS & RECHERCHE -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+    <form method="GET" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; margin: 0;">
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}الشهر المستهدف :{% else %}Mois ciblé :{% endif %}
+            </label>
+            <select name="month" class="search-input" style="padding: 0.4rem 0.65rem; font-size: 0.85rem;" onchange="this.form.submit()">
+                <option value="1" {% if selected_month == 1 %}selected{% endif %}>Janvier / يناير</option>
+                <option value="2" {% if selected_month == 2 %}selected{% endif %}>Février / فبراير</option>
+                <option value="3" {% if selected_month == 3 %}selected{% endif %}>Mars / مارس</option>
+                <option value="4" {% if selected_month == 4 %}selected{% endif %}>Avril / أبريل</option>
+                <option value="5" {% if selected_month == 5 %}selected{% endif %}>Mai / ماي</option>
+                <option value="6" {% if selected_month == 6 %}selected{% endif %}>Juin / يونيو</option>
+                <option value="7" {% if selected_month == 7 %}selected{% endif %}>Juillet / يوليوز</option>
+                <option value="8" {% if selected_month == 8 %}selected{% endif %}>Août / غشت</option>
+                <option value="9" {% if selected_month == 9 %}selected{% endif %}>Septembre / شتنبر</option>
+                <option value="10" {% if selected_month == 10 %}selected{% endif %}>Octobre / أكتوبر</option>
+                <option value="11" {% if selected_month == 11 %}selected{% endif %}>Novembre / نونبر</option>
+                <option value="12" {% if selected_month == 12 %}selected{% endif %}>Décembre / دجنبر</option>
+            </select>
+        </div>
+
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}السنة :{% else %}Année :{% endif %}
+            </label>
+            <select name="year" class="search-input" style="padding: 0.4rem 0.65rem; font-size: 0.85rem;" onchange="this.form.submit()">
+                {% for y in available_years %}
+                <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="flex: 1; min-width: 200px;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}بحث عن تلميذ أو ولي أمر :{% else %}Recherche élève ou parent :{% endif %}
+            </label>
+            <input type="text" name="q" value="{{ q }}" placeholder="{% if CURRENT_LANG == 'ar' %}الاسم، الهاتف، رقم القيد...{% else %}Nom, téléphone, matricule...{% endif %}" 
+                   class="search-input" style="width: 100%; padding: 0.4rem 0.65rem; font-size: 0.85rem;">
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary btn-sm" style="font-weight: 700; height: 35px;">
+                🔍 {% if CURRENT_LANG == 'ar' %}تصفية{% else %}Filtrer{% endif %}
+            </button>
+            <a href="?all_periods=1" class="btn btn-outline btn-sm" style="height: 35px; background: white; font-weight: 600;" title="Voir tous les impayés sans filtre de mois">
+                🌐 {% if CURRENT_LANG == 'ar' %}جميع الفترات{% else %}Tous les impayés{% endif %}
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- FORMULAIRE D'AUTORISATION ET ENVOI GROUPÉ PAR L'ADMINISTRATEUR -->
+<form method="POST" action="{% url 'portal:unpaid_reminders_send_bulk' %}" id="bulkRemindersForm" onsubmit="return confirmBulkSend();">
+    {% csrf_token %}
+    <input type="hidden" name="next_url" value="{{ request.get_full_path }}">
+
+    <!-- BARRE D'ACTIONS DE VALIDATION -->
+    <div class="card" style="padding: 0.85rem 1.25rem; margin-bottom: 1rem; background: #0A192F; color: white; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <label style="display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: 700; font-size: 0.9rem; margin: 0;">
+                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" checked style="width: 17px; height: 17px; cursor: pointer;">
+                {% if CURRENT_LANG == 'ar' %}تحديد الكل / إلغاء التحديد{% else %}Tout cocher / décocher{% endif %}
+            </label>
+            <span style="font-size: 0.85rem; color: #94A3B8;">
+                (<span id="selectedCountDisplay">{{ total_count }}</span> {% if CURRENT_LANG == 'ar' %}محدد{% else %}sélectionné(s){% endif %})
+            </span>
+        </div>
+
+        <button type="submit" id="btnSubmitBulk" class="btn btn-sm" style="background: #22C55E; color: white; border: none; font-weight: 800; font-size: 0.9rem; padding: 0.45rem 1rem; box-shadow: var(--shadow-sm);" {% if total_count == 0 %}disabled{% endif %}>
+            📲 {% if CURRENT_LANG == 'ar' %}الموافقة على الإرسال وإطلاق التذكيرات المحددة{% else %}Autoriser & Envoyer les Relances WhatsApp{% endif %}
+        </button>
+    </div>
+
+    <!-- TABLEAU INTERACTIF DES FACTURES IMPAYÉES -->
+    <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-md);">
+        <div class="table-responsive" style="overflow-x: auto;">
+            <table class="data-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                <thead>
+                    <tr style="background: #F1F5F9; font-size: 0.85rem;">
+                        <th style="padding: 0.75rem; text-align: center; width: 45px;">
+                            <span title="Sélectionner">✓</span>
+                        </th>
+                        <th style="padding: 0.75rem;">{% if CURRENT_LANG == 'ar' %}التلميذ{% else %}Élève{% endif %}</th>
+                        <th style="padding: 0.75rem;">{% if CURRENT_LANG == 'ar' %}ولي الأمر والهاتف{% else %}Parent & WhatsApp{% endif %}</th>
+                        <th style="padding: 0.75rem;">{% if CURRENT_LANG == 'ar' %}النشاط والفوج{% else %}Activité / Groupe{% endif %}</th>
+                        <th style="padding: 0.75rem;">{% if CURRENT_LANG == 'ar' %}شهر الواجب{% else %}Période{% endif %}</th>
+                        <th style="padding: 0.75rem; text-align: right;">{% if CURRENT_LANG == 'ar' %}المبلغ المتبقي{% else %}Reliquat Dû{% endif %}</th>
+                        <th style="padding: 0.75rem; text-align: center;">{% if CURRENT_LANG == 'ar' %}حالة التذكير{% else %}État Relance{% endif %}</th>
+                        <th style="padding: 0.75rem; text-align: center; width: 140px;">{% if CURRENT_LANG == 'ar' %}إجراء فردي{% else %}Action directe{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoices_list %}
+                    <tr style="border-bottom: 1px solid #F1F5F9; font-size: 0.88rem;" id="row-inv-{{ item.invoice.id }}">
+                        <!-- Case à cocher d'autorisation -->
+                        <td style="padding: 0.75rem; text-align: center;">
+                            <input type="checkbox" name="selected_invoices" value="{{ item.invoice.id }}" class="inv-checkbox" onchange="updateSelectedCount()" checked style="width: 17px; height: 17px; cursor: pointer;">
+                        </td>
+
+                        <!-- Élève -->
+                        <td style="padding: 0.75rem;">
+                            <div style="font-weight: 700; color: var(--primary-navy);">
+                                {{ item.invoice.student|trans_field:CURRENT_LANG }}
+                            </div>
+                            <div style="font-size: 0.75rem; font-family: monospace; color: var(--text-muted);">
+                                ID: {{ item.invoice.student.registration_number }}
+                            </div>
+                        </td>
+
+                        <!-- Parent & Téléphone -->
+                        <td style="padding: 0.75rem;">
+                            <div style="font-weight: 600;">
+                                {{ item.parent|trans_field:CURRENT_LANG }}
+                            </div>
+                            <div style="font-size: 0.8rem; color: #15803D; font-family: monospace; font-weight: 600;">
+                                📞 {{ item.phone|default:"—" }}
+                            </div>
+                        </td>
+
+                        <!-- Groupe & Activité -->
+                        <td style="padding: 0.75rem;">
+                            <span class="badge" style="background: {{ item.invoice.group.get_color }}; color: white; font-weight: 700;">
+                                {{ item.invoice.group|trans_field:CURRENT_LANG }}
+                            </span>
+                        </td>
+
+                        <!-- Mois concerné -->
+                        <td style="padding: 0.75rem; font-weight: 600;">
+                            {% if CURRENT_LANG == 'ar' %}{{ item.invoice.period_label_ar }}{% else %}{{ item.invoice.period_label_fr }}{% endif %}
+                        </td>
+
+                        <!-- Reliquat -->
+                        <td style="padding: 0.75rem; text-align: right; font-weight: 800; color: #DC2626; font-size: 0.95rem;">
+                            {{ item.balance_formatted }}
+                        </td>
+
+                        <!-- Statut de relance -->
+                        <td style="padding: 0.75rem; text-align: center;">
+                            {% if item.already_sent %}
+                                <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700; font-size: 0.75rem;" title="Envoyé le {{ item.sent_date|date:'d/m/Y à H:i' }}">
+                                    ✓ {% if CURRENT_LANG == 'ar' %}أُرسل تذكير{% else %}Déjà relancé{% endif %}
+                                </span>
+                            {% else %}
+                                <span class="badge" style="background: #FEF3C7; color: #92400E; font-weight: 700; font-size: 0.75rem;">
+                                    ⏳ {% if CURRENT_LANG == 'ar' %}في انتظار الموافقة{% else %}Non relancé{% endif %}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Actions individuelles -->
+                        <td style="padding: 0.75rem; text-align: center; white-space: nowrap;">
+                            <div style="display: inline-flex; gap: 0.3rem; align-items: center;">
+                                <!-- Bouton Envoi serveur 1 clic -->
+                                <button type="button" onclick="sendSingleReminder({{ item.invoice.id }}, '{{ item.invoice.student|trans_field:CURRENT_LANG|escapejs }}')" 
+                                        class="btn btn-sm" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; background: #D97706; color: white; border: none; font-weight: 700; border-radius: 4px;" title="Envoyer par le serveur">
+                                    📲
+                                </button>
+
+                                <!-- Bouton Chat WhatsApp Direct -->
+                                {% if item.chat_url %}
+                                <a href="{{ item.chat_url }}" target="_blank" class="btn btn-sm" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; background: #22C55E; color: white; text-decoration: none; font-weight: 700; border-radius: 4px;" title="Ouvrir WhatsApp direct">
+                                    💬
+                                </a>
+                                {% endif %}
+
+                                <!-- Bouton Voir le texte -->
+                                <button type="button" onclick="previewMessage('{{ item.msg_preview|escapejs }}')" class="btn btn-outline btn-sm" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; background: white;" title="Aperçu du texte">
+                                    👁️
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                            <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🎉</span>
+                            <h4 style="margin: 0 0 0.5rem 0;">{% if CURRENT_LANG == 'ar' %}رائع ! لا توجد أي مستحقات معلقة لهذه الفترة{% else %}Félicitations ! Aucun impayé trouvé pour cette période{% endif %}</h4>
+                            <p style="font-size: 0.85rem; margin: 0;">{% if CURRENT_LANG == 'ar' %}جميع الحسابات والاشتراكات مسواة بالكامل.{% else %}Toutes les cotisations sont à jour.{% endif %}</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+
+<!-- FORMULAIRE CACHÉ POUR ENVOI INDIVIDUEL -->
+<form id="singleSendForm" method="POST" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="next_url" value="{{ request.get_full_path }}">
+</form>
+
+<!-- MODAL D'APERÇU DU MESSAGE WHATSAPP -->
+<div id="previewModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="card" style="max-width: 500px; width: 100%; border-radius: var(--radius-md); background: white; padding: 1.5rem; box-shadow: var(--shadow-lg);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            <h4 style="margin: 0; color: var(--primary-navy);">
+                📱 {% if CURRENT_LANG == 'ar' %}معاينة رسالة التذكير عبر واتساب{% else %}Aperçu du Message WhatsApp{% endif %}
+            </h4>
+            <button type="button" onclick="closePreviewModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-muted);">✕</button>
+        </div>
+        <div id="previewModalText" style="white-space: pre-wrap; font-size: 0.88rem; line-height: 1.5; background: #F8FAFC; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid #E2E8F0; max-height: 350px; overflow-y: auto; font-family: sans-serif;"></div>
+        <div style="margin-top: 1rem; text-align: right;">
+            <button type="button" onclick="closePreviewModal()" class="btn btn-primary btn-sm" style="font-weight: 700;">
+                {% if CURRENT_LANG == 'ar' %}إغلاق{% else %}Fermer{% endif %}
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSelectAll(masterCheckbox) {
+    const checkboxes = document.querySelectorAll(".inv-checkbox");
+    checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const checkedBoxes = document.querySelectorAll(".inv-checkbox:checked");
+    const count = checkedBoxes.length;
+    document.getElementById("selectedCountDisplay").innerText = count;
+    document.getElementById("btnSubmitBulk").disabled = (count === 0);
+}
+
+function confirmBulkSend() {
+    const count = document.querySelectorAll(".inv-checkbox:checked").length;
+    if (count === 0) {
+        alert("Veuillez cocher au moins un parent.");
+        return false;
+    }
+    const isAr = "{{ CURRENT_LANG }}" === "ar";
+    const msg = isAr 
+        ? "هل أنت متأكد من اعتماد وإرسال رسائل التذكير عبر واتساب لـ " + count + " ولي أمر ؟"
+        : "Confirmez-vous l'autorisation et l'envoi des relances WhatsApp pour " + count + " parent(s) sélectionné(s) ?";
+    return confirm(msg);
+}
+
+function sendSingleReminder(invoiceId, studentName) {
+    const isAr = "{{ CURRENT_LANG }}" === "ar";
+    const msg = isAr
+        ? "هل تريد إرسال تذكير واتساب لولي أمر " + studentName + " ؟"
+        : "Voulez-vous envoyer la relance WhatsApp au parent de " + studentName + " ?";
+    if (confirm(msg)) {
+        const form = document.getElementById("singleSendForm");
+        form.action = "/payments/unpaid-reminders/send/" + invoiceId + "/";
+        form.submit();
+    }
+}
+
+function previewMessage(text) {
+    document.getElementById("previewModalText").innerText = text;
+    document.getElementById("previewModal").style.display = "flex";
+}
+
+function closePreviewModal() {
+    document.getElementById("previewModal").style.display = "none";
+}
+</script>
+{% endblock %}

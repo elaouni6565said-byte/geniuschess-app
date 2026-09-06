@@ -16,6 +16,9 @@
         <a href="{% url 'portal:export_unpaid_excel' %}" class="btn btn-outline" style="background: white; border-color: var(--danger); color: var(--danger); font-weight: 600;">
             ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير غير المؤدين / المتأخرات (Excel){% else %}Exporter les Impayés (Excel){% endif %}
         </a>
+        <a href="{% url 'portal:unpaid_reminders' %}" class="btn" style="background: #D97706; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
+            ⏳ {% if CURRENT_LANG == 'ar' %}تذكيرات المستحقات عبر واتساب (أجل 15){% else %}Relances Impayés WhatsApp (Échéance 15){% endif %}
+        </a>
         <a href="{% url 'portal:payment_add' %}" class="btn btn-primary">
             ➕ {% if CURRENT_LANG == 'ar' %}تسجيل أداء جديد{% else %}Enregistrer un Paiement{% endif %}
         </a>
@@ -33,8 +36,8 @@
             <a href="{% url 'portal:export_unpaid_excel' %}" class="btn btn-outline btn-sm" style="border-color: var(--danger); color: var(--danger);">
                 📥 Excel
             </a>
-            <a href="{% url 'portal:run_reminders' %}" class="btn btn-accent btn-sm">
-                🔔 {% trans "dashboard.run_reminders_btn" %}
+            <a href="{% url 'portal:unpaid_reminders' %}" class="btn btn-sm" style="background: #D97706; color: white; font-weight: 700;">
+                📲 {% if CURRENT_LANG == 'ar' %}منصة تذكيرات واتساب{% else %}Relances WhatsApp{% endif %}
             </a>
         </div>
     </div>

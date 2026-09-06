@@ -439,17 +439,181 @@ def download_timetable_pdf_view(request, student_id):
 @admin_required
 def run_reminders_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    sent = generate_monthly_reminders()
-    count = len(sent)
-    
-    if count > 0:
-        msg = get_translation('reminders.count_sent', lang=lang, count=count)
-        messages.success(request, f"✓ {msg}")
+    return redirect('portal:unpaid_reminders')
+
+
+@admin_required
+def unpaid_reminders_console_view(request):
+    """
+    Console d'autorisation des relances WhatsApp d'impayés :
+    Permet à l'administrateur de prévisualiser, sélectionner les parents (cocher/décocher)
+    et autoriser l'envoi WhatsApp en respectant l'échéance du 15 du mois max.
+    """
+    from datetime import date
+    from finance.models import Invoice
+    from finance.whatsapp_payment_reminders import (
+        build_unpaid_reminder_message,
+        get_unpaid_reminder_chat_url,
+        get_last_reminder_info
+    )
+    from core.i18n import format_currency
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    today = date.today()
+
+    # Règle du 15 de chaque mois
+    current_day = today.day
+    if current_day <= 9:
+        period_15_status = 'normal'
+    elif current_day <= 15:
+        period_15_status = 'due_soon'
     else:
-        empty_msg = "Aucun impayé à relancer. Tous les paiements sont à jour." if lang == 'fr' else "لا توجد مستحقات معلقة حالياً. جميع الحسابات مسواة."
-        messages.info(request, empty_msg)
-        
-    return redirect('portal:dashboard')
+        period_15_status = 'overdue'
+
+    try:
+        selected_month = int(request.GET.get('month', today.month))
+        selected_year = int(request.GET.get('year', today.year))
+    except (ValueError, TypeError):
+        selected_month = today.month
+        selected_year = today.year
+
+    filter_all_periods = request.GET.get('all_periods') == '1'
+    q = request.GET.get('q', '').strip()
+
+    qs = Invoice.objects.filter(
+        status__in=['unpaid', 'partial']
+    ).select_related(
+        'student',
+        'student__parent',
+        'student__parent__user',
+        'group',
+        'group__subject'
+    ).order_by('student__last_name_fr', 'student__first_name_fr')
+
+    if not filter_all_periods:
+        qs = qs.filter(period_month=selected_month, period_year=selected_year)
+
+    if q:
+        qs = qs.filter(
+            Q(student__first_name_fr__icontains=q) |
+            Q(student__last_name_fr__icontains=q) |
+            Q(student__first_name_ar__icontains=q) |
+            Q(student__last_name_ar__icontains=q) |
+            Q(student__registration_number__icontains=q) |
+            Q(student__parent__full_name_fr__icontains=q) |
+            Q(student__parent__full_name_ar__icontains=q)
+        )
+
+    invoices_list = []
+    total_due_sum = Decimal('0.00')
+    unnotified_count = 0
+    already_notified_count = 0
+
+    for inv in qs:
+        bal = inv.get_balance()
+        if bal <= Decimal('0.00'):
+            continue
+        total_due_sum += bal
+
+        parent = inv.student.parent
+        parent_lang = getattr(parent, 'preferred_language', 'fr') or 'fr'
+        already_sent, sent_date = get_last_reminder_info(inv)
+        if already_sent:
+            already_notified_count += 1
+        else:
+            unnotified_count += 1
+
+        msg_preview = build_unpaid_reminder_message(inv, lang=parent_lang)
+        chat_url = get_unpaid_reminder_chat_url(inv, lang=parent_lang)
+
+        invoices_list.append({
+            'invoice': inv,
+            'balance': bal,
+            'balance_formatted': format_currency(bal, lang=lang),
+            'parent': parent,
+            'parent_lang': parent_lang,
+            'phone': parent.phone if parent else '',
+            'already_sent': already_sent,
+            'sent_date': sent_date,
+            'msg_preview': msg_preview,
+            'chat_url': chat_url,
+        })
+
+    context = {
+        'invoices_list': invoices_list,
+        'total_due_sum': total_due_sum,
+        'total_due_formatted': format_currency(total_due_sum, lang=lang),
+        'total_count': len(invoices_list),
+        'unnotified_count': unnotified_count,
+        'already_notified_count': already_notified_count,
+        'selected_month': selected_month,
+        'selected_year': selected_year,
+        'filter_all_periods': filter_all_periods,
+        'q': q,
+        'today': today,
+        'current_day': current_day,
+        'period_15_status': period_15_status,
+        'available_years': range(today.year - 1, today.year + 2),
+    }
+    return render(request, 'portal/unpaid_reminders.html', context)
+
+
+@admin_required
+@require_POST
+def unpaid_reminders_send_bulk_view(request):
+    """
+    Exécute l'envoi groupé des relances WhatsApp autorisées par l'administrateur.
+    """
+    from finance.whatsapp_payment_reminders import send_bulk_authorized_reminders
+    invoice_ids = request.POST.getlist('selected_invoices')
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    if not invoice_ids:
+        messages.warning(request, "Veuillez cocher au moins un parent à relancer." if lang == 'fr' else "يرجى تحديد ولي أمر واحد على الأقل لإرسال التذكير.")
+        return redirect('portal:unpaid_reminders')
+
+    res = send_bulk_authorized_reminders(invoice_ids)
+    sent_cnt = res['sent_count']
+
+    if sent_cnt > 0:
+        msg = (
+            f"✓ {sent_cnt} relance(s) WhatsApp autorisée(s) et envoyée(s) avec succès !"
+            if lang == 'fr' else
+            f"✓ تم إرسال {sent_cnt} تذكير عبر واتساب بنجاح بعد الموافقة !"
+        )
+        messages.success(request, msg)
+    else:
+        messages.error(request, "Échec de l'envoi des relances. Vérifiez la passerelle WhatsApp." if lang == 'fr' else "فشل إرسال التذكيرات. يرجى التحقق من بوابة واتساب.")
+
+    redirect_url = request.POST.get('next_url', '/payments/unpaid-reminders/')
+    return redirect(redirect_url)
+
+
+@admin_required
+@require_POST
+def unpaid_reminders_send_single_view(request, invoice_id):
+    """
+    Envoie la relance WhatsApp autorisée pour une seule facture spécifique.
+    """
+    from finance.models import Invoice
+    from finance.whatsapp_payment_reminders import send_single_unpaid_whatsapp_reminder
+
+    invoice = get_object_or_404(Invoice, id=invoice_id)
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    res = send_single_unpaid_whatsapp_reminder(invoice, force=True)
+    if res.get('success'):
+        msg = (
+            f"✓ Relance WhatsApp envoyée avec succès pour l'élève {invoice.student.get_full_name('fr')} !"
+            if lang == 'fr' else
+            f"✓ تم إرسال التذكير عبر واتساب بنجاح للتلميذ(ة) {invoice.student.get_full_name('ar')} !"
+        )
+        messages.success(request, msg)
+    else:
+        messages.error(request, f"Erreur : {res.get('error')}")
+
+    redirect_url = request.POST.get('next_url', '/payments/unpaid-reminders/')
+    return redirect(redirect_url)
 
 
 def parent_space_view(request):
