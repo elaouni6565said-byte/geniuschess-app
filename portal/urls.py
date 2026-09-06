@@ -58,6 +58,7 @@ urlpatterns = [
     path('trainers/payouts/<int:payout_id>/pdf/', views.trainer_payout_pdf_view, name='trainer_payout_pdf'),
     path('trainers/payouts/excel/', views.trainers_payroll_excel_view, name='trainers_payroll_excel'),
     path('api/trainers/<int:trainer_id>/info/', views.api_trainer_info, name='api_trainer_info'),
+    path('trainer/', views.trainer_space_view, name='trainer_space'),
 
     path('parent/', views.parent_space_view, name='parent_space'),
     path('register/', views.register_view, name='register'),

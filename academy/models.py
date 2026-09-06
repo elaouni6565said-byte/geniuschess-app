@@ -235,6 +235,14 @@ class SessionSchedule(models.Model):
             return ARABIC_DAYS.get(self.day_of_week, "")
         return FRENCH_DAYS.get(self.day_of_week, "")
 
+    @property
+    def day_name_fr(self):
+        return self.get_day_name("fr")
+
+    @property
+    def day_name_ar(self):
+        return self.get_day_name("ar")
+
     def get_trainer_name(self, lang="fr"):
         if self.trainer:
             return self.trainer.get_full_name(lang)

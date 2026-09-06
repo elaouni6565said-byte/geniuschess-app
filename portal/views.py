@@ -770,6 +770,90 @@ def parent_space_view(request):
     return render(request, 'portal/parent_space.html', context)
 
 
+def trainer_space_view(request):
+    """
+    Espace Formateur officiel de Genius Chess Academy & جمعية الشطرنج القاسمي.
+    Permet au formateur de consulter son emploi du temps, faire l'appel des présences,
+    voir ses groupes/élèves et télécharger ses bulletins d'honoraires et décharges.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    # 1. Authentification requise
+    if not request.user.is_authenticated:
+        return redirect('/login/?next=/trainer/')
+
+    all_trainers = []
+    trainer = None
+
+    # 2. Si l'utilisateur est formateur
+    if request.user.is_trainer_role():
+        trainer = getattr(request.user, 'trainer_profile', None)
+        if not trainer:
+            trainer = Trainer.objects.filter(user=request.user).first()
+        if not trainer and request.user.email:
+            trainer = Trainer.objects.filter(email__iexact=request.user.email).first()
+        if not trainer:
+            trainer = Trainer.objects.filter(
+                first_name_fr__iexact=request.user.first_name,
+                last_name_fr__iexact=request.user.last_name
+            ).first()
+        all_trainers = []
+
+    # 3. Si Admin ou Superuser (mode prévisualisation)
+    elif request.user.is_admin_role() or request.user.is_superuser:
+        all_trainers = list(Trainer.objects.filter(active=True).order_by('last_name_fr', 'first_name_fr'))
+        trainer_id = request.GET.get('trainer_id')
+        if trainer_id and trainer_id.isdigit():
+            trainer = Trainer.objects.filter(id=int(trainer_id)).first()
+        if not trainer and all_trainers:
+            trainer = all_trainers[0]
+    else:
+        return redirect('portal:login')
+
+    if not trainer:
+        messages.warning(
+            request,
+            "Aucun profil formateur disponible ou associé." if lang != 'ar' else "لا يوجد ملف مدرب مرتبط بهذا الحساب."
+        )
+        if request.user.is_admin_role() or request.user.is_superuser:
+            return redirect('portal:trainers_list')
+        return redirect('portal:login')
+
+    # 4. Séances assignées à ce formateur
+    schedules = SessionSchedule.objects.filter(
+        Q(trainer=trainer) |
+        Q(trainer_name_fr__icontains=trainer.last_name_fr)
+    ).select_related('group', 'group__subject', 'room').order_by('day_of_week', 'start_time')
+
+    # 5. Groupes et élèves
+    groups = Group.objects.filter(schedules__in=schedules).distinct().select_related('subject', 'level')
+    students = Student.objects.filter(groups__in=groups, active=True).distinct().prefetch_related('groups', 'parent').order_by('last_name_fr', 'first_name_fr')
+
+    # 6. Bulletins d'honoraires
+    payouts = TrainerPayout.objects.filter(trainer=trainer).order_by('-period_year', '-period_month')
+
+    # 7. Statistiques
+    from datetime import date
+    current_year = date.today().year
+    total_sessions_week = schedules.count()
+    total_students = students.count()
+    total_paid_year = payouts.filter(period_year=current_year, status='paid').aggregate(t=Sum('net_amount'))['t'] or Decimal('0.00')
+
+    context = {
+        'trainer': trainer,
+        'all_trainers': all_trainers,
+        'schedules': schedules,
+        'groups': groups,
+        'students': students,
+        'payouts': payouts,
+        'total_sessions_week': total_sessions_week,
+        'total_students': total_students,
+        'total_paid_year': total_paid_year,
+        'current_year': current_year,
+    }
+    return render(request, 'portal/trainer_space.html', context)
+
+
 def login_view(request):
     import re
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
@@ -778,6 +862,8 @@ def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_parent_role():
             return redirect('portal:parent_space')
+        elif request.user.is_trainer_role():
+            return redirect('portal:trainer_space')
         elif request.user.is_admin_role() or request.user.is_superuser:
             return redirect(next_url if next_url != '/login/' else '/')
 
@@ -867,6 +953,8 @@ def login_view(request):
                 request.session['gca_language'] = user.preferred_language
             if user.is_parent_role():
                 return redirect('portal:parent_space')
+            elif user.is_trainer_role():
+                return redirect('portal:trainer_space')
             return redirect(next_url if next_url != '/login/' else '/')
         else:
             error_msg = get_translation('auth.invalid_credentials', lang=lang)

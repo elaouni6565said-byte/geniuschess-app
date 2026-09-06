@@ -302,3 +302,43 @@ def test_trainer_http_views_and_actions(admin_client):
     api_data = resp_api.json()
     assert api_data["id"] == trainer.id
     assert api_data["cin"] == "F998877"
+
+
+@pytest.mark.django_db
+def test_trainer_space_view(admin_client):
+    admin_c, _ = admin_client
+    # 1. Admin access to trainer space
+    tr = Trainer.objects.create(
+        first_name_fr="Mehdi",
+        last_name_fr="Berrada",
+        cin="M123456",
+        phone="0699887766",
+        specialty="Échecs",
+        compensation_type="per_session",
+        default_rate=Decimal("150.00")
+    )
+    resp_admin = admin_c.get(f"/trainer/?trainer_id={tr.id}")
+    assert resp_admin.status_code == 200
+    assert "Mehdi Berrada" in resp_admin.content.decode("utf-8")
+
+    # 2. Anonymous access redirected to login
+    anon_c = Client()
+    resp_anon = anon_c.get("/trainer/")
+    assert resp_anon.status_code == 302
+    assert "/login/" in resp_anon.url
+
+    # 3. Trainer role user access
+    trainer_user = User.objects.create_user(
+        username="trainer_mehdi",
+        password="trainerpass123",
+        role="trainer"
+    )
+    tr.user = trainer_user
+    tr.save()
+
+    tr_client = Client()
+    tr_client.force_login(trainer_user)
+    resp_tr = tr_client.get("/trainer/")
+    assert resp_tr.status_code == 200
+    assert "Mehdi Berrada" in resp_tr.content.decode("utf-8")
+    assert "Séances Hebdomadaires" in resp_tr.content.decode("utf-8")
