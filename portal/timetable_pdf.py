@@ -28,9 +28,11 @@ def init_fonts():
         return
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     font_candidates = [
+        ("Amiri-Bold", os.path.join(base_dir, "static", "fonts", "Amiri-Bold.ttf")),
+        ("Amiri-Regular", os.path.join(base_dir, "static", "fonts", "Amiri-Regular.ttf")),
         ("Amiri", os.path.join(base_dir, "static", "fonts", "Amiri-Regular.ttf")),
-        ("Cairo", os.path.join(base_dir, "static", "fonts", "Cairo-Variable.ttf")),
-        ("SystemArial", "C:/Windows/Fonts/arial.ttf"),
+        ("Amiri-Bold-Static", os.path.join(base_dir, "staticfiles", "fonts", "Amiri-Bold.ttf")),
+        ("Amiri-Regular-Static", os.path.join(base_dir, "staticfiles", "fonts", "Amiri-Regular.ttf")),
     ]
     for font_name, font_path in font_candidates:
         if os.path.exists(font_path):
@@ -45,12 +47,9 @@ def get_preferred_font(lang):
     init_fonts()
     registered = pdfmetrics.getRegisteredFontNames()
     if lang in ("ar", "bilingual"):
-        if "Amiri" in registered:
-            return "Amiri"
-        if "Cairo" in registered:
-            return "Cairo"
-        if "SystemArial" in registered:
-            return "SystemArial"
+        for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
+            if fname in registered:
+                return fname
     return "Helvetica"
 
 

@@ -33,9 +33,11 @@ def init_card_fonts():
         return
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     font_candidates = [
+        ("Amiri-Bold", os.path.join(base_dir, "static", "fonts", "Amiri-Bold.ttf")),
+        ("Amiri-Regular", os.path.join(base_dir, "static", "fonts", "Amiri-Regular.ttf")),
         ("Amiri", os.path.join(base_dir, "static", "fonts", "Amiri-Regular.ttf")),
-        ("Cairo", os.path.join(base_dir, "static", "fonts", "Cairo-Variable.ttf")),
-        ("SystemArial", "C:/Windows/Fonts/arial.ttf"),
+        ("Amiri-Bold-Static", os.path.join(base_dir, "staticfiles", "fonts", "Amiri-Bold.ttf")),
+        ("Amiri-Regular-Static", os.path.join(base_dir, "staticfiles", "fonts", "Amiri-Regular.ttf")),
     ]
     for font_name, font_path in font_candidates:
         if os.path.exists(font_path):
@@ -50,12 +52,9 @@ def get_card_font(is_arabic=False):
     init_card_fonts()
     registered = pdfmetrics.getRegisteredFontNames()
     if is_arabic:
-        if "Amiri" in registered:
-            return "Amiri"
-        if "Cairo" in registered:
-            return "Cairo"
-        if "SystemArial" in registered:
-            return "SystemArial"
+        for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
+            if fname in registered:
+                return fname
     return "Helvetica"
 
 
@@ -63,12 +62,9 @@ def get_card_font_bold(is_arabic=False):
     init_card_fonts()
     registered = pdfmetrics.getRegisteredFontNames()
     if is_arabic:
-        if "Cairo" in registered:
-            return "Cairo"
-        if "Amiri" in registered:
-            return "Amiri"
-        if "SystemArial" in registered:
-            return "SystemArial"
+        for fname in ["Amiri-Bold", "Amiri-Bold-Static", "Amiri", "Amiri-Regular", "Amiri-Regular-Static"]:
+            if fname in registered:
+                return fname
     return "Helvetica-Bold"
 
 
@@ -162,9 +158,9 @@ def draw_single_card(c, x, y, student, lang="bilingual"):
     c.drawRightString(x + CARD_WIDTH - 3.5 * mm, y + 1.2 * mm, ar_foot)
 
     # 4. QR Code Box (Right side)
-    qr_size = 23.5 * mm
-    qr_x = x + CARD_WIDTH - qr_size - 3.5 * mm
-    qr_y = y + footer_h + 3.0 * mm
+    qr_size = 22.0 * mm
+    qr_x = x + CARD_WIDTH - qr_size - 4.0 * mm
+    qr_y = y + footer_h + 4.5 * mm
 
     # Border frame around QR
     c.setFillColor(WHITE)
@@ -178,8 +174,9 @@ def draw_single_card(c, x, y, student, lang="bilingual"):
 
     # QR Subtitle
     c.setFillColor(TEXT_MUTED)
-    c.setFont("Helvetica-Bold", 4.8)
-    c.drawCentredString(qr_x + qr_size / 2.0, qr_y - 2.8 * mm, "SCAN PRÉSENCE • مسح الحضور")
+    c.setFont(get_card_font_bold(True), 4.8)
+    qr_sub = prepare_arabic_text_for_pdf("SCAN PRÉSENCE • مسح الحضور")
+    c.drawCentredString(qr_x + qr_size / 2.0, qr_y - 3.2 * mm, qr_sub)
 
     # 5. Student Info Block (Left side)
     left_x = x + 3.5 * mm
@@ -197,7 +194,10 @@ def draw_single_card(c, x, y, student, lang="bilingual"):
     ar_full_name = prepare_arabic_text_for_pdf(student.get_full_name('ar'))
     if ar_full_name:
         c.setFillColor(NAVY)
-        c.setFont(get_card_font_bold(True), 8.5)
+        font_size_ar = 8.5
+        if len(ar_full_name) > 24:
+            font_size_ar = 7.5
+        c.setFont(get_card_font_bold(True), font_size_ar)
         c.drawString(left_x, y + CARD_HEIGHT - header_h - 8.2 * mm, ar_full_name)
 
     # Matricule Badge
