@@ -1493,4 +1493,303 @@ def whatsapp_reminders_view(request):
     return render(request, 'portal/whatsapp_reminders.html', context)
 
 
+# ==============================================================================
+# GESTION INTELLIGENTE DES PRÉSENCES & BADGES QR CODE
+# ==============================================================================
+
+@admin_required
+def attendance_list_view(request):
+    """
+    Vue principale de gestion des présences : liste des séances du jour sélectionné
+    avec indicateurs d'émargement et accès à la feuille d'appel interactive.
+    """
+    from datetime import date, datetime
+    from academy.whatsapp_reminders import is_day_cancelled, is_schedule_cancelled
+    from core.i18n import FRENCH_DAYS, ARABIC_DAYS
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    date_param = request.GET.get('date')
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    day_of_week = target_date.weekday()
+    schedules = SessionSchedule.objects.filter(day_of_week=day_of_week).select_related(
+        'group', 'group__subject', 'room'
+    ).order_by('start_time')
+
+    day_cancelled = is_day_cancelled(target_date)
+    sessions_data = []
+
+    for sch in schedules:
+        total_enrolled = sch.group.students.filter(active=True).count()
+        attendances = Attendance.objects.filter(session=sch, date=target_date)
+        present_count = attendances.filter(status='present').count()
+        absent_count = attendances.filter(status='absent').count()
+        late_count = attendances.filter(status='late').count()
+        justified_count = attendances.filter(status='justified').count()
+        total_marked = attendances.count()
+
+        sch_cancelled = day_cancelled or is_schedule_cancelled(sch, target_date)
+
+        sessions_data.append({
+            'schedule': sch,
+            'total_enrolled': total_enrolled,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'late_count': late_count,
+            'justified_count': justified_count,
+            'total_marked': total_marked,
+            'is_completed': total_enrolled > 0 and total_marked >= total_enrolled,
+            'is_cancelled': sch_cancelled,
+        })
+
+    day_name = ARABIC_DAYS.get(target_date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(target_date.weekday(), '')
+
+    context = {
+        'target_date': target_date,
+        'day_name': day_name,
+        'is_today': target_date == date.today(),
+        'sessions_data': sessions_data,
+        'day_cancelled': day_cancelled,
+        'groups': Group.objects.select_related('subject').all(),
+    }
+    return render(request, 'portal/attendance_list.html', context)
+
+
+@admin_required
+def attendance_sheet_view(request, session_id):
+    """
+    Feuille d'appel numérique pour une séance et date précises :
+    supporte le scan caméra QR Code et le pointage / correction manuelle par clic.
+    """
+    from datetime import date, datetime
+    from academy.whatsapp_reminders import is_day_cancelled, is_schedule_cancelled
+    from core.i18n import FRENCH_DAYS, ARABIC_DAYS
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    schedule = get_object_or_404(
+        SessionSchedule.objects.select_related('group', 'group__subject', 'room'),
+        id=session_id
+    )
+
+    date_param = request.GET.get('date')
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    students = schedule.group.students.filter(active=True).select_related('parent', 'parent__user').order_by('last_name_fr', 'first_name_fr')
+
+    # Traitement POST d'actions en masse (Tout marquer présent / Réinitialiser)
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'mark_all_present':
+            for st in students:
+                Attendance.objects.update_or_create(
+                    student=st, session=schedule, date=target_date,
+                    defaults={'status': 'present'}
+                )
+            messages.success(
+                request,
+                "✓ Tous les élèves de la séance ont été marqués Présents."
+                if lang == 'fr' else
+                "✓ تم تسجيل جميع تلاميذ الحصة كحاضرين بنجاح."
+            )
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+        elif action == 'reset_all':
+            Attendance.objects.filter(session=schedule, date=target_date).delete()
+            messages.info(
+                request,
+                "✓ La feuille de présence a été réinitialisée."
+                if lang == 'fr' else
+                "✓ تمت إعادة ضبط ورقة الحضور."
+            )
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
+    # Récupérer les statuts existants
+    att_map = {
+        att.student_id: att
+        for att in Attendance.objects.filter(session=schedule, date=target_date)
+    }
+
+    students_data = []
+    present_cnt = 0
+    absent_cnt = 0
+    late_cnt = 0
+    justified_cnt = 0
+
+    for st in students:
+        att = att_map.get(st.id)
+        status = att.status if att else None
+        if status == 'present':
+            present_cnt += 1
+        elif status == 'absent':
+            absent_cnt += 1
+        elif status == 'late':
+            late_cnt += 1
+        elif status == 'justified':
+            justified_cnt += 1
+
+        students_data.append({
+            'student': st,
+            'attendance': att,
+            'status': status,
+            'notes': att.notes if att else '',
+        })
+
+    day_name = ARABIC_DAYS.get(target_date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(target_date.weekday(), '')
+    is_cancelled = is_day_cancelled(target_date) or is_schedule_cancelled(schedule, target_date)
+
+    context = {
+        'schedule': schedule,
+        'target_date': target_date,
+        'day_name': day_name,
+        'is_today': target_date == date.today(),
+        'students_data': students_data,
+        'total_enrolled': len(students),
+        'present_cnt': present_cnt,
+        'absent_cnt': absent_cnt,
+        'late_cnt': late_cnt,
+        'justified_cnt': justified_cnt,
+        'unmarked_cnt': len(students) - (present_cnt + absent_cnt + late_cnt + justified_cnt),
+        'is_cancelled': is_cancelled,
+    }
+    return render(request, 'portal/attendance_sheet.html', context)
+
+
+@admin_required
+@require_POST
+def attendance_scan_ajax_view(request, session_id):
+    """
+    API de pointage direct pour le scanner QR Code et le clic manuel :
+    Reçoit un code QR, un matricule ou un ID d'élève, met à jour la présence et renvoie JSON.
+    """
+    import json
+    from datetime import date, datetime
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    schedule = get_object_or_404(SessionSchedule, id=session_id)
+
+    # Récupérer les données depuis JSON ou POST
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        data = request.POST
+
+    code = str(data.get('code', '')).strip()
+    status = str(data.get('status', 'present')).strip()
+    notes = str(data.get('notes', '')).strip()
+    date_str = str(data.get('date', '')).strip()
+
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    if not code:
+        return JsonResponse({'success': False, 'error': 'Code manquant / رمز مفقود'}, status=400)
+
+    # Normaliser le code (retirer préfixe éventuel GCA:STU:)
+    clean_code = code
+    if clean_code.upper().startswith('GCA:STU:'):
+        clean_code = clean_code[8:].strip()
+
+    # Trouver l'élève par matricule ou id
+    student = None
+    if clean_code.isdigit():
+        student = Student.objects.filter(id=int(clean_code)).first()
+    if not student:
+        student = Student.objects.filter(registration_number__iexact=clean_code).first()
+
+    if not student:
+        return JsonResponse({
+            'success': False,
+            'error': f"Élève introuvable pour le code « {clean_code} »" if lang == 'fr' else f"لم يتم العثور على التلميذ للرمز « {clean_code} »"
+        }, status=404)
+
+    # Vérifier s'il est inscrit dans ce groupe
+    in_group = schedule.group.students.filter(id=student.id).exists()
+
+    att, created = Attendance.objects.update_or_create(
+        student=student,
+        session=schedule,
+        date=target_date,
+        defaults={
+            'status': status,
+            'notes': notes,
+        }
+    )
+
+    now_time = datetime.now().strftime('%H:%M')
+    status_label = att.get_status_label(lang)
+
+    msg = (
+        f"✓ {student.get_full_name('fr')} pointé : {status_label} à {now_time}"
+        if lang == 'fr' else
+        f"✓ تم تسجيل {student.get_full_name('ar')} : {status_label} في {now_time}"
+    )
+
+    return JsonResponse({
+        'success': True,
+        'student_id': student.id,
+        'student_name': student.get_bilingual_full_name(),
+        'registration_number': student.registration_number,
+        'status': status,
+        'status_label': status_label,
+        'time': now_time,
+        'in_group': in_group,
+        'message': msg,
+    })
+
+
+@admin_required
+def student_card_pdf_view(request, student_id):
+    """Téléchargement du badge individuel d'un élève avec son QR Code officiel."""
+    from portal.student_card import generate_single_student_card_pdf
+
+    student = get_object_or_404(Student, id=student_id)
+    pdf_bytes = generate_single_student_card_pdf(student)
+
+    filename = f"Carte_Membre_{student.registration_number}.pdf"
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@admin_required
+def students_cards_sheet_pdf_view(request):
+    """Téléchargement d'une planche A4 de badges d'élèves avec QR Codes (8 cartes par page)."""
+    from portal.student_card import generate_student_cards_sheet_pdf
+
+    group_id = request.GET.get('group')
+    if group_id:
+        group = get_object_or_404(Group, id=group_id)
+        students = list(group.students.filter(active=True).order_by('last_name_fr', 'first_name_fr'))
+        filename = f"Planche_Cartes_{group.name_fr.replace(' ', '_')}.pdf"
+    else:
+        students = list(Student.objects.filter(active=True).order_by('last_name_fr', 'first_name_fr'))
+        filename = "Planche_Cartes_Tous_Eleves_GCA.pdf"
+
+    if not students:
+        messages.warning(request, "Aucun élève trouvé pour générer les cartes.")
+        return redirect('portal:students')
+
+    pdf_bytes = generate_student_cards_sheet_pdf(students)
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+
 

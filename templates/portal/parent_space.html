@@ -128,6 +128,9 @@
                         <a href="{% url 'portal:timetable_pdf' ch.id %}?lang=bilingual" target="_blank" class="btn btn-secondary btn-sm" title="Emploi du Temps Bilingue Français / Arabe">
                             🌐 Bilingue
                         </a>
+                        <a href="{% url 'portal:student_card_pdf' ch.id %}" target="_blank" class="btn btn-primary btn-sm" style="background: #0F172A; border-color: #0F172A; font-weight: 700; box-shadow: var(--shadow-sm);" title="Télécharger la carte de membre officielle avec QR Code">
+                            🪪 {% if CURRENT_LANG == 'ar' %}بطاقة العضوية الذكية{% else %}Carte de Membre QR{% endif %}
+                        </a>
                     </div>
                 </div>
                 

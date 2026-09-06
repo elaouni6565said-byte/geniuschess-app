@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}تسجيل الحضور والغياب — أكاديمية جينيوس{% else %}Pointage & Présences — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.5rem;">
+    <div class="page-header-titles">
+        <h2>📋 {% if CURRENT_LANG == 'ar' %}تسجيل الحضور والغياب{% else %}Pointage & Présences{% endif %}</h2>
+        <p>{% if CURRENT_LANG == 'ar' %}إدارة أوراق الحضور، مسح بطاقات QR Code الذكية للتلاميذ وضبط الإحصائيات الفورية.{% else %}Gestion des feuilles d'émargement, scan caméra des badges QR Code et pointage en direct.{% endif %}</p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:students_cards_sheet_pdf' %}" target="_blank" class="btn btn-outline" style="background: white; border-color: #0F172A; color: #0F172A; font-weight: 700; box-shadow: var(--shadow-sm);">
+            🪪 {% if CURRENT_LANG == 'ar' %}طباعة بطاقات جميع التلاميذ (PDF){% else %}Planche Badges Tous Élèves (PDF){% endif %}
+        </a>
+        <a href="{% url 'portal:whatsapp_reminders' %}?date={{ target_date|date:'Y-m-d' }}" class="btn btn-outline" style="background: white; border-color: #22C55E; color: #15803D; font-weight: 600;">
+            📲 {% if CURRENT_LANG == 'ar' %}تذكيرات واتساب{% else %}Rappels WhatsApp{% endif %}
+        </a>
+        <a href="{% url 'portal:planning' %}" class="btn btn-primary" style="font-weight: 600;">
+            🗓️ {% if CURRENT_LANG == 'ar' %}جدول البرنامج{% else %}Planning Hebdo{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- BARRE DE SÉLECTION DE LA DATE DU POINTAGE -->
+<div class="card" style="margin-bottom: 1.75rem; padding: 1rem 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <h3 style="font-size: 1.2rem; color: var(--primary-navy); margin: 0;">
+                📅 <b>{{ day_name }}</b> — {% local_date target_date %}
+            </h3>
+            {% if is_today %}
+                <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700;">
+                    📍 {% if CURRENT_LANG == 'ar' %}اليوم{% else %}Aujourd'hui{% endif %}
+                </span>
+            {% endif %}
+            {% if day_cancelled %}
+                <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 800;">
+                    ⛔ {% if CURRENT_LANG == 'ar' %}يوم ملغى بالكامل{% else %}Journée Annulée{% endif %}
+                </span>
+            {% endif %}
+        </div>
+
+        <form method="GET" style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;">
+            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
+                {% if CURRENT_LANG == 'ar' %}تاريخ الحصة :{% else %}Date de la séance :{% endif %}
+            </label>
+            <input type="date" name="date" value="{{ target_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; height: auto;">
+        </form>
+    </div>
+</div>
+
+<!-- LISTE DES SÉANCES PROGRAMMÉES POUR CE JOUR -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    {% for s in sessions_data %}
+    <div class="card" style="border-radius: var(--radius-md); border: 1px solid var(--border-color); overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-sm); transition: transform 0.15s ease, box-shadow 0.15s ease; {% if s.is_cancelled %}opacity: 0.75; background: #FFF1F2; border-color: #FECACA;{% endif %}">
+        
+        <!-- Haut de la carte séance -->
+        <div style="padding: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                <div>
+                    <span class="badge" style="background: {{ s.schedule.group.get_color }}; color: white; font-weight: 700; font-size: 0.8rem;">
+                        👥 {{ s.schedule.group|trans_field:CURRENT_LANG }}
+                    </span>
+                    <span class="badge" style="background: #F1F5F9; color: var(--text-dark); margin-left: 0.3rem;">
+                        ♟️ {{ s.schedule.group.subject|trans_field:CURRENT_LANG }}
+                    </span>
+                </div>
+                <div>
+                    <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 800; font-size: 0.85rem;">
+                        🕒 {{ s.schedule.start_time|time:'H:i' }} - {{ s.schedule.end_time|time:'H:i' }}
+                    </span>
+                </div>
+            </div>
+
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                <div>🏛️ <b>{% if CURRENT_LANG == 'ar' %}القاعة :{% else %}Salle :{% endif %}</b> {{ s.schedule.room|trans_field:CURRENT_LANG|default:"Salle principale" }}</div>
+                <div>👨‍🏫 <b>{% if CURRENT_LANG == 'ar' %}المؤطر :{% else %}Coach :{% endif %}</b> {% if CURRENT_LANG == 'ar' %}{{ s.schedule.trainer_name_ar }}{% else %}{{ s.schedule.trainer_name_fr }}{% endif %}</div>
+            </div>
+
+            <!-- Statistiques d'émargement -->
+            <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.4rem;">
+                    <span style="color: var(--text-dark);">
+                        👥 {{ s.total_marked }} / {{ s.total_enrolled }} {% if CURRENT_LANG == 'ar' %}تلميذ تم تسجيلهم{% else %}élèves émargés{% endif %}
+                    </span>
+                    <span style="color: {% if s.is_completed %}#16A34A{% else %}#D97706{% endif %}; font-weight: 700;">
+                        {% if s.is_completed %}
+                            ✓ {% if CURRENT_LANG == 'ar' %}مكتمل{% else %}Complet{% endif %}
+                        {% else %}
+                            ⏳ {% if CURRENT_LANG == 'ar' %}في انتظار التسجيل{% else %}En cours{% endif %}
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; font-size: 0.75rem; margin-top: 0.5rem;">
+                    <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700;">
+                        🟢 {{ s.present_count }} {% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présents{% endif %}
+                    </span>
+                    <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 700;">
+                        🔴 {{ s.absent_count }} {% if CURRENT_LANG == 'ar' %}غائب{% else %}Absents{% endif %}
+                    </span>
+                    <span class="badge" style="background: #FFEDD5; color: #9A3412; font-weight: 700;">
+                        🟠 {{ s.late_count }} {% if CURRENT_LANG == 'ar' %}متأخر{% else %}Retards{% endif %}
+                    </span>
+                    <span class="badge" style="background: #E0E7FF; color: #3730A3; font-weight: 700;">
+                        🔵 {{ s.justified_count }} {% if CURRENT_LANG == 'ar' %}مبرر{% else %}Justifiés{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bas de carte : Boutons d'action -->
+        <div style="background: #F8FAFC; border-top: 1px solid var(--border-color); padding: 0.85rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+            <a href="{% url 'portal:students_cards_sheet_pdf' %}?group={{ s.schedule.group.id }}" target="_blank" class="btn btn-outline btn-sm" style="font-size: 0.78rem; font-weight: 600;" title="Télécharger la planche des cartes de ce groupe">
+                🪪 {% if CURRENT_LANG == 'ar' %}بطاقات المجموعة{% else %}Badges Groupe{% endif %}
+            </a>
+
+            <a href="{% url 'portal:attendance_sheet' s.schedule.id %}?date={{ target_date|date:'Y-m-d' }}" class="btn btn-primary btn-sm" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; box-shadow: var(--shadow-sm);">
+                <span>📲 {% if CURRENT_LANG == 'ar' %}فتح ورقة الحضور & Scan{% else %}Faire l'Appel & Scanner{% endif %}</span>
+                <span>→</span>
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div style="grid-column: 1 / -1;" class="card">
+        <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+            <p style="font-size: 1.3rem; margin-bottom: 0.5rem;">☕ {% if CURRENT_LANG == 'ar' %}لا توجد حصص مبرمجة في هذا اليوم ({{ day_name }}){% else %}Aucune séance programmée ce jour-là ({{ day_name }}){% endif %}</p>
+            <p style="font-size: 0.9rem; margin-bottom: 1.25rem;">{% if CURRENT_LANG == 'ar' %}اختر يوماً آخر من محدد التاريخ أعلاه (مثلاً السبت أو الأحد).{% else %}Choisissez une autre date dans le sélecteur ci-dessus (par exemple un Samedi ou un Dimanche).{% endif %}</p>
+            <a href="{% url 'portal:planning' %}" class="btn btn-outline" style="font-weight: 600;">
+                🗓️ {% if CURRENT_LANG == 'ar' %}معاينة البرنامج الأسبوعي{% else %}Voir le Planning Hebdomadaire{% endif %}
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}ورقة الحضور — {{ schedule.group|trans_field:CURRENT_LANG }}{% else %}Feuille d'Appel — {{ schedule.group|trans_field:CURRENT_LANG }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.25rem;">
+    <div class="page-header-titles">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+            <a href="{% url 'portal:attendance_list' %}?date={{ target_date|date:'Y-m-d' }}" class="btn btn-outline btn-sm" style="font-weight: 600;">
+                ← {% if CURRENT_LANG == 'ar' %}العودة لقائمة الحصص{% else %}Toutes les séances{% endif %}
+            </a>
+            <span class="badge" style="background: {{ schedule.group.get_color }}; color: white; font-weight: 700;">
+                👥 {{ schedule.group|trans_field:CURRENT_LANG }}
+            </span>
+            <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 800;">
+                🕒 {{ schedule.start_time|time:'H:i' }} - {{ schedule.end_time|time:'H:i' }}
+            </span>
+            {% if is_cancelled %}
+                <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 800;">
+                    ⛔ {% if CURRENT_LANG == 'ar' %}حصة ملغاة{% else %}Séance Annulée{% endif %}
+                </span>
+            {% endif %}
+        </div>
+        <h2>
+            📋 {% if CURRENT_LANG == 'ar' %}ورقة الحضور والغياب الذكية{% else %}Feuille d'Appel & Pointage QR Code{% endif %}
+        </h2>
+        <p style="margin: 0; color: var(--text-muted); font-size: 0.88rem;">
+            📅 <b>{{ day_name }} {% local_date target_date %}</b> • 🏛️ {{ schedule.room|trans_field:CURRENT_LANG|default:"Salle principale" }} • 👨‍🏫 {% if CURRENT_LANG == 'ar' %}{{ schedule.trainer_name_ar }}{% else %}{{ schedule.trainer_name_fr }}{% endif %}
+        </p>
+    </div>
+
+    <!-- Actions globales de la feuille -->
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:students_cards_sheet_pdf' %}?group={{ schedule.group.id }}" target="_blank" class="btn btn-outline btn-sm" style="background: white; font-weight: 600;">
+            🪪 {% if CURRENT_LANG == 'ar' %}طباعة بطاقات المجموعة (PDF){% else %}Badges du Groupe (PDF){% endif %}
+        </a>
+
+        <form method="POST" style="margin: 0;" onsubmit="return confirm('{% if CURRENT_LANG == "ar" %}هل تريد تسجيل جميع التلاميذ كحاضرين ؟{% else %}Marquer tous les élèves de la séance comme Présents ?{% endif %}');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="mark_all_present">
+            <button type="submit" class="btn btn-sm" style="background: #16A34A; color: white; border: none; font-weight: 700;">
+                ✅ {% if CURRENT_LANG == 'ar' %}تحديد الكل كحاضرين{% else %}Tout marquer Présent{% endif %}
+            </button>
+        </form>
+
+        <form method="POST" style="margin: 0;" onsubmit="return confirm('{% if CURRENT_LANG == "ar" %}هل أنت متأكد من إعادة ضبط الحضور لهذه الحصة ؟{% else %}Réinitialiser toutes les présences de cette séance ?{% endif %}');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="reset_all">
+            <button type="submit" class="btn btn-outline btn-sm" style="color: #64748B; border-color: #CBD5E1;">
+                🔄 {% if CURRENT_LANG == 'ar' %}إعادة ضبط{% else %}Réinitialiser{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- SECTION DOUBLE BLOC : SCANNER CAMÉRA + POINTAGE RAPIDE (CARTES OUBLIÉES) -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-bottom: 1.75rem;">
+    
+    <!-- 1. Scanner Caméra Intégré -->
+    <div class="card" style="border-radius: var(--radius-md); border: 2px solid #3B82F6; background: linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.3rem;">📹</span>
+                <h4 style="margin: 0; color: #1E40AF; font-size: 1.05rem; font-weight: 700;">
+                    {% if CURRENT_LANG == 'ar' %}ماسح بطاقات QR Code عبر الكاميرا{% else %}Scanner Caméra — Badges QR Code{% endif %}
+                </h4>
+            </div>
+            <button type="button" id="btnToggleCamera" onclick="toggleCameraScanner()" class="btn btn-primary btn-sm" style="font-weight: 700; font-size: 0.8rem; background: #2563EB;">
+                ▶️ {% if CURRENT_LANG == 'ar' %}تشغيل الكاميرا{% else %}Activer Caméra{% endif %}
+            </button>
+        </div>
+
+        <p style="font-size: 0.82rem; color: #1E3A8A; margin-bottom: 0.75rem;">
+            {% if CURRENT_LANG == 'ar' %}وجه بطاقة التلميذ أمام الكاميرا لمسح الرمز وتسجيل الحضور بصوت تأكيد فوري.{% else %}Passez la carte de l'élève devant la caméra : le pointage est instantané avec bip sonore !{% endif %}
+        </p>
+
+        <!-- Conteneur vidéo du scanner -->
+        <div id="reader-container" style="display: none; position: relative; border-radius: var(--radius-sm); overflow: hidden; background: #000; margin-bottom: 0.75rem;">
+            <div id="reader" style="width: 100%;"></div>
+        </div>
+
+        <!-- Flash d'information du dernier scan -->
+        <div id="scanFeedback" style="display: none; padding: 0.75rem 1rem; border-radius: var(--radius-sm); background: #DCFCE7; border: 1px solid #86EFAC; color: #15803D; font-weight: 700; font-size: 0.9rem; animation: pulse 0.3s ease;">
+            <span id="scanFeedbackText"></span>
+        </div>
+    </div>
+
+    <!-- 2. Recherche Express & Solution Cartes Oubliées -->
+    <div class="card" style="border-radius: var(--radius-md); border: 1px solid var(--border-color); background: white;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <span style="font-size: 1.3rem;">🔍</span>
+            <h4 style="margin: 0; color: var(--primary-navy); font-size: 1.05rem; font-weight: 700;">
+                {% if CURRENT_LANG == 'ar' %}حل البطاقات المنسية — بحث وتصحيح يدوي{% else %}Cartes Oubliées — Recherche & Correction Rapide{% endif %}
+            </h4>
+        </div>
+
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            {% if CURRENT_LANG == 'ar' %}إذا نسي التلميذ بطاقته، اكتب اسمه أو رقمه هنا لتسجيل حضوره بنقرة واحدة :{% else %}Un élève a oublié sa carte ? Tapez les premières lettres de son prénom ou son matricule :{% endif %}
+        </p>
+
+        <div style="position: relative; margin-bottom: 1rem;">
+            <input type="text" id="studentQuickSearch" placeholder="{% if CURRENT_LANG == 'ar' %}اكتب الاسم أو الرقم هنا...{% else %}Taper un nom, prénom ou matricule...{% endif %}" 
+                   class="search-input" style="width: 100%; padding: 0.55rem 0.85rem; font-size: 0.9rem;" oninput="filterTableRows(this.value)">
+        </div>
+
+        <!-- Compteurs en direct (Stats) -->
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; font-size: 0.8rem;">
+            <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700;">
+                🟢 <span id="stat-present">{{ present_cnt }}</span> {% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présents{% endif %}
+            </span>
+            <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 700;">
+                🔴 <span id="stat-absent">{{ absent_cnt }}</span> {% if CURRENT_LANG == 'ar' %}غائب{% else %}Absents{% endif %}
+            </span>
+            <span class="badge" style="background: #FFEDD5; color: #9A3412; font-weight: 700;">
+                🟠 <span id="stat-late">{{ late_cnt }}</span> {% if CURRENT_LANG == 'ar' %}متأخر{% else %}Retards{% endif %}
+            </span>
+            <span class="badge" style="background: #E0E7FF; color: #3730A3; font-weight: 700;">
+                🔵 <span id="stat-justified">{{ justified_cnt }}</span> {% if CURRENT_LANG == 'ar' %}مبرر{% else %}Justifiés{% endif %}
+            </span>
+            <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 700;">
+                ⏳ <span id="stat-unmarked">{{ unmarked_cnt }}</span> {% if CURRENT_LANG == 'ar' %}في الانتظار{% else %}En attente{% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- FEUILLE DE PRÉSENCE (TABLEAU INTERACTIF DES ÉLÈVES DU GROUPE) -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); background: #F8FAFC; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 style="margin: 0; font-size: 1.05rem; color: var(--primary-navy);">
+            👥 {% if CURRENT_LANG == 'ar' %}لائحة تلاميذ الفوج ({{ total_enrolled }} مسجل){% else %}Élèves Inscrits au Groupe ({{ total_enrolled }} inscrits){% endif %}
+        </h3>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">
+            💡 {% if CURRENT_LANG == 'ar' %}يمكنك تغيير حالة أي تلميذ مباشرة بالضغط على الأزرار الملونة.{% else %}Touchez un bouton de couleur pour modifier l'état d'un élève à tout instant.{% endif %}
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="gca-table" id="attendanceTable">
+            <thead>
+                <tr>
+                    <th style="width: 110px;">ID / Matricule</th>
+                    <th>{% trans "students.name" %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}ولي الأمر والهاتف{% else %}Parent & Contact{% endif %}</th>
+                    <th style="text-align: center; width: 140px;">{% if CURRENT_LANG == 'ar' %}حالة الحضور{% else %}Statut Actuel{% endif %}</th>
+                    <th style="text-align: center; width: 270px;">{% if CURRENT_LANG == 'ar' %}أزرار التسجيل السريع{% else %}Pointage & Correction{% endif %}</th>
+                    <th style="width: 90px; text-align: center;">Badge</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in students_data %}
+                {% with st=item.student att=item.attendance %}
+                <tr id="att-row-{{ st.id }}" class="student-item-row" data-search="{{ st.get_bilingual_full_name|lower }} {{ st.registration_number|lower }}">
+                    <!-- Matricule -->
+                    <td>
+                        <span class="badge" style="background: #F1F5F9; color: var(--primary-navy); font-family: monospace; font-weight: 700; font-size: 0.85rem;">
+                            {{ st.registration_number }}
+                        </span>
+                    </td>
+
+                    <!-- Nom & Prénom de l'élève -->
+                    <td>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">
+                            {{ st|trans_field:CURRENT_LANG }}
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-muted);">
+                            {% if CURRENT_LANG == 'ar' %}{{ st.first_name_fr }} {{ st.last_name_fr }}{% else %}{{ st.first_name_ar }} {{ st.last_name_ar }}{% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Parent & Coordonnées -->
+                    <td>
+                        <div style="font-size: 0.85rem; font-weight: 600;">
+                            {{ st.parent|trans_field:CURRENT_LANG }}
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">
+                            📞 {{ st.parent.phone }}
+                        </div>
+                    </td>
+
+                    <!-- Statut Actuel -->
+                    <td style="text-align: center;">
+                        <span id="badge-status-{{ st.id }}" class="badge" style="font-size: 0.82rem; font-weight: 800; padding: 0.4rem 0.75rem; 
+                            {% if item.status == 'present' %}background: #DCFCE7; color: #166534;
+                            {% elif item.status == 'absent' %}background: #FEE2E2; color: #991B1B;
+                            {% elif item.status == 'late' %}background: #FFEDD5; color: #9A3412;
+                            {% elif item.status == 'justified' %}background: #E0E7FF; color: #3730A3;
+                            {% else %}background: #F1F5F9; color: #64748B;{% endif %}">
+                            {% if item.status == 'present' %}🟢 {% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présent{% endif %}
+                            {% elif item.status == 'absent' %}🔴 {% if CURRENT_LANG == 'ar' %}غائب{% else %}Absent{% endif %}
+                            {% elif item.status == 'late' %}🟠 {% if CURRENT_LANG == 'ar' %}متأخر{% else %}Retard{% endif %}
+                            {% elif item.status == 'justified' %}🔵 {% if CURRENT_LANG == 'ar' %}مبرر{% else %}Justifié{% endif %}
+                            {% else %}⏳ {% if CURRENT_LANG == 'ar' %}في الانتظار{% else %}Non pointé{% endif %}
+                            {% endif %}
+                        </span>
+                    </td>
+
+                    <!-- Boutons de pointage tactile direct -->
+                    <td style="text-align: center; white-space: nowrap;">
+                        <div style="display: inline-flex; gap: 0.3rem; justify-content: center;">
+                            <button type="button" onclick="setStudentStatus({{ st.id }}, '{{ st.registration_number }}', 'present')" 
+                                    class="btn btn-sm" style="background: #16A34A; color: white; border: none; font-weight: 700; padding: 0.35rem 0.55rem;" title="Présent">
+                                ✓ {% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présent{% endif %}
+                            </button>
+                            <button type="button" onclick="setStudentStatus({{ st.id }}, '{{ st.registration_number }}', 'absent')" 
+                                    class="btn btn-sm" style="background: #DC2626; color: white; border: none; font-weight: 700; padding: 0.35rem 0.55rem;" title="Absent">
+                                ✕ {% if CURRENT_LANG == 'ar' %}غائب{% else %}Absent{% endif %}
+                            </button>
+                            <button type="button" onclick="setStudentStatus({{ st.id }}, '{{ st.registration_number }}', 'late')" 
+                                    class="btn btn-sm" style="background: #EA580C; color: white; border: none; font-weight: 700; padding: 0.35rem 0.55rem;" title="En retard">
+                                ⏳ {% if CURRENT_LANG == 'ar' %}تأخر{% else %}Retard{% endif %}
+                            </button>
+                            <button type="button" onclick="setStudentStatus({{ st.id }}, '{{ st.registration_number }}', 'justified')" 
+                                    class="btn btn-sm" style="background: #4F46E5; color: white; border: none; font-weight: 700; padding: 0.35rem 0.55rem;" title="Justifié">
+                                📝 {% if CURRENT_LANG == 'ar' %}مبرر{% else %}Justifié{% endif %}
+                            </button>
+                        </div>
+                    </td>
+
+                    <!-- Lien Badge PDF -->
+                    <td style="text-align: center;">
+                        <a href="{% url 'portal:student_card_pdf' st.id %}" target="_blank" class="btn btn-outline btn-sm" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" title="Télécharger la carte de cet élève">
+                            🪪 PDF
+                        </a>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                        <p style="font-size: 1.1rem;">Aucun élève inscrit dans ce groupe pour le moment.</p>
+                        <a href="{% url 'portal:students' %}" class="btn btn-primary btn-sm">Affecter des élèves au groupe</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SCRIPTS DU SCANNER CAMÉRA HTML5 & GESTION DU POINTAGE AJAX -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<script>
+const CSRF_TOKEN = "{{ csrf_token }}";
+const SCAN_URL = "{% url 'portal:attendance_scan_ajax' schedule.id %}";
+const TARGET_DATE = "{{ target_date|date:'Y-m-d' }}";
+const CURRENT_LANG = "{{ CURRENT_LANG }}";
+
+let html5QrCode = null;
+let isCameraRunning = false;
+let lastScannedCode = null;
+let lastScanTime = 0;
+
+// Bip Audio de validation (Web Audio API)
+function playSuccessBeep() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Note La5 (880 Hz)
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.18);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.18);
+    } catch (e) {
+        console.log("Audio not allowed yet", e);
+    }
+}
+
+// Fonction de mise à jour AJAX du statut de présence
+function setStudentStatus(studentId, codeOrRegistration, status) {
+    fetch(SCAN_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": CSRF_TOKEN,
+        },
+        body: JSON.stringify({
+            code: codeOrRegistration || String(studentId),
+            status: status,
+            date: TARGET_DATE
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            playSuccessBeep();
+            updateRowUI(data.student_id, data.status, data.status_label, data.time);
+            recalculateCounters();
+
+            // Flash Feedback
+            showFeedbackFlash("🟢 " + data.message);
+        } else {
+            alert(data.error || "Erreur lors du pointage");
+        }
+    })
+    .catch(err => {
+        console.error("Erreur de pointage AJAX", err);
+    });
+}
+
+// Mise à jour visuelle d'une ligne
+function updateRowUI(studentId, status, statusLabel, timeStr) {
+    const badge = document.getElementById("badge-status-" + studentId);
+    const row = document.getElementById("att-row-" + studentId);
+
+    if (badge) {
+        let bg = "#F1F5F9", color = "#64748B", icon = "⏳";
+        if (status === "present") { bg = "#DCFCE7"; color = "#166534"; icon = "🟢"; }
+        else if (status === "absent") { bg = "#FEE2E2"; color = "#991B1B"; icon = "🔴"; }
+        else if (status === "late") { bg = "#FFEDD5"; color = "#9A3412"; icon = "🟠"; }
+        else if (status === "justified") { bg = "#E0E7FF"; color = "#3730A3"; icon = "🔵"; }
+
+        badge.style.background = bg;
+        badge.style.color = color;
+        badge.innerHTML = icon + " " + statusLabel + (timeStr ? " (" + timeStr + ")" : "");
+    }
+
+    if (row) {
+        row.style.transition = "background 0.3s ease";
+        row.style.background = "#DCFCE7";
+        setTimeout(() => {
+            row.style.background = "";
+        }, 1200);
+    }
+}
+
+// Recalcul des compteurs en direct
+function recalculateCounters() {
+    let present = 0, absent = 0, late = 0, justified = 0, unmarked = 0;
+    document.querySelectorAll("[id^='badge-status-']").forEach(el => {
+        const txt = el.innerText || "";
+        if (txt.includes("🟢") || txt.toLowerCase().includes("présent") || txt.includes("حاضر")) present++;
+        else if (txt.includes("🔴") || txt.toLowerCase().includes("absent") || txt.includes("غائب")) absent++;
+        else if (txt.includes("🟠") || txt.toLowerCase().includes("retard") || txt.includes("متأخر")) late++;
+        else if (txt.includes("🔵") || txt.toLowerCase().includes("justifié") || txt.includes("مبرر")) justified++;
+        else unmarked++;
+    });
+
+    document.getElementById("stat-present").innerText = present;
+    document.getElementById("stat-absent").innerText = absent;
+    document.getElementById("stat-late").innerText = late;
+    document.getElementById("stat-justified").innerText = justified;
+    document.getElementById("stat-unmarked").innerText = unmarked;
+}
+
+// Affichage d'un flash temporaire sous le scanner
+function showFeedbackFlash(msg) {
+    const box = document.getElementById("scanFeedback");
+    const txt = document.getElementById("scanFeedbackText");
+    if (box && txt) {
+        txt.innerText = msg;
+        box.style.display = "block";
+        clearTimeout(box._hideTimer);
+        box._hideTimer = setTimeout(() => {
+            box.style.display = "none";
+        }, 4000);
+    }
+}
+
+// Filtre de recherche express par nom ou matricule
+function filterTableRows(query) {
+    const q = (query || "").trim().toLowerCase();
+    document.querySelectorAll(".student-item-row").forEach(row => {
+        const searchData = row.getAttribute("data-search") || "";
+        if (!q || searchData.includes(q)) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    });
+}
+
+// Démarrage / Arrêt du Scanner Caméra
+function toggleCameraScanner() {
+    const container = document.getElementById("reader-container");
+    const btn = document.getElementById("btnToggleCamera");
+
+    if (isCameraRunning) {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                container.style.display = "none";
+                btn.innerHTML = "▶️ {% if CURRENT_LANG == 'ar' %}تشغيل الكاميرا{% else %}Activer Caméra{% endif %}";
+                btn.style.background = "#2563EB";
+                isCameraRunning = false;
+            });
+        }
+    } else {
+        container.style.display = "block";
+        btn.innerHTML = "⏸️ {% if CURRENT_LANG == 'ar' %}إيقاف الكاميرا{% else %}Arrêter Caméra{% endif %}";
+        btn.style.background = "#DC2626";
+
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            onScanSuccess,
+            onScanFailure
+        ).then(() => {
+            isCameraRunning = true;
+        }).catch(err => {
+            console.error("Camera start error", err);
+            alert("Impossible d'accéder à la caméra : " + err);
+            container.style.display = "none";
+            btn.innerHTML = "▶️ Activer Caméra";
+            btn.style.background = "#2563EB";
+            isCameraRunning = false;
+        });
+    }
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+    const now = Date.now();
+    // Éviter les scans multiples en boucle du même badge en moins de 3 secondes
+    if (decodedText === lastScannedCode && now - lastScanTime < 3000) {
+        return;
+    }
+    lastScannedCode = decodedText;
+    lastScanTime = now;
+
+    // Envoi immédiat au serveur
+    setStudentStatus(null, decodedText, "present");
+}
+
+function onScanFailure(error) {
+    // Scan silencieux en cours...
+}
+</script>
+{% endblock %}

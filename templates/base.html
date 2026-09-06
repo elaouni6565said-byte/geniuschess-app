@@ -67,6 +67,9 @@
                     <li class="nav-item {% if 'planning' in request.resolver_match.url_name or 'session' in request.resolver_match.url_name %}active{% endif %}">
                         <a href="{% url 'portal:planning' %}">📅 {% trans "nav.planning" %}</a>
                     </li>
+                    <li class="nav-item {% if 'attendance' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:attendance_list' %}">📋 {% if CURRENT_LANG == 'ar' %}الحضور والغياب{% else %}Présences{% endif %}</a>
+                    </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'payments' %}active{% endif %}">
                         <a href="{% url 'portal:payments' %}">💳 {% trans "nav.payments" %}</a>
                     </li>

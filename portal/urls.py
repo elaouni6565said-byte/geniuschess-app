@@ -50,4 +50,11 @@ urlpatterns = [
     path('planning/add/', views.session_create_view, name='session_add'),
     path('planning/<int:session_id>/edit/', views.session_edit_view, name='session_edit'),
     path('planning/<int:session_id>/delete/', views.session_delete_view, name='session_delete'),
+
+    # Présences & Badges QR Code
+    path('attendance/', views.attendance_list_view, name='attendance_list'),
+    path('attendance/<int:session_id>/', views.attendance_sheet_view, name='attendance_sheet'),
+    path('attendance/<int:session_id>/scan/', views.attendance_scan_ajax_view, name='attendance_scan_ajax'),
+    path('students/<int:student_id>/card-pdf/', views.student_card_pdf_view, name='student_card_pdf'),
+    path('students/cards-pdf/', views.students_cards_sheet_pdf_view, name='students_cards_sheet_pdf'),
 ]
