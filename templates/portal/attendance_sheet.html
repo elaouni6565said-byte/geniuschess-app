@@ -46,6 +46,16 @@
             </button>
         </form>
 
+        {% if absent_cnt > 0 %}
+        <form method="POST" action="{% url 'portal:attendance_notify_absents' schedule.id %}" style="margin: 0;" onsubmit="return confirm('{% if CURRENT_LANG == "ar" %}هل تريد إرسال إشعارات الغياب عبر واتساب لأولياء أمور التلاميذ الغائبين ({{ unnotified_absents_count }}) ؟{% else %}Envoyer les alertes WhatsApp d\'absence aux parents des élèves absents ({{ unnotified_absents_count }}) ?{% endif %}');">
+            {% csrf_token %}
+            <input type="hidden" name="date" value="{{ target_date|date:'Y-m-d' }}">
+            <button type="submit" class="btn btn-sm" style="background: #D97706; color: white; border: none; font-weight: 700; box-shadow: var(--shadow-sm);" {% if unnotified_absents_count == 0 %}disabled title="Tous les parents sont déjà alertés"{% endif %}>
+                🚨 {% if CURRENT_LANG == 'ar' %}إشعار الغائبين عبر واتساب ({{ unnotified_absents_count }}){% else %}Alerter les Absents par WhatsApp ({{ unnotified_absents_count }}){% endif %}
+            </button>
+        </form>
+        {% endif %}
+
         <form method="POST" style="margin: 0;" onsubmit="return confirm('{% if CURRENT_LANG == "ar" %}هل أنت متأكد من إعادة ضبط الحضور لهذه الحصة ؟{% else %}Réinitialiser toutes les présences de cette séance ?{% endif %}');">
             {% csrf_token %}
             <input type="hidden" name="action" value="reset_all">
@@ -202,6 +212,29 @@
                             {% else %}⏳ {% if CURRENT_LANG == 'ar' %}في الانتظار{% else %}Non pointé{% endif %}
                             {% endif %}
                         </span>
+
+                        {% if item.status == 'absent' %}
+                        <div style="margin-top: 0.35rem; display: flex; gap: 0.25rem; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            {% if item.alert_sent %}
+                                <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.72rem; border: 1px solid #A7F3D0;" title="{{ item.notes }}">
+                                    📲 {% if CURRENT_LANG == 'ar' %}أُرسل الإشعار{% else %}Alerte envoyée{% endif %}
+                                </span>
+                            {% else %}
+                                <form method="POST" action="{% url 'portal:attendance_notify_single_absent' schedule.id st.id %}" style="display: inline; margin: 0;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="date" value="{{ target_date|date:'Y-m-d' }}">
+                                    <button type="submit" class="btn btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.72rem; background: #D97706; color: white; border: none; font-weight: 700; border-radius: 4px;" title="Envoyer alerte WhatsApp">
+                                        🚨 {% if CURRENT_LANG == 'ar' %}إشعار{% else %}Alerter{% endif %}
+                                    </button>
+                                </form>
+                            {% endif %}
+                            {% if item.whatsapp_url %}
+                                <a href="{{ item.whatsapp_url }}" target="_blank" class="btn btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.72rem; background: #22C55E; color: white; text-decoration: none; font-weight: 700; border-radius: 4px;" title="Ouvrir chat WhatsApp">
+                                    💬
+                                </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </td>
 
                     <!-- Boutons de pointage tactile direct -->

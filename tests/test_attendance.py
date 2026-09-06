@@ -196,3 +196,73 @@ def test_attendance_recap_and_excel_export():
     assert "Émargements par Séance" in sheet_names[0] or "سجل الحضور بالحصص" in sheet_names[0]
     assert "Synthèse par Élève" in sheet_names[1] or "ملخص الحضور لكل تلميذ" in sheet_names[1]
 
+
+@pytest.mark.django_db
+def test_whatsapp_absence_alerts():
+    """
+    Validates:
+    1. build_whatsapp_absence_message generation in French and Arabic.
+    2. send_absence_alert_to_parent with anti-duplicate notes tracking.
+    3. send_bulk_absence_alerts_for_session for absent students.
+    4. HTTP endpoints: /attendance/<session_id>/notify-absents/ and /attendance/<session_id>/notify-absent/<student_id>/.
+    """
+    from academy.whatsapp_absence import (
+        build_whatsapp_absence_message,
+        get_whatsapp_absence_chat_url,
+        send_absence_alert_to_parent,
+        send_bulk_absence_alerts_for_session
+    )
+
+    client = Client()
+    admin = User.objects.get(username='admin')
+    client.force_login(admin)
+
+    schedule = SessionSchedule.objects.first()
+    student = Student.objects.first()
+    assert schedule is not None and student is not None
+    target_date = date(2026, 9, 7)
+
+    # 1. Message generation
+    msg_fr = build_whatsapp_absence_message(schedule, student, target_date=target_date, lang='fr')
+    assert "Avis d'Absence" in msg_fr
+    assert "Genius Chess Academy" in msg_fr
+
+    msg_ar = build_whatsapp_absence_message(schedule, student, target_date=target_date, lang='ar')
+    assert "إشعار بالغياب" in msg_ar
+    assert "جمعية الشطرنج القاسمي" in msg_ar
+
+    wa_url = get_whatsapp_absence_chat_url(schedule, student, target_date=target_date, lang='fr')
+    assert "wa.me" in wa_url
+
+    # 2. Mark student as absent
+    att, _ = Attendance.objects.update_or_create(
+        student=student, session=schedule, date=target_date,
+        defaults={'status': 'absent', 'notes': ''}
+    )
+
+    # 3. Send single absence alert
+    res1 = send_absence_alert_to_parent(att)
+    assert res1['success'] is True
+    att.refresh_from_db()
+    assert "Alerte WhatsApp envoyée" in att.notes
+
+    # 4. Anti-duplicate test: second call without force should be rejected
+    res2 = send_absence_alert_to_parent(att, force=False)
+    assert res2['success'] is False
+    assert res2.get('already_sent') is True
+
+    # 5. Bulk notify endpoint via HTTP POST
+    resp_bulk = client.post(
+        f'/attendance/{schedule.id}/notify-absents/',
+        data={'date': '2026-09-07'}
+    )
+    assert resp_bulk.status_code == 302
+
+    # 6. Single notify endpoint via HTTP POST
+    resp_single = client.post(
+        f'/attendance/{schedule.id}/notify-absent/{student.id}/',
+        data={'date': '2026-09-07'}
+    )
+    assert resp_single.status_code == 302
+
+

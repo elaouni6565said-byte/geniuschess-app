@@ -1620,11 +1620,14 @@ def attendance_sheet_view(request, session_id):
         for att in Attendance.objects.filter(session=schedule, date=target_date)
     }
 
+    from academy.whatsapp_absence import get_whatsapp_absence_chat_url
+
     students_data = []
     present_cnt = 0
     absent_cnt = 0
     late_cnt = 0
     justified_cnt = 0
+    unnotified_absents_count = 0
 
     for st in students:
         att = att_map.get(st.id)
@@ -1638,11 +1641,20 @@ def attendance_sheet_view(request, session_id):
         elif status == 'justified':
             justified_cnt += 1
 
+        alert_sent = "Alerte WhatsApp envoyée" in (att.notes or "") if att else False
+        if status == 'absent' and not alert_sent:
+            unnotified_absents_count += 1
+
+        parent_lang = st.parent.preferred_language if (st.parent and st.parent.preferred_language) else lang
+        wa_url = get_whatsapp_absence_chat_url(schedule, st, target_date=target_date, lang=parent_lang) if status == 'absent' else ""
+
         students_data.append({
             'student': st,
             'attendance': att,
             'status': status,
             'notes': att.notes if att else '',
+            'alert_sent': alert_sent,
+            'whatsapp_url': wa_url,
         })
 
     day_name = ARABIC_DAYS.get(target_date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(target_date.weekday(), '')
@@ -1660,6 +1672,7 @@ def attendance_sheet_view(request, session_id):
         'late_cnt': late_cnt,
         'justified_cnt': justified_cnt,
         'unmarked_cnt': len(students) - (present_cnt + absent_cnt + late_cnt + justified_cnt),
+        'unnotified_absents_count': unnotified_absents_count,
         'is_cancelled': is_cancelled,
     }
     return render(request, 'portal/attendance_sheet.html', context)
@@ -1751,6 +1764,95 @@ def attendance_scan_ajax_view(request, session_id):
         'in_group': in_group,
         'message': msg,
     })
+
+
+@admin_required
+@require_POST
+def attendance_notify_absents_view(request, session_id):
+    """
+    Déclenche l'envoi groupé des alertes WhatsApp d'absence aux parents des élèves absents.
+    """
+    from datetime import datetime, date
+    from academy.whatsapp_absence import send_bulk_absence_alerts_for_session
+    schedule = get_object_or_404(SessionSchedule, id=session_id)
+
+    date_str = request.POST.get('date', request.GET.get('date', ''))
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    res = send_bulk_absence_alerts_for_session(schedule, target_date=target_date)
+    sent_cnt = res['sent_count']
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    if sent_cnt > 0:
+        msg = (
+            f"✓ {sent_cnt} alerte(s) WhatsApp d'absence envoyée(s) avec succès aux parents !"
+            if lang == 'fr' else
+            f"✓ تم إرسال {sent_cnt} إشعار غياب بنجاح إلى أولياء الأمور عبر واتساب !"
+        )
+        messages.success(request, msg)
+    elif res['skipped_count'] > 0:
+        msg = (
+            "ℹ️ Tous les parents des élèves absents ont déjà reçu leur alerte pour cette séance."
+            if lang == 'fr' else
+            "ℹ️ تم إرسال الإشعارات مسبقاً لجميع أولياء أمور التلاميذ الغائبين في هذه الحصة."
+        )
+        messages.info(request, msg)
+    else:
+        msg = (
+            "Aucun élève absent à notifier pour cette séance."
+            if lang == 'fr' else
+            "لا يوجد أي تلميذ غائب لإرسال إشعار له في هذه الحصة."
+        )
+        messages.warning(request, msg)
+
+    return redirect(f"/attendance/{session_id}/?date={target_date.strftime('%Y-%m-%d')}")
+
+
+@admin_required
+@require_POST
+def attendance_notify_single_absent_view(request, session_id, student_id):
+    """
+    Envoie l'alerte WhatsApp d'absence pour un élève spécifique.
+    """
+    from datetime import datetime, date
+    from academy.whatsapp_absence import send_absence_alert_to_parent
+    schedule = get_object_or_404(SessionSchedule, id=session_id)
+    student = get_object_or_404(Student, id=student_id)
+
+    date_str = request.POST.get('date', request.GET.get('date', ''))
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    att = Attendance.objects.filter(session=schedule, student=student, date=target_date).first()
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    if not att or att.status != 'absent':
+        messages.error(request, "Cet élève n'est pas marqué absent." if lang == 'fr' else "التلميذ غير مسجل كغائب.")
+        return redirect(f"/attendance/{session_id}/?date={target_date.strftime('%Y-%m-%d')}")
+
+    res = send_absence_alert_to_parent(att, force=True)
+    if res.get('success'):
+        msg = (
+            f"✓ Alerte d'absence envoyée avec succès au parent de {student.get_full_name('fr')} !"
+            if lang == 'fr' else
+            f"✓ تم إرسال إشعار الغياب بنجاح إلى ولي أمر {student.get_full_name('ar')} !"
+        )
+        messages.success(request, msg)
+    else:
+        messages.error(request, f"Erreur : {res.get('error')}")
+
+    return redirect(f"/attendance/{session_id}/?date={target_date.strftime('%Y-%m-%d')}")
 
 
 @admin_required
