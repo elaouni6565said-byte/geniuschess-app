@@ -186,3 +186,47 @@ class PaymentForm(forms.ModelForm):
         }
 
 
+class ExpenseForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from finance.models import ExpenseCategory
+        self.fields['category'].queryset = ExpenseCategory.objects.filter(is_active=True).order_by('name_fr')
+        self.fields['category'].empty_label = "-- Sélectionner une catégorie --"
+        self.fields['category'].label_from_instance = lambda obj: f"{obj.icon} {obj.name_fr} ({obj.name_ar})"
+
+    class Meta:
+        from finance.models import Expense
+        model = Expense
+        fields = [
+            'title', 'category', 'amount', 'expense_date',
+            'payment_method', 'beneficiary', 'invoice_number',
+            'receipt_file', 'notes'
+        ]
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Loyer salle de cours Septembre 2026'}),
+            'category': forms.Select(attrs={'class': 'search-input'}),
+            'amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50', 'placeholder': '0.00'}),
+            'expense_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date'}),
+            'payment_method': forms.Select(attrs={'class': 'search-input'}),
+            'beneficiary': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Propriétaire du local, Fournisseur, Formateur...'}),
+            'invoice_number': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: FACT-2026-089 ou Référence'}),
+            'receipt_file': forms.FileInput(attrs={'class': 'search-input', 'accept': 'image/*,application/pdf'}),
+            'notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Détails ou remarques complémentaires'}),
+        }
+
+
+class ExpenseCategoryForm(forms.ModelForm):
+    class Meta:
+        from finance.models import ExpenseCategory
+        model = ExpenseCategory
+        fields = ['name_fr', 'name_ar', 'icon', 'color', 'is_active']
+        widgets = {
+            'name_fr': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Matériel Pédagogique'}),
+            'name_ar': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'مثال: العتاد الرياضي', 'dir': 'rtl'}),
+            'icon': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: 🏢, ♟️, 🏆, ⚡, 📑'}),
+            'color': forms.TextInput(attrs={'class': 'search-input', 'type': 'color'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'status-checkbox'}),
+        }
+
+
+

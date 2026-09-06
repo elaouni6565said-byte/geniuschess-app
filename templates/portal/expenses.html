@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}المصاريف والنفقات — أكاديمية الشطرنج{% else %}Dépenses & Charges — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>💸 {% if CURRENT_LANG == 'ar' %}سجل المصاريف ونفقات التسيير{% else %}Registre des Dépenses & Charges d'Exploitation{% endif %}</h2>
+        <p>
+            {% if CURRENT_LANG == 'ar' %}
+                جمعية الشطرنج القاسمي • Genius Chess Academy — تتبع النفقات والمصاريف وحساب النتيجة الصافية الشهرية
+            {% else %}
+                GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي • Suivi des coûts d'exploitation et calcul du résultat net en temps réel
+            {% endif %}
+        </p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:export_expenses_excel' %}?month={{ selected_month }}&year={{ selected_year }}&category={{ selected_category }}&method={{ selected_method }}&q={{ search_query }}" 
+           class="btn btn-secondary" style="font-weight: 600;">
+            📥 {% if CURRENT_LANG == 'ar' %}تصدير المصاريف (Excel){% else %}Exporter Dépenses (Excel){% endif %}
+        </a>
+        <a href="{% url 'portal:expense_categories' %}" class="btn btn-outline" style="font-weight: 600;">
+            ⚙️ {% if CURRENT_LANG == 'ar' %}إدارة الأصناف والفئات{% else %}Gérer les Catégories{% endif %}
+        </a>
+        <a href="{% url 'portal:financial_forecast' %}?month={% if selected_month != 'all' %}{{ selected_month }}{% else %}{{ today.month }}{% endif %}&year={% if selected_year != 'all' %}{{ selected_year }}{% else %}{{ today.year }}{% endif %}" 
+           class="btn" style="background: #0369A1; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
+            📈 {% if CURRENT_LANG == 'ar' %}لوحة التوقعات (أجل 15){% else %}Tableau Prévisionnel (15){% endif %}
+        </a>
+        <a href="{% url 'portal:expense_add' %}" class="btn btn-primary" style="font-weight: 700;">
+            ➕ {% if CURRENT_LANG == 'ar' %}تسجيل مصروف جديد{% else %}Enregistrer une Dépense{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- Financial Summary KPIs Cards (Phase 1) -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    
+    <!-- 1. Total Dépenses -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #E11D48; margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                {% if CURRENT_LANG == 'ar' %}مجموع المصاريف المسجلة{% else %}Total des Dépenses{% endif %}
+            </span>
+            <span style="font-size: 1.2rem;">💸</span>
+        </div>
+        <div style="font-size: 1.7rem; font-weight: 800; color: #E11D48; margin-bottom: 0.3rem;">
+            {{ total_expenses|currency:CURRENT_LANG }}
+        </div>
+        <div style="font-size: 0.8rem; color: #64748B;">
+            🧾 {{ expenses_count }} {% if CURRENT_LANG == 'ar' %}عملية مصروف{% else %}opérations enregistrées{% endif %}
+        </div>
+    </div>
+
+    <!-- 2. Total Recettes Encaissées -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #16A34A; margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                {% if CURRENT_LANG == 'ar' %}المداخيل المستخلصة (الاشتراكات){% else %}Recettes Encaissées (Période){% endif %}
+            </span>
+            <span style="font-size: 1.2rem;">💰</span>
+        </div>
+        <div style="font-size: 1.7rem; font-weight: 800; color: #16A34A; margin-bottom: 0.3rem;">
+            {{ total_collected|currency:CURRENT_LANG }}
+        </div>
+        <div style="font-size: 0.8rem; color: #16A34A; font-weight: 600;">
+            ✓ {% if CURRENT_LANG == 'ar' %}واجبات التلاميذ المؤداة{% else %}Cotisations encaissées{% endif %}
+        </div>
+    </div>
+
+    <!-- 3. Résultat Net Mensuel (Excédent / Déficit) -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid {% if net_result >= 0 %}#047857{% else %}#DC2626{% endif %}; background: {% if net_result >= 0 %}#F0FDF4{% else %}#FEF2F2{% endif %}; margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: {% if net_result >= 0 %}#15803D{% else %}#991B1B{% endif %};">
+                {% if CURRENT_LANG == 'ar' %}النتيجة الصافية (الفائض / العجز){% else %}Résultat Net d'Exploitation{% endif %}
+            </span>
+            <span style="font-size: 1.2rem;">{% if net_result >= 0 %}📈{% else %}📉{% endif %}</span>
+        </div>
+        <div style="font-size: 1.7rem; font-weight: 800; color: {% if net_result >= 0 %}#047857{% else %}#DC2626{% endif %}; margin-bottom: 0.3rem;">
+            {{ net_result|currency:CURRENT_LANG }}
+        </div>
+        <div style="font-size: 0.8rem; font-weight: 700; color: {% if net_result >= 0 %}#15803D{% else %}#991B1B{% endif %};">
+            {% if net_result >= 0 %}
+                ✓ {% if CURRENT_LANG == 'ar' %}فائض مالي إيجابي (مكسب){% else %}Excédent Net Positif{% endif %}
+            {% else %}
+                ⚠️ {% if CURRENT_LANG == 'ar' %}عجز مالي مؤقت{% else %}Déficit Net d'Exploitation{% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 4. Ventilation par Mode de Règlement -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #0369A1; margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                {% if CURRENT_LANG == 'ar' %}طرق أداء المصاريف{% else %}Modes de Règlement (Dépenses){% endif %}
+            </span>
+            <span style="font-size: 1.2rem;">💳</span>
+        </div>
+        <div style="font-size: 0.82rem; color: #334155; line-height: 1.5; margin-top: 0.2rem;">
+            <div>💵 <b>{% if CURRENT_LANG == 'ar' %}نقداً:{% else %}Espèces :{% endif %}</b> {{ cash_total|currency:CURRENT_LANG }}</div>
+            <div>📑 <b>{% if CURRENT_LANG == 'ar' %}شيك:{% else %}Chèque :{% endif %}</b> {{ check_total|currency:CURRENT_LANG }}</div>
+            <div>🏦 <b>{% if CURRENT_LANG == 'ar' %}تحويل بنكي:{% else %}Virement :{% endif %}</b> {{ transfer_total|currency:CURRENT_LANG }}</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Filter Bar -->
+<div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.5rem; background: #F8FAFC; border: 1px solid #E2E8F0;">
+    <form method="GET" action="{% url 'portal:expenses_list' %}" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        
+        <!-- Mois -->
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <label style="font-size: 0.82rem; font-weight: 700; color: #475569;">
+                {% if CURRENT_LANG == 'ar' %}الشهر:{% else %}Mois :{% endif %}
+            </label>
+            <select name="month" class="search-input" style="width: auto; padding: 0.35rem 0.6rem; font-size: 0.85rem;">
+                <option value="all" {% if selected_month == 'all' %}selected{% endif %}>
+                    {% if CURRENT_LANG == 'ar' %}-- جميع الأشهر --{% else %}-- Tous les mois --{% endif %}
+                </option>
+                {% for m in months_list %}
+                    <option value="{{ m.num }}" {% if selected_month != 'all' and selected_month|add:0 == m.num %}selected{% endif %}>
+                        {% if CURRENT_LANG == 'ar' %}{{ m.name_ar }}{% else %}{{ m.name_fr }}{% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Année -->
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <label style="font-size: 0.82rem; font-weight: 700; color: #475569;">
+                {% if CURRENT_LANG == 'ar' %}السنة:{% else %}Année :{% endif %}
+            </label>
+            <select name="year" class="search-input" style="width: auto; padding: 0.35rem 0.6rem; font-size: 0.85rem;">
+                <option value="all" {% if selected_year == 'all' %}selected{% endif %}>
+                    {% if CURRENT_LANG == 'ar' %}-- جميع السنوات --{% else %}-- Toutes --{% endif %}
+                </option>
+                {% for y in years_list %}
+                    <option value="{{ y }}" {% if selected_year != 'all' and selected_year|add:0 == y %}selected{% endif %}>
+                        {{ y }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Catégorie -->
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <label style="font-size: 0.82rem; font-weight: 700; color: #475569;">
+                {% if CURRENT_LANG == 'ar' %}الصنف:{% else %}Catégorie :{% endif %}
+            </label>
+            <select name="category" class="search-input" style="width: auto; padding: 0.35rem 0.6rem; font-size: 0.85rem;">
+                <option value="">
+                    {% if CURRENT_LANG == 'ar' %}-- جميع الأصناف --{% else %}-- Toutes les catégories --{% endif %}
+                </option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category|add:0 == cat.id %}selected{% endif %}>
+                        {{ cat.icon }} {{ cat|trans_field:CURRENT_LANG }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Mode de paiement -->
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <label style="font-size: 0.82rem; font-weight: 700; color: #475569;">
+                {% if CURRENT_LANG == 'ar' %}طريقة الأداء:{% else %}Mode :{% endif %}
+            </label>
+            <select name="method" class="search-input" style="width: auto; padding: 0.35rem 0.6rem; font-size: 0.85rem;">
+                <option value="">{% if CURRENT_LANG == 'ar' %}-- الكل --{% else %}-- Tous les modes --{% endif %}</option>
+                <option value="cash" {% if selected_method == 'cash' %}selected{% endif %}>💵 {% if CURRENT_LANG == 'ar' %}نقداً{% else %}Espèces{% endif %}</option>
+                <option value="check" {% if selected_method == 'check' %}selected{% endif %}>📑 {% if CURRENT_LANG == 'ar' %}شيك{% else %}Chèque{% endif %}</option>
+                <option value="transfer" {% if selected_method == 'transfer' %}selected{% endif %}>🏦 {% if CURRENT_LANG == 'ar' %}تحويل بنكي{% else %}Virement{% endif %}</option>
+            </select>
+        </div>
+
+        <!-- Recherche texte -->
+        <div style="flex: 1; min-width: 200px;">
+            <input type="text" name="q" value="{{ search_query }}" 
+                   placeholder="{% if CURRENT_LANG == 'ar' %}بحث في البيان، المستفيد، رقم الفاتورة...{% else %}Recherche libellé, fournisseur, facture...{% endif %}" 
+                   class="search-input" style="padding: 0.35rem 0.6rem; font-size: 0.85rem; width: 100%;">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-sm" style="font-weight: 700;">
+            🔍 {% if CURRENT_LANG == 'ar' %}تطبيق التصفية{% else %}Filtrer{% endif %}
+        </button>
+        <a href="{% url 'portal:expenses_list' %}" class="btn btn-outline btn-sm">
+            ↺ {% if CURRENT_LANG == 'ar' %}إعادة ضبط{% else %}Réinitialiser{% endif %}
+        </a>
+    </form>
+</div>
+
+<!-- Expenses Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th style="width: 105px;">{% if CURRENT_LANG == 'ar' %}التاريخ{% else %}Date{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}بيان المصروف{% else %}Libellé de la Dépense{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}الصنف / الفئة{% else %}Catégorie{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}المستفيد / الجهة{% else %}Bénéficiaire / Fournisseur{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}رقم الفاتورة / الوصل{% else %}N° Facture / Réf{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}طريقة الأداء{% else %}Mode Règlement{% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المبلغ (درهم){% else %}Montant (DH){% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}ملاحظات{% else %}Remarques{% endif %}</th>
+                    <th style="text-align: center; width: 110px;">{% trans "crud.actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in expenses %}
+                <tr>
+                    <td style="white-space: nowrap; font-weight: 600;">
+                        {{ exp.expense_date|date:"d/m/Y" }}
+                    </td>
+                    <td>
+                        <b>{{ exp.title }}</b>
+                        {% if exp.receipt_file %}
+                            <div style="margin-top: 0.2rem;">
+                                <a href="{{ exp.receipt_file.url }}" target="_blank" class="badge" style="background: #EFF6FF; color: #1D4ED8; text-decoration: none; font-size: 0.75rem;">
+                                    📎 {% if CURRENT_LANG == 'ar' %}معاينة الوصل{% else %}Justificatif joint{% endif %}
+                                </a>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge" style="background: {{ exp.category.color }}18; color: {{ exp.category.color }}; border: 1px solid {{ exp.category.color }}44; font-weight: 700;">
+                            {{ exp.category.icon }} {{ exp.category|trans_field:CURRENT_LANG }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if exp.beneficiary %}
+                            {{ exp.beneficiary }}
+                        {% else %}
+                            <span style="color: #94A3B8;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if exp.invoice_number %}
+                            <code>{{ exp.invoice_number }}</code>
+                        {% else %}
+                            <span style="color: #94A3B8;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge" style="background: #F1F5F9; color: #334155;">
+                            {% if exp.payment_method == 'cash' %}💵 {% if CURRENT_LANG == 'ar' %}نقداً{% else %}Espèces{% endif %}
+                            {% elif exp.payment_method == 'check' %}📑 {% if CURRENT_LANG == 'ar' %}شيك{% else %}Chèque{% endif %}
+                            {% else %}🏦 {% if CURRENT_LANG == 'ar' %}تحويل بنكي{% else %}Virement{% endif %}{% endif %}
+                        </span>
+                    </td>
+                    <td style="text-align: right; font-weight: 800; color: #E11D48; font-size: 0.98rem; white-space: nowrap;">
+                        {{ exp.amount|currency:CURRENT_LANG }}
+                    </td>
+                    <td style="font-size: 0.85rem; color: #64748B;">
+                        {{ exp.notes|default:"—" }}
+                    </td>
+                    <td style="text-align: center; white-space: nowrap;">
+                        <a href="{% url 'portal:expense_edit' exp.id %}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem;" title="{% trans 'crud.edit' %}">
+                            ✏️
+                        </a>
+                        <a href="{% url 'portal:expense_delete' exp.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; padding: 0.25rem 0.5rem;" title="{% trans 'crud.delete' %}">
+                            🗑️
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 3rem 1rem; color: #94A3B8;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💸</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">
+                            {% if CURRENT_LANG == 'ar' %}لا توجد أي مصاريف مسجلة توافق هذه المعايير{% else %}Aucune dépense trouvée avec ces critères.{% endif %}
+                        </div>
+                        <p style="margin-bottom: 1rem; font-size: 0.9rem;">
+                            {% if CURRENT_LANG == 'ar' %}يمكنك تسجيل أول مصروف الآن بالضغط على الزر أدناه{% else %}Enregistrez vos frais de locaux, salaires, achats de matériel ou factures.{% endif %}
+                        </p>
+                        <a href="{% url 'portal:expense_add' %}" class="btn btn-primary">
+                            ➕ {% if CURRENT_LANG == 'ar' %}تسجيل مصروف جديد{% else %}Enregistrer une Dépense{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if expenses %}
+            <tfoot>
+                <tr style="background: #F1F5F9; font-weight: 800; border-top: 2px solid #CBD5E1;">
+                    <td colspan="6" style="text-align: right; padding: 0.85rem 1rem; font-size: 0.95rem;">
+                        {% if CURRENT_LANG == 'ar' %}المجموع الإجمالي للمصاريف المعروضة :{% else %}TOTAL GÉNÉRAL DES DÉPENSES VISIBLES :{% endif %}
+                    </td>
+                    <td style="text-align: right; font-size: 1.1rem; color: #E11D48; padding: 0.85rem 1rem; white-space: nowrap;">
+                        {{ total_expenses|currency:CURRENT_LANG }}
+                    </td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+{% endblock %}

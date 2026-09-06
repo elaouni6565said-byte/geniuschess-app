@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static gca_tags %}
 
 {% block title %}
@@ -32,92 +32,133 @@
             </div>
 
             <!-- Month / Year Selector Form -->
-            <form method="GET" action="{% url 'portal:financial_forecast' %}" style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); padding: 0.5rem 0.75rem; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.2);">
-                <select name="month" class="form-select form-select-sm" style="background: #0A192F; color: white; border: 1px solid #334155; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; padding: 0.25rem 0.6rem;">
-                    {% for m in months_list %}
-                        <option value="{{ m.num }}" {% if m.num == selected_month %}selected{% endif %}>
-                            {% if CURRENT_LANG == 'ar' %}{{ m.name_ar }}{% else %}{{ m.name_fr }}{% endif %}
-                        </option>
-                    {% endfor %}
-                </select>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <a href="{% url 'portal:expenses_list' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-sm" style="background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 9999px; font-weight: 700; padding: 0.4rem 0.85rem;">
+                    💸 {% if CURRENT_LANG == 'ar' %}سجل المصاريف والنفقات{% else %}Registre des Dépenses{% endif %}
+                </a>
+                <form method="GET" action="{% url 'portal:financial_forecast' %}" style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); padding: 0.5rem 0.75rem; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.2);">
+                    <select name="month" class="form-select form-select-sm" style="background: #0A192F; color: white; border: 1px solid #334155; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; padding: 0.25rem 0.6rem;">
+                        {% for m in months_list %}
+                            <option value="{{ m.num }}" {% if m.num == selected_month %}selected{% endif %}>
+                                {% if CURRENT_LANG == 'ar' %}{{ m.name_ar }}{% else %}{{ m.name_fr }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
 
-                <select name="year" class="form-select form-select-sm" style="background: #0A192F; color: white; border: 1px solid #334155; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; padding: 0.25rem 0.6rem;">
-                    {% for y in years_list %}
-                        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
-                    {% endfor %}
-                </select>
+                    <select name="year" class="form-select form-select-sm" style="background: #0A192F; color: white; border: 1px solid #334155; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; padding: 0.25rem 0.6rem;">
+                        {% for y in years_list %}
+                            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
 
-                <button type="submit" class="btn btn-sm btn-primary" style="border-radius: 9999px; padding: 0.25rem 0.75rem; font-weight: 700;">
-                    🔍 {% if CURRENT_LANG == 'ar' %}عرض{% else %}Filtrer{% endif %}
-                </button>
-            </form>
+                    <button type="submit" class="btn btn-sm btn-primary" style="border-radius: 9999px; padding: 0.25rem 0.75rem; font-weight: 700;">
+                        🔍 {% if CURRENT_LANG == 'ar' %}عرض{% else %}Filtrer{% endif %}
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
-    <!-- Section 1: Main 4 KPIs Cards -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <!-- Section 1: Main Financial KPIs (Recettes, Dépenses & Résultat Net) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
         
         <!-- Potentiel Prévisionnel -->
-        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #0369A1;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
-                    {% if CURRENT_LANG == 'ar' %}الواجبات المتوقعة (المداخيل المبرمجة){% else %}Potentiel Mensuel Attendu{% endif %}
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.15rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #0369A1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}الواجبات المتوقعة{% else %}Potentiel Attendu{% endif %}
                 </span>
-                <span style="font-size: 1.2rem;">💰</span>
+                <span style="font-size: 1.1rem;">💰</span>
             </div>
-            <div style="font-size: 1.6rem; font-weight: 800; color: #0369A1; margin-bottom: 0.35rem;">
+            <div style="font-size: 1.5rem; font-weight: 800; color: #0369A1; margin-bottom: 0.3rem;">
                 {{ total_expected|currency:CURRENT_LANG }}
             </div>
-            <div style="font-size: 0.8rem; color: #64748B;">
-                📋 {{ total_invoiced_count }} {% if CURRENT_LANG == 'ar' %}فاتورة اشتراك مسجلة{% else %}factures générées ce mois{% endif %}
+            <div style="font-size: 0.78rem; color: #64748B;">
+                📋 {{ total_invoiced_count }} {% if CURRENT_LANG == 'ar' %}اشتراك مسجل{% else %}factures prévues{% endif %}
             </div>
         </div>
 
         <!-- Total Encaissé Réel -->
-        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #16A34A;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
-                    {% if CURRENT_LANG == 'ar' %}المستخلص الفعلي{% else %}Total Encaissé Réel{% endif %}
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.15rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #16A34A;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}المستخلص الفعلي (المداخيل){% else %}Recettes Encaissées{% endif %}
                 </span>
-                <span style="font-size: 1.2rem;">✅</span>
+                <span style="font-size: 1.1rem;">✅</span>
             </div>
-            <div style="font-size: 1.6rem; font-weight: 800; color: #16A34A; margin-bottom: 0.35rem;">
+            <div style="font-size: 1.5rem; font-weight: 800; color: #16A34A; margin-bottom: 0.3rem;">
                 {{ total_collected|currency:CURRENT_LANG }}
             </div>
-            <div style="font-size: 0.8rem; color: #16A34A; font-weight: 600;">
-                ✓ {{ paid_invoices_count }} {% if CURRENT_LANG == 'ar' %}اشتراك مؤدى بالكامل{% else %}soldés à 100%{% endif %}
+            <div style="font-size: 0.78rem; color: #16A34A; font-weight: 600;">
+                ✓ {{ paid_invoices_count }} {% if CURRENT_LANG == 'ar' %}مؤدى بالكامل{% else %}soldés à 100%{% endif %}
+            </div>
+        </div>
+
+        <!-- Total Dépenses & Charges (Phase 1) -->
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.15rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #E11D48;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}المصاريف والنفقات{% else %}Dépenses & Charges{% endif %}
+                </span>
+                <span style="font-size: 1.1rem;">💸</span>
+            </div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: #E11D48; margin-bottom: 0.3rem;">
+                {{ total_expenses|currency:CURRENT_LANG }}
+            </div>
+            <div style="font-size: 0.78rem; color: #64748B;">
+                🧾 {{ expenses_count }} {% if CURRENT_LANG == 'ar' %}عملية مصروف مسجلة{% else %}dépenses enregistrées{% endif %}
+            </div>
+        </div>
+
+        <!-- Résultat Net Mensuel (Phase 1) -->
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.15rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid {% if net_result >= 0 %}#047857{% else %}#B91C1C{% endif %}; background: {% if net_result >= 0 %}#F0FDF4{% else %}#FEF2F2{% endif %};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: {% if net_result >= 0 %}#15803D{% else %}#B91C1C{% endif %};">
+                    {% if CURRENT_LANG == 'ar' %}النتيجة الصافية (الفائض / العجز){% else %}Résultat Net (Bilan){% endif %}
+                </span>
+                <span style="font-size: 1.1rem;">{% if net_result >= 0 %}📈{% else %}📉{% endif %}</span>
+            </div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: {% if net_result >= 0 %}#047857{% else %}#B91C1C{% endif %}; margin-bottom: 0.3rem;">
+                {{ net_result|currency:CURRENT_LANG }}
+            </div>
+            <div style="font-size: 0.78rem; font-weight: 700; color: {% if net_result >= 0 %}#15803D{% else %}#B91C1C{% endif %};">
+                {% if net_result >= 0 %}
+                    ✓ {% if CURRENT_LANG == 'ar' %}فائض مالي إيجابي{% else %}Excédent d'exploitation{% endif %}
+                {% else %}
+                    ⚠️ {% if CURRENT_LANG == 'ar' %}عجز مالي مؤقت{% else %}Déficit d'exploitation{% endif %}
+                {% endif %}
             </div>
         </div>
 
         <!-- Reste à Recouvrer (Impayés) -->
-        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid {% if total_remaining > 0 %}#DC2626{% else %}#16A34A{% endif %};">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
-                    {% if CURRENT_LANG == 'ar' %}المبلغ المتبقي للاستخلاص{% else %}Reste à Recouvrer (Impayés){% endif %}
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.15rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid {% if total_remaining > 0 %}#DC2626{% else %}#16A34A{% endif %};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}المتبقي للاستخلاص{% else %}Reste Impayé{% endif %}
                 </span>
-                <span style="font-size: 1.2rem;">⏳</span>
+                <span style="font-size: 1.1rem;">⏳</span>
             </div>
-            <div style="font-size: 1.6rem; font-weight: 800; color: {% if total_remaining > 0 %}#DC2626{% else %}#16A34A{% endif %}; margin-bottom: 0.35rem;">
+            <div style="font-size: 1.5rem; font-weight: 800; color: {% if total_remaining > 0 %}#DC2626{% else %}#16A34A{% endif %}; margin-bottom: 0.3rem;">
                 {{ total_remaining|currency:CURRENT_LANG }}
             </div>
-            <div style="font-size: 0.8rem; color: #64748B;">
-                ⚠️ {{ unpaid_invoices_count }} {% if CURRENT_LANG == 'ar' %}غير مؤدى{% else %}impayés{% endif %} • {{ partial_invoices_count }} {% if CURRENT_LANG == 'ar' %}جزئي{% else %}partiels{% endif %}
+            <div style="font-size: 0.78rem; color: #64748B;">
+                ⚠️ {{ unpaid_invoices_count }} {% if CURRENT_LANG == 'ar' %}غير مؤدى{% else %}impayés{% endif %}
             </div>
         </div>
 
         <!-- Taux de Recouvrement Global -->
-        <div style="background: white; border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #D97706;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span style="font-size: 0.85rem; font-weight: 700; color: #64748B;">
-                    {% if CURRENT_LANG == 'ar' %}نسبة الاستخلاص العامة{% else %}Taux de Recouvrement Global{% endif %}
+        <div style="background: white; border-radius: var(--radius-md); padding: 1.15rem; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid #D97706;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}نسبة الاستخلاص{% else %}Taux Recouvrement{% endif %}
                 </span>
-                <span style="font-size: 1.2rem;">🎯</span>
+                <span style="font-size: 1.1rem;">🎯</span>
             </div>
-            <div style="font-size: 1.6rem; font-weight: 800; color: #D97706; margin-bottom: 0.35rem;">
+            <div style="font-size: 1.5rem; font-weight: 800; color: #D97706; margin-bottom: 0.3rem;">
                 {{ recovery_rate }}%
             </div>
             <!-- Progress Bar -->
-            <div style="background: #E2E8F0; border-radius: 9999px; height: 7px; overflow: hidden; width: 100%;">
+            <div style="background: #E2E8F0; border-radius: 9999px; height: 6px; overflow: hidden; width: 100%;">
                 <div style="background: {% if recovery_rate >= 80 %}#16A34A{% elif recovery_rate >= 50 %}#D97706{% else %}#DC2626{% endif %}; height: 100%; width: {{ recovery_rate }}%; border-radius: 9999px; transition: width 0.6s ease;"></div>
             </div>
         </div>
@@ -315,6 +356,50 @@
         {% else %}
             <p style="text-align: center; color: #94A3B8; padding: 2rem 0;">
                 {% if CURRENT_LANG == 'ar' %}لا توجد معطيات مالية لهذا الشهر المختار.{% else %}Aucune donnée financière trouvée pour le mois sélectionné.{% endif %}
+            </p>
+        {% endif %}
+    </div>
+
+    <!-- Section 3b: Répartition des Dépenses par Catégorie (Phase 1) -->
+    <div style="background: white; border-radius: var(--radius-md); padding: 1.5rem; border: 1px solid #CBD5E1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">
+                    💸 {% if CURRENT_LANG == 'ar' %}توزيع المصاريف حسب الأصناف والفئات{% else %}Ventilation des Dépenses par Catégorie{% endif %}
+                </h3>
+                <p style="margin: 0.2rem 0 0; font-size: 0.82rem; color: #64748B;">
+                    {% if CURRENT_LANG == 'ar' %}مجموع المصاريف: {{ total_expenses|currency:CURRENT_LANG }}{% else %}Total Dépenses : {{ total_expenses|currency:CURRENT_LANG }}{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'portal:expenses_list' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-sm btn-secondary" style="font-weight: 600;">
+                📋 {% if CURRENT_LANG == 'ar' %}عرض السجل المفصل{% else %}Voir le Registre Détaillé{% endif %}
+            </a>
+        </div>
+
+        {% if categories_breakdown %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                {% for cb in categories_breakdown %}
+                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 1rem; border-left: 4px solid {{ cb.color }};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <span style="font-weight: 700; font-size: 0.9rem; color: #1E293B;">
+                                {{ cb.icon }} {{ cb.name }}
+                            </span>
+                            <span style="font-weight: 800; font-size: 0.95rem; color: #0F172A;">
+                                {{ cb.amount|currency:CURRENT_LANG }}
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="flex: 1; background: #E2E8F0; border-radius: 9999px; height: 6px; overflow: hidden;">
+                                <div style="background: {{ cb.color }}; height: 100%; width: {{ cb.percentage }}%; border-radius: 9999px;"></div>
+                            </div>
+                            <span style="font-size: 0.78rem; font-weight: 700; color: #64748B; width: 40px; text-align: right;">{{ cb.percentage }}%</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="text-align: center; color: #94A3B8; padding: 1rem 0; margin: 0;">
+                {% if CURRENT_LANG == 'ar' %}لم يتم تسجيل أي مصاريف في هذا الشهر.{% else %}Aucune dépense enregistrée pour ce mois.{% endif %}
             </p>
         {% endif %}
     </div>

@@ -1,6 +1,9 @@
 import os
 from decimal import Decimal
-from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm
+from portal.forms import (
+    StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm,
+    ExpenseForm, ExpenseCategoryForm
+)
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
@@ -10,16 +13,19 @@ from django.views.decorators.http import require_POST
 
 from core.i18n import (
     SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, normalize_text_for_search,
-    get_translation, format_currency
+    get_translation, format_currency, FRENCH_MONTHS, ARABIC_MONTHS
 )
 from academy.models import (
     Student, Parent, Group, Subject, Room, SessionSchedule,
     Attendance, Notification, User, ParentVisitLog
 )
-from finance.models import Payment, Invoice
+from finance.models import Payment, Invoice, Expense, ExpenseCategory
 from finance.receipt_pdf import generate_receipt_pdf
 from finance.reminders import generate_monthly_reminders
-from portal.excel_export import export_students_to_excel, export_paid_payments_to_excel, export_unpaid_invoices_to_excel
+from portal.excel_export import (
+    export_students_to_excel, export_paid_payments_to_excel,
+    export_unpaid_invoices_to_excel, export_expenses_to_excel
+)
 from portal.planning_pdf import generate_master_planning_pdf
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from portal.decorators import admin_required
@@ -2371,3 +2377,297 @@ def pwa_service_worker_view(request):
     response = HttpResponse(content, content_type='application/javascript; charset=utf-8')
     response['Service-Worker-Allowed'] = '/'
     return response
+
+
+# ==============================================================================
+# GESTION DES DÉPENSES & CHARGES (PHASE 1)
+# ==============================================================================
+
+@admin_required
+def expenses_list_view(request):
+    """
+    Tableau de bord et registre complet des dépenses et charges d'exploitation.
+    Calcul du résultat net mensuel en temps réel (Recettes - Dépenses).
+    """
+    from datetime import date
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    today = date.today()
+
+    # Filtres
+    month_param = request.GET.get('month', str(today.month))
+    year_param = request.GET.get('year', str(today.year))
+    category_id = request.GET.get('category', '')
+    payment_method = request.GET.get('method', '')
+    q = request.GET.get('q', '').strip()
+
+    qs = Expense.objects.select_related('category', 'created_by').order_by('-expense_date', '-id')
+
+    # Filtrage par mois et année
+    filter_month = None
+    filter_year = None
+    if month_param != 'all' and month_param.isdigit():
+        filter_month = int(month_param)
+        qs = qs.filter(expense_date__month=filter_month)
+
+    if year_param != 'all' and year_param.isdigit():
+        filter_year = int(year_param)
+        qs = qs.filter(expense_date__year=filter_year)
+
+    if category_id and category_id.isdigit():
+        qs = qs.filter(category_id=int(category_id))
+
+    if payment_method:
+        qs = qs.filter(payment_method=payment_method)
+
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q) |
+            Q(beneficiary__icontains=q) |
+            Q(invoice_number__icontains=q) |
+            Q(notes__icontains=q)
+        )
+
+    # Indicateurs financiers
+    total_expenses = qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    expenses_count = qs.count()
+
+    # Recettes correspondantes à la période sélectionnée
+    payments_qs = Payment.objects.all()
+    if filter_year:
+        payments_qs = payments_qs.filter(payment_date__year=filter_year)
+    if filter_month:
+        payments_qs = payments_qs.filter(payment_date__month=filter_month)
+    
+    total_collected = payments_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    net_result = total_collected - total_expenses
+
+    # Ventilation par mode de règlement
+    cash_total = qs.filter(payment_method='cash').aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    check_total = qs.filter(payment_method='check').aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    transfer_total = qs.filter(payment_method='transfer').aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    categories = ExpenseCategory.objects.all().order_by('name_fr')
+
+    context = {
+        'expenses': qs,
+        'categories': categories,
+        'total_expenses': total_expenses,
+        'total_collected': total_collected,
+        'net_result': net_result,
+        'expenses_count': expenses_count,
+        'cash_total': cash_total,
+        'check_total': check_total,
+        'transfer_total': transfer_total,
+        'selected_month': month_param,
+        'selected_year': year_param,
+        'selected_category': category_id,
+        'selected_method': payment_method,
+        'search_query': q,
+        'months_list': [{'num': m, 'name_fr': FRENCH_MONTHS[m].capitalize(), 'name_ar': ARABIC_MONTHS[m]} for m in range(1, 13)],
+        'years_list': [2025, 2026, 2027],
+        'today': today,
+    }
+    return render(request, 'portal/expenses.html', context)
+
+
+@admin_required
+def expense_create_view(request):
+    """Enregistrement d'une nouvelle dépense avec pièce justificative éventuelle."""
+    from datetime import date
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST, request.FILES)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.created_by = request.user
+            expense.save()
+            messages.success(
+                request,
+                "✓ Dépense enregistrée avec succès !" if lang != 'ar' else "✓ تم تسجيل المصروف بنجاح !"
+            )
+            return redirect('portal:expenses_list')
+    else:
+        form = ExpenseForm(initial={'expense_date': date.today()})
+
+    context = {
+        'form': form,
+        'is_edit': False,
+        'title': "Enregistrer une Dépense / تسجيل مصروف جديد",
+    }
+    return render(request, 'portal/expense_form.html', context)
+
+
+@admin_required
+def expense_edit_view(request, expense_id):
+    """Modification d'une dépense existante."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    expense = get_object_or_404(Expense, id=expense_id)
+
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST, request.FILES, instance=expense)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                "✓ Dépense mise à jour avec succès !" if lang != 'ar' else "✓ تم تحديث المصروف بنجاح !"
+            )
+            return redirect('portal:expenses_list')
+    else:
+        form = ExpenseForm(instance=expense)
+
+    context = {
+        'form': form,
+        'expense': expense,
+        'is_edit': True,
+        'title': f"Modifier la Dépense #{expense.id} / تعديل المصروف",
+    }
+    return render(request, 'portal/expense_form.html', context)
+
+
+@admin_required
+def expense_delete_view(request, expense_id):
+    """Suppression d'une dépense."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    expense = get_object_or_404(Expense, id=expense_id)
+
+    if request.method == 'POST':
+        title = expense.title
+        expense.delete()
+        messages.success(
+            request,
+            f"✓ Dépense « {title} » supprimée avec succès !" if lang != 'ar' else f"✓ تم حذف المصروف « {title} » بنجاح !"
+        )
+        return redirect('portal:expenses_list')
+
+    context = {
+        'expense': expense,
+    }
+    return render(request, 'portal/expense_confirm_delete.html', context)
+
+
+@admin_required
+def expense_categories_list_view(request):
+    """Gestion et paramétrage des catégories de dépenses."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    categories = ExpenseCategory.objects.annotate(
+        expenses_count=Count('expenses'),
+        total_amount=Sum('expenses__amount')
+    ).order_by('name_fr')
+
+    if request.method == 'POST':
+        form = ExpenseCategoryForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                "✓ Catégorie créée avec succès !" if lang != 'ar' else "✓ تم إنشاء الفئة بنجاح !"
+            )
+            return redirect('portal:expense_categories')
+    else:
+        form = ExpenseCategoryForm()
+
+    context = {
+        'categories': categories,
+        'form': form,
+    }
+    return render(request, 'portal/expense_categories.html', context)
+
+
+@admin_required
+def expense_category_edit_view(request, category_id):
+    """Modification d'une catégorie de dépense."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    category = get_object_or_404(ExpenseCategory, id=category_id)
+
+    if request.method == 'POST':
+        form = ExpenseCategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                "✓ Catégorie mise à jour avec succès !" if lang != 'ar' else "✓ تم تحديث الفئة بنجاح !"
+            )
+            return redirect('portal:expense_categories')
+    else:
+        form = ExpenseCategoryForm(instance=category)
+
+    context = {
+        'form': form,
+        'category': category,
+        'is_edit': True,
+    }
+    return render(request, 'portal/expense_category_form.html', context)
+
+
+@admin_required
+def expense_category_delete_view(request, category_id):
+    """Suppression ou désactivation d'une catégorie."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    category = get_object_or_404(ExpenseCategory, id=category_id)
+
+    if request.method == 'POST':
+        name = category.name_fr
+        category.delete()
+        messages.success(
+            request,
+            f"✓ Catégorie « {name} » supprimée !" if lang != 'ar' else f"✓ تم حذف الفئة « {name} » !"
+        )
+        return redirect('portal:expense_categories')
+
+    return redirect('portal:expense_categories')
+
+
+@admin_required
+def export_expenses_excel_view(request):
+    """Exportation du registre des dépenses au format Excel (.xlsx)."""
+    lang = request.GET.get('lang')
+    if not lang:
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    month_param = request.GET.get('month')
+    year_param = request.GET.get('year')
+    category_id = request.GET.get('category')
+    payment_method = request.GET.get('method')
+    q = request.GET.get('q', '').strip()
+
+    qs = Expense.objects.select_related('category', 'created_by').order_by('-expense_date', '-id')
+
+    filter_month = None
+    filter_year = None
+    if month_param and month_param != 'all' and month_param.isdigit():
+        filter_month = int(month_param)
+        qs = qs.filter(expense_date__month=filter_month)
+
+    if year_param and year_param != 'all' and year_param.isdigit():
+        filter_year = int(year_param)
+        qs = qs.filter(expense_date__year=filter_year)
+
+    if category_id and category_id.isdigit():
+        qs = qs.filter(category_id=int(category_id))
+
+    if payment_method:
+        qs = qs.filter(payment_method=payment_method)
+
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q) |
+            Q(beneficiary__icontains=q) |
+            Q(invoice_number__icontains=q) |
+            Q(notes__icontains=q)
+        )
+
+    excel_bytes = export_expenses_to_excel(qs, lang=lang, month=filter_month, year=filter_year)
+
+    period_filename = f"_{filter_month:02d}_{filter_year}" if (filter_month and filter_year) else (f"_{filter_year}" if filter_year else "")
+    filename = f"Depenses_GCA{period_filename}_{lang}.xlsx"
+
+    response = HttpResponse(
+        excel_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+

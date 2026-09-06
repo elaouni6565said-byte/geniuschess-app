@@ -22,6 +22,9 @@
         <a href="{% url 'portal:unpaid_reminders' %}" class="btn" style="background: #D97706; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
             ⏳ {% if CURRENT_LANG == 'ar' %}تذكيرات المستحقات عبر واتساب (أجل 15){% else %}Relances Impayés WhatsApp (Échéance 15){% endif %}
         </a>
+        <a href="{% url 'portal:expenses_list' %}" class="btn" style="background: #475569; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
+            💸 {% if CURRENT_LANG == 'ar' %}المصاريف والنفقات{% else %}Dépenses & Charges{% endif %}
+        </a>
         <a href="{% url 'portal:payment_add' %}" class="btn btn-primary">
             ➕ {% if CURRENT_LANG == 'ar' %}تسجيل أداء جديد{% else %}Enregistrer un Paiement{% endif %}
         </a>

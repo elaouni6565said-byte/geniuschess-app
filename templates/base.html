@@ -79,8 +79,11 @@
                     <li class="nav-item {% if 'attendance' in request.resolver_match.url_name %}active{% endif %}">
                         <a href="{% url 'portal:attendance_list' %}">📋 {% if CURRENT_LANG == 'ar' %}الحضور والغياب{% else %}Présences{% endif %}</a>
                     </li>
-                    <li class="nav-item {% if request.resolver_match.url_name == 'payments' %}active{% endif %}">
+                    <li class="nav-item {% if 'payment' in request.resolver_match.url_name or 'financial_forecast' in request.resolver_match.url_name or 'unpaid' in request.resolver_match.url_name %}active{% endif %}">
                         <a href="{% url 'portal:payments' %}">💳 {% trans "nav.payments" %}</a>
+                    </li>
+                    <li class="nav-item {% if 'expense' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:expenses_list' %}">💸 {% if CURRENT_LANG == 'ar' %}المصاريف{% else %}Dépenses{% endif %}</a>
                     </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'parent_space' %}active{% endif %}">
                         <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>

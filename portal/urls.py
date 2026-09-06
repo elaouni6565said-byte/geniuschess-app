@@ -24,6 +24,16 @@ urlpatterns = [
     path('payments/unpaid-reminders/send/<int:invoice_id>/', views.unpaid_reminders_send_single_view, name='unpaid_reminders_send_single'),
     path('reminders/run/', views.run_reminders_view, name='run_reminders'),
     path('reminders/whatsapp/', views.whatsapp_reminders_view, name='whatsapp_reminders'),
+
+    # Dépenses & Charges (Phase 1)
+    path('expenses/', views.expenses_list_view, name='expenses_list'),
+    path('expenses/add/', views.expense_create_view, name='expense_add'),
+    path('expenses/<int:expense_id>/edit/', views.expense_edit_view, name='expense_edit'),
+    path('expenses/<int:expense_id>/delete/', views.expense_delete_view, name='expense_delete'),
+    path('expenses/categories/', views.expense_categories_list_view, name='expense_categories'),
+    path('expenses/categories/<int:category_id>/edit/', views.expense_category_edit_view, name='expense_category_edit'),
+    path('expenses/categories/<int:category_id>/delete/', views.expense_category_delete_view, name='expense_category_delete'),
+    path('expenses/export-excel/', views.export_expenses_excel_view, name='export_expenses_excel'),
     path('parent/', views.parent_space_view, name='parent_space'),
     path('register/', views.register_view, name='register'),
     path('login/', views.login_view, name='login'),

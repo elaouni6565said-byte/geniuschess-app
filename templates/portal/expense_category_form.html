@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{% trans "crud.edit" %} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="form-card-wrapper" style="max-width: 550px; margin: 2rem auto;">
+    <div class="page-header" style="margin-bottom: 1.5rem;">
+        <div class="page-header-titles">
+            <h2>⚙️ {% if CURRENT_LANG == 'ar' %}تعديل صنف المصروف{% else %}Modifier la Catégorie de Dépense{% endif %}</h2>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'portal:expense_categories' %}" class="btn btn-outline">
+                ← {% trans "crud.cancel" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="card" style="border-top: 4px solid #0284C7; box-shadow: var(--shadow-md);">
+        <form method="POST">
+            {% csrf_token %}
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        Nom en Français *
+                    </label>
+                    {{ form.name_fr }}
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                        الاسم بالعربية *
+                    </label>
+                    {{ form.name_ar }}
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                            Icône / Emoji
+                        </label>
+                        {{ form.icon }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">
+                            Couleur Badge
+                        </label>
+                        <div style="display: flex; align-items: center; height: 38px;">
+                            {{ form.color }}
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                    {{ form.is_active }}
+                    <label for="{{ form.is_active.id_for_label }}" style="font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                        {% if CURRENT_LANG == 'ar' %}صنف نشط ومتاح في القوائم{% else %}Catégorie active{% endif %}
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <a href="{% url 'portal:expense_categories' %}" class="btn btn-outline">
+                        {% trans "crud.cancel" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 0.6rem 1.5rem;">
+                        💾 {% trans "crud.save" %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

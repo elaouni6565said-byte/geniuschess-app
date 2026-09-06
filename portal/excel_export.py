@@ -441,3 +441,147 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     excel_bytes = buffer.getvalue()
     buffer.close()
     return excel_bytes
+
+
+def export_expenses_to_excel(expenses_queryset, lang="fr", month=None, year=None):
+    """
+    Génère un classeur Excel officiel (.xlsx) du registre des dépenses et charges.
+    Prend en charge le français, l'arabe (RTL) et le bilingue, avec ligne de totalisation.
+    """
+    wb = Workbook()
+    ws = wb.active
+
+    period_str = ""
+    if month and year:
+        period_str = f" - {month:02d}/{year}"
+    elif year:
+        period_str = f" - Année {year}"
+
+    if lang == "ar":
+        ws.title = "سجل المصاريف"
+        ws.sheet_view.rightToLeft = True
+        align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        align_data = Alignment(horizontal="right", vertical="center")
+        title_text = f"GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - سجل المصاريف والنفقات{period_str}"
+        headers = [
+            "التاريخ", "بيان المصروف", "الصنف / الفئة", "المستفيد / الجهة",
+            "رقم الفاتورة / الوصل", "طريقة الأداء", "المبلغ (درهم)", "ملاحظات"
+        ]
+    elif lang == "bilingual":
+        ws.title = "Dépenses - المصاريف"
+        align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        align_data = Alignment(horizontal="left", vertical="center")
+        title_text = f"GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Registre des Dépenses{period_str}"
+        headers = [
+            "Date / التاريخ", "Libellé / البيان", "Catégorie / الصنف", "Bénéficiaire / المستفيد",
+            "N° Facture / الوصل", "Mode Règlement", "Montant / المبلغ (DH)", "Remarques / ملاحظات"
+        ]
+    else: # fr
+        ws.title = "Dépenses"
+        align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        align_data = Alignment(horizontal="left", vertical="center")
+        title_text = f"GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Registre des Dépenses et Charges{period_str}"
+        headers = [
+            "Date", "Libellé de la Dépense", "Catégorie", "Bénéficiaire / Fournisseur",
+            "N° Facture / Réf", "Mode de Règlement", "Montant (DH)", "Observations"
+        ]
+
+    # Title row
+    last_col_letter = get_column_letter(len(headers))
+    ws.merge_cells(f"A1:{last_col_letter}1")
+    title_cell = ws["A1"]
+    title_cell.value = title_text
+    title_cell.font = TITLE_FONT
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 35
+
+    # Subtitle / Coordinates row
+    ws.merge_cells(f"A2:{last_col_letter}2")
+    sub_cell = ws["A2"]
+    sub_cell.value = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+    sub_cell.font = Font(name="Segoe UI", size=9, italic=True, color="64748B")
+    sub_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[2].height = 18
+
+    # Headers row
+    ws.row_dimensions[4].height = 28
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col_num)
+        cell.value = header
+        cell.font = HEADER_FONT
+        cell.fill = NAVY_FILL
+        cell.alignment = align_header
+        cell.border = BORDER_THIN
+
+    # Data rows
+    row_idx = 5
+    total_amount = 0.0
+
+    for exp in expenses_queryset:
+        ws.row_dimensions[row_idx].height = 22
+        cat_name = exp.category.get_name(lang) if exp.category else "-"
+        date_str = exp.expense_date.strftime("%d/%m/%Y") if exp.expense_date else "-"
+        method_str = exp.get_method_label(lang)
+        amt = float(exp.amount)
+        total_amount += amt
+
+        row_values = [
+            date_str,
+            exp.title,
+            cat_name,
+            exp.beneficiary or "-",
+            exp.invoice_number or "-",
+            method_str,
+            amt,
+            exp.notes or "-",
+        ]
+
+        for col_num, val in enumerate(row_values, 1):
+            cell = ws.cell(row=row_idx, column=col_num)
+            cell.value = val
+            cell.font = DATA_FONT
+            cell.border = BORDER_THIN
+            if col_num == 7:
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+                cell.number_format = '#,##0.00 "DH"'
+                cell.font = BOLD_DATA_FONT
+            elif col_num == 1:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = align_data
+        row_idx += 1
+
+    # Total Summary Row
+    ws.row_dimensions[row_idx].height = 28
+    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=6)
+    tot_label = ws.cell(row=row_idx, column=1)
+    tot_label.value = "TOTAL GÉNÉRAL DES DÉPENSES / مجموع المصاريف :" if lang != "ar" else "مجموع المصاريف الإجمالي :"
+    tot_label.font = TOTAL_FONT
+    tot_label.fill = TOTAL_FILL
+    tot_label.alignment = Alignment(horizontal="right" if lang != "ar" else "left", vertical="center")
+    tot_label.border = BORDER_TOTAL
+
+    tot_cell = ws.cell(row=row_idx, column=7)
+    tot_cell.value = total_amount
+    tot_cell.font = TOTAL_FONT
+    tot_cell.fill = TOTAL_FILL
+    tot_cell.alignment = Alignment(horizontal="right", vertical="center")
+    tot_cell.number_format = '#,##0.00 "DH"'
+    tot_cell.border = BORDER_TOTAL
+
+    notes_total_cell = ws.cell(row=row_idx, column=8)
+    notes_total_cell.border = BORDER_TOTAL
+    notes_total_cell.fill = TOTAL_FILL
+
+    # Auto-adjust column widths
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 13)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    excel_bytes = buffer.getvalue()
+    buffer.close()
+    return excel_bytes
+

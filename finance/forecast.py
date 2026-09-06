@@ -1,8 +1,8 @@
-﻿from decimal import Decimal
+from decimal import Decimal
 from datetime import date, datetime
 from django.db.models import Sum, Count, Q
 from academy.models import Student, Group, Subject
-from finance.models import Invoice, Payment
+from finance.models import Invoice, Payment, Expense, ExpenseCategory
 from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS, format_currency
 
 
@@ -130,7 +130,30 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
                 "groups": groups_data
             })
 
-    # 5. Historique des 6 derniers mois
+    # 5. Dépenses & Charges du mois sélectionné
+    expenses_qs = Expense.objects.filter(expense_date__year=year, expense_date__month=month)
+    total_expenses = expenses_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    expenses_count = expenses_qs.count()
+    net_result = total_collected - total_expenses
+
+    categories_breakdown = []
+    for cat in ExpenseCategory.objects.filter(is_active=True):
+        cat_amount = expenses_qs.filter(category=cat).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        if cat_amount > Decimal("0.00"):
+            cat_pct = round(float((cat_amount / total_expenses) * 100), 1) if total_expenses > Decimal("0.00") else 0.0
+            categories_breakdown.append({
+                "category": cat,
+                "name": cat.get_name(lang),
+                "name_fr": cat.name_fr,
+                "name_ar": cat.name_ar,
+                "icon": cat.icon,
+                "color": cat.color,
+                "amount": cat_amount,
+                "percentage": cat_pct,
+            })
+    categories_breakdown.sort(key=lambda x: x["amount"], reverse=True)
+
+    # 6. Historique des 6 derniers mois (Recettes vs Dépenses vs Résultat Net)
     history = []
     curr_y = year
     curr_m = month
@@ -142,6 +165,10 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
         h_col = h_invs.aggregate(total=Sum("amount_paid"))["total"] or Decimal("0.00")
         h_rate = round(float((h_col / h_exp) * 100), 1) if h_exp > Decimal("0.00") else 0.0
 
+        h_expenses_qs = Expense.objects.filter(expense_date__year=curr_y, expense_date__month=curr_m)
+        h_expenses = h_expenses_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        h_net = h_col - h_expenses
+
         history.append({
             "month": curr_m,
             "year": curr_y,
@@ -149,6 +176,8 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
             "label_ar": f"{m_label_ar} {curr_y}",
             "expected": h_exp,
             "collected": h_col,
+            "expenses": h_expenses,
+            "net_result": h_net,
             "rate": h_rate,
             "is_current": (curr_m == month and curr_y == year)
         })
@@ -172,6 +201,10 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
         "total_expected": total_expected,
         "total_collected": total_collected,
         "total_remaining": total_remaining,
+        "total_expenses": total_expenses,
+        "net_result": net_result,
+        "expenses_count": expenses_count,
+        "categories_breakdown": categories_breakdown,
         "recovery_rate": recovery_rate,
         "total_invoiced_count": total_invoiced_count,
         "paid_invoices_count": paid_invoices_count,

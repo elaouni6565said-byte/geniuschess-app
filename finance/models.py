@@ -139,3 +139,69 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Reçu #{self.receipt_number} - {self.student.get_full_name('fr')} ({self.amount} DH)"
+
+
+class ExpenseCategory(models.Model):
+    name_fr = models.CharField(max_length=100, verbose_name="Nom (Français)")
+    name_ar = models.CharField(max_length=100, verbose_name="Nom (Arabe)")
+    icon = models.CharField(max_length=20, default="💸", verbose_name="Icône / Emoji")
+    color = models.CharField(max_length=20, default="#0284C7", verbose_name="Couleur Badge (Hex)")
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Catégorie de dépense"
+        verbose_name_plural = "Catégories de dépenses"
+        ordering = ['name_fr']
+
+    def get_name(self, lang='fr'):
+        if lang == 'ar' and self.name_ar:
+            return self.name_ar
+        return self.name_fr
+
+    def __str__(self):
+        return f"{self.icon} {self.name_fr} ({self.name_ar})"
+
+
+class Expense(models.Model):
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'Espèces / نقداً'),
+        ('check', 'Chèque / شيك'),
+        ('transfer', 'Virement bancaire / تحويل بنكي'),
+    ]
+
+    title = models.CharField(max_length=200, verbose_name="Libellé / Titre de la dépense")
+    category = models.ForeignKey(ExpenseCategory, on_delete=models.CASCADE, related_name='expenses', verbose_name="Catégorie")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant (DH)")
+    expense_date = models.DateField(verbose_name="Date de la dépense")
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash', verbose_name="Mode de règlement")
+    beneficiary = models.CharField(max_length=150, blank=True, verbose_name="Bénéficiaire / Fournisseur")
+    invoice_number = models.CharField(max_length=100, blank=True, verbose_name="N° Facture / Référence")
+    receipt_file = models.FileField(upload_to='expenses/%Y/%m/', blank=True, null=True, verbose_name="Justificatif (Scan / Reçu / Facture)")
+    notes = models.TextField(blank=True, verbose_name="Notes / Observations")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Enregistré par")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Dépense"
+        verbose_name_plural = "Dépenses"
+        ordering = ['-expense_date', '-id']
+
+    def get_method_label(self, lang='fr'):
+        labels = {
+            'cash': {'fr': 'Espèces', 'ar': 'نقداً'},
+            'check': {'fr': 'Chèque', 'ar': 'شيك'},
+            'transfer': {'fr': 'Virement bancaire', 'ar': 'تحويل بنكي'},
+        }
+        return labels.get(self.payment_method, {}).get(lang, self.payment_method)
+
+    @property
+    def method_label_fr(self):
+        return self.get_method_label('fr')
+
+    @property
+    def method_label_ar(self):
+        return self.get_method_label('ar')
+
+    def __str__(self):
+        return f"{self.title} - {self.amount} DH ({self.expense_date})"
