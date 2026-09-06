@@ -129,7 +129,7 @@ def get_daily_sessions_reminders(target_date=None):
 def send_whatsapp_via_gateway(phone, message):
     """
     Sends a WhatsApp message via an external API Gateway if configured in settings.
-    Supports UltraMsg, Wasapi, Green API or generic Webhook.
+    Supports WAHA (local or remote), UltraMsg, Wasapi, Green API or generic Webhook.
     """
     import json
     import urllib.request
@@ -138,6 +138,7 @@ def send_whatsapp_via_gateway(phone, message):
     gateway_url = getattr(settings, 'WHATSAPP_GATEWAY_URL', '').strip()
     token = getattr(settings, 'WHATSAPP_TOKEN', '').strip()
     instance_id = getattr(settings, 'WHATSAPP_INSTANCE_ID', '').strip()
+    session_name = getattr(settings, 'WHATSAPP_SESSION_NAME', 'default').strip()
 
     if not (gateway_url or (token and instance_id)):
         return {'success': False, 'error': 'No WhatsApp Gateway configured.'}
@@ -147,7 +148,26 @@ def send_whatsapp_via_gateway(phone, message):
         return {'success': False, 'error': 'Invalid phone number.'}
 
     try:
-        if 'ultramsg.com' in gateway_url or instance_id:
+        # 1. WAHA (WhatsApp HTTP API - local or remote)
+        if ':3000' in gateway_url or 'sendText' in gateway_url or 'waha' in gateway_url:
+            url = gateway_url if gateway_url.endswith('/api/sendText') else f"{gateway_url.rstrip('/')}/api/sendText"
+            payload = json.dumps({
+                'session': session_name or 'default',
+                'chatId': f"{wa_phone}@c.us",
+                'text': message,
+            }).encode('utf-8')
+            headers = {
+                'Content-Type': 'application/json',
+            }
+            if token:
+                headers['X-Api-Key'] = token
+            req = urllib.request.Request(url, data=payload, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                return {'success': True, 'response': res_data, 'sent_to': wa_phone}
+
+        # 2. UltraMsg
+        elif 'ultramsg.com' in gateway_url or instance_id:
             url = gateway_url if gateway_url else f"https://api.ultramsg.com/{instance_id}/messages/chat"
             payload = urllib.parse.urlencode({
                 'token': token,
@@ -158,6 +178,8 @@ def send_whatsapp_via_gateway(phone, message):
             with urllib.request.urlopen(req, timeout=10) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 return {'success': True, 'response': res_data, 'sent_to': wa_phone}
+
+        # 3. Generic JSON Webhook
         else:
             payload = json.dumps({'phone': wa_phone, 'message': message, 'token': token}).encode('utf-8')
             req = urllib.request.Request(gateway_url, data=payload, headers={'Content-Type': 'application/json'})
