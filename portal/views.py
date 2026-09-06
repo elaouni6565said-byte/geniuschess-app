@@ -175,6 +175,9 @@ def download_planning_pdf_view(request):
     filename = f"GCA_Planning_Officiel_{lang}.pdf"
     response = HttpResponse(pdf_data, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{filename}"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
     return response
 
 
@@ -434,6 +437,9 @@ def download_timetable_pdf_view(request, student_id):
     filename = f"Emploi_Du_Temps_{student.registration_number}_{lang}.pdf"
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{filename}"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
     return response
 
 

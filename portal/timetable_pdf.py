@@ -255,10 +255,15 @@ def generate_timetable_pdf(student, lang="fr"):
         elif lang == "bilingual":
             day_str = f"{FRENCH_DAYS.get(dow, '')} / {prepare_arabic_text_for_pdf(ARABIC_DAYS.get(dow, ''))}"
             time_str = f"{s['start_time'].strftime('%H:%M')} - {s['end_time'].strftime('%H:%M')}"
-            grp_str = s['group'].name_fr
-            subj_str = s['subject'].name_fr
-            room_str = s['room'].name_fr if s['room'] else "—"
-            coach_str = s['trainer_fr'] or s['trainer_ar'] or "—"
+            ar_g = prepare_arabic_text_for_pdf(s['group'].name_ar) if s['group'].name_ar else ""
+            grp_str = f"{s['group'].name_fr} ({ar_g})" if ar_g else s['group'].name_fr
+            ar_sub = prepare_arabic_text_for_pdf(s['subject'].name_ar) if s['subject'].name_ar else ""
+            subj_str = f"{s['subject'].name_fr} / {ar_sub}" if ar_sub else s['subject'].name_fr
+            ar_rm = prepare_arabic_text_for_pdf(s['room'].name_ar) if s['room'] and s['room'].name_ar else ""
+            rm_fr = s['room'].name_fr if s['room'] else "Salle Principale"
+            room_str = f"{rm_fr} ({ar_rm})" if ar_rm else rm_fr
+            ar_coach = prepare_arabic_text_for_pdf(s['trainer_ar']) if s['trainer_ar'] else ""
+            coach_str = f"{s['trainer_fr']} • {ar_coach}" if ar_coach and s['trainer_fr'] else (s['trainer_fr'] or ar_coach or "—")
         else:
             day_str = FRENCH_DAYS.get(dow, '')
             time_str = f"{s['start_time'].strftime('%H:%M')} - {s['end_time'].strftime('%H:%M')}"
