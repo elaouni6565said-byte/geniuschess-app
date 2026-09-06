@@ -1791,5 +1791,259 @@ def students_cards_sheet_pdf_view(request):
     return response
 
 
+def _get_recap_data(request):
+    import calendar
+    from datetime import date, datetime, timedelta
+    from collections import OrderedDict
+    from core.i18n import FRENCH_DAYS, ARABIC_DAYS, FRENCH_MONTHS, ARABIC_MONTHS
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    period = request.GET.get('period', 'week')
+    today = date.today()
+
+    # 1. Calcul des dates selon la granularité
+    if period == 'day':
+        date_str = request.GET.get('date', today.strftime('%Y-%m-%d'))
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = today
+        start_date = target_date
+        end_date = target_date
+        day_n = ARABIC_DAYS.get(target_date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(target_date.weekday(), '')
+        period_label = f"{day_n} {target_date.strftime('%d/%m/%Y')}"
+    elif period == 'week':
+        date_str = request.GET.get('date', today.strftime('%Y-%m-%d'))
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = today
+        start_date = target_date - timedelta(days=target_date.weekday())
+        end_date = start_date + timedelta(days=6)
+        period_label = (
+            f"Semaine du {start_date.strftime('%d/%m')} au {end_date.strftime('%d/%m/%Y')}"
+            if lang == 'fr' else
+            f"أسبوع من {start_date.strftime('%d/%m')} إلى {end_date.strftime('%d/%m/%Y')}"
+        )
+    elif period == 'month':
+        try:
+            month = int(request.GET.get('month', today.month))
+            year = int(request.GET.get('year', today.year))
+        except (ValueError, TypeError):
+            month = today.month
+            year = today.year
+        start_date = date(year, month, 1)
+        last_day = calendar.monthrange(year, month)[1]
+        end_date = date(year, month, last_day)
+        m_name = ARABIC_MONTHS.get(month, '') if lang == 'ar' else FRENCH_MONTHS.get(month, '')
+        period_label = f"{m_name} {year}"
+    elif period == 'year':
+        try:
+            year = int(request.GET.get('year', today.year))
+        except (ValueError, TypeError):
+            year = today.year
+        start_date = date(year, 1, 1)
+        end_date = date(year, 12, 31)
+        period_label = f"Année {year}" if lang == 'fr' else f"سنة {year}"
+    else:
+        period = 'week'
+        start_date = today - timedelta(days=today.weekday())
+        end_date = start_date + timedelta(days=6)
+        period_label = f"Semaine du {start_date.strftime('%d/%m')} au {end_date.strftime('%d/%m/%Y')}"
+
+    # 2. Filtres
+    subject_id = request.GET.get('subject', '')
+    group_id = request.GET.get('group', '')
+    status_filter = request.GET.get('status', '')
+    q = request.GET.get('q', '').strip()
+
+    qs = Attendance.objects.filter(
+        date__gte=start_date,
+        date__lte=end_date
+    ).select_related(
+        'student',
+        'student__parent',
+        'session',
+        'session__group',
+        'session__group__subject',
+        'session__room'
+    ).order_by(
+        'session__group__subject__name_fr',
+        'session__group__name_fr',
+        'date',
+        'session__start_time',
+        'student__last_name_fr',
+        'student__first_name_fr'
+    )
+
+    if subject_id:
+        qs = qs.filter(session__group__subject_id=subject_id)
+    if group_id:
+        qs = qs.filter(session__group_id=group_id)
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if q:
+        qs = qs.filter(
+            Q(student__first_name_fr__icontains=q) |
+            Q(student__last_name_fr__icontains=q) |
+            Q(student__first_name_ar__icontains=q) |
+            Q(student__last_name_ar__icontains=q) |
+            Q(student__registration_number__icontains=q)
+        )
+
+    attendances_list = list(qs)
+
+    # 3. Calculs KPI
+    total_records = len(attendances_list)
+    present_cnt = sum(1 for a in attendances_list if a.status == 'present')
+    absent_cnt = sum(1 for a in attendances_list if a.status == 'absent')
+    late_cnt = sum(1 for a in attendances_list if a.status == 'late')
+    justified_cnt = sum(1 for a in attendances_list if a.status == 'justified')
+    global_rate = round((present_cnt + justified_cnt + late_cnt * 0.5) / total_records * 100, 1) if total_records > 0 else 0
+
+    # 4. Groupement Hiérarchique : Activité > Groupe > Séance (date + horaire)
+    subjects_tree = OrderedDict()
+    for att in attendances_list:
+        grp = att.session.group
+        subj = grp.subject if grp else None
+        subj_id = subj.id if subj else 0
+        subj_name = subj.get_name(lang) if subj else ("Échecs" if lang == 'fr' else "شطرنج")
+
+        if subj_id not in subjects_tree:
+            subjects_tree[subj_id] = {
+                'subject': subj,
+                'name': subj_name,
+                'groups': OrderedDict()
+            }
+
+        grp_id = grp.id if grp else 0
+        grp_name = grp.get_name(lang) if grp else ("Groupe" if lang == 'fr' else "فوج")
+        if grp_id not in subjects_tree[subj_id]['groups']:
+            subjects_tree[subj_id]['groups'][grp_id] = {
+                'group': grp,
+                'name': grp_name,
+                'color': grp.get_color() if grp else "#0A192F",
+                'sessions': OrderedDict()
+            }
+
+        sess_key = (att.session_id, att.date)
+        if sess_key not in subjects_tree[subj_id]['groups'][grp_id]['sessions']:
+            d_name = ARABIC_DAYS.get(att.date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(att.date.weekday(), '')
+            subjects_tree[subj_id]['groups'][grp_id]['sessions'][sess_key] = {
+                'session': att.session,
+                'date': att.date,
+                'day_name': d_name,
+                'trainer_name': att.session.get_trainer_name(lang),
+                'room_name': att.session.room.get_name(lang) if att.session.room else '',
+                'attendances': [],
+                'present': 0,
+                'absent': 0,
+                'late': 0,
+                'justified': 0,
+            }
+
+        s_entry = subjects_tree[subj_id]['groups'][grp_id]['sessions'][sess_key]
+        s_entry['attendances'].append(att)
+        if att.status == 'present':
+            s_entry['present'] += 1
+        elif att.status == 'absent':
+            s_entry['absent'] += 1
+        elif att.status == 'late':
+            s_entry['late'] += 1
+        elif att.status == 'justified':
+            s_entry['justified'] += 1
+
+    # 5. Synthèse par élève
+    student_stats = {}
+    for att in attendances_list:
+        st = att.student
+        if st.id not in student_stats:
+            student_stats[st.id] = {
+                'student': st,
+                'total': 0,
+                'present': 0,
+                'absent': 0,
+                'late': 0,
+                'justified': 0,
+            }
+        student_stats[st.id]['total'] += 1
+        if att.status == 'present':
+            student_stats[st.id]['present'] += 1
+        elif att.status == 'absent':
+            student_stats[st.id]['absent'] += 1
+        elif att.status == 'late':
+            student_stats[st.id]['late'] += 1
+        elif att.status == 'justified':
+            student_stats[st.id]['justified'] += 1
+
+    student_summaries = []
+    for st_id, s in student_stats.items():
+        s_tot = s['total']
+        s_rate = round((s['present'] + s['justified'] + s['late'] * 0.5) / s_tot * 100, 1) if s_tot > 0 else 0
+        s['rate'] = s_rate
+        student_summaries.append(s)
+    student_summaries.sort(key=lambda x: (x['student'].last_name_fr, x['student'].first_name_fr))
+
+    total_sessions_count = sum(len(g['sessions']) for subj in subjects_tree.values() for g in subj['groups'].values())
+
+    return {
+        'period': period,
+        'period_label': period_label,
+        'start_date': start_date,
+        'end_date': end_date,
+        'today': today,
+        'subject_id': subject_id,
+        'group_id': group_id,
+        'status_filter': status_filter,
+        'q': q,
+        'attendances_list': attendances_list,
+        'total_records': total_records,
+        'total_sessions_count': total_sessions_count,
+        'present_cnt': present_cnt,
+        'absent_cnt': absent_cnt,
+        'late_cnt': late_cnt,
+        'justified_cnt': justified_cnt,
+        'global_rate': global_rate,
+        'subjects_tree': subjects_tree,
+        'student_summaries': student_summaries,
+        'all_subjects': Subject.objects.all(),
+        'all_groups': Group.objects.select_related('subject').all(),
+        'available_years': range(today.year - 2, today.year + 2),
+    }
+
+
+@admin_required
+def attendance_recap_view(request):
+    """
+    Feuille et Registre Récapitulatif Global des Présences :
+    Classé par Activité > Groupe > Date & Heure,
+    Filtrable par Journée, Semaine, Mois, Année.
+    """
+    data = _get_recap_data(request)
+    return render(request, 'portal/attendance_recap.html', data)
+
+
+@admin_required
+def attendance_recap_excel_view(request):
+    """Exportation du registre complet des présences au format Excel (.xlsx)."""
+    from portal.excel_attendance import generate_attendance_excel
+    from datetime import datetime
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    data = _get_recap_data(request)
+    excel_bytes = generate_attendance_excel(
+        data['attendances_list'],
+        data['student_summaries'],
+        data['period_label'],
+        lang=lang
+    )
+    filename = f"Registre_Presences_{data['period']}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    response = HttpResponse(
+        excel_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
 
 

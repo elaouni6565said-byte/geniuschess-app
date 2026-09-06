@@ -53,6 +53,8 @@ urlpatterns = [
 
     # Présences & Badges QR Code
     path('attendance/', views.attendance_list_view, name='attendance_list'),
+    path('attendance/recap/', views.attendance_recap_view, name='attendance_recap'),
+    path('attendance/recap/excel/', views.attendance_recap_excel_view, name='attendance_recap_excel'),
     path('attendance/<int:session_id>/', views.attendance_sheet_view, name='attendance_sheet'),
     path('attendance/<int:session_id>/scan/', views.attendance_scan_ajax_view, name='attendance_scan_ajax'),
     path('students/<int:student_id>/card-pdf/', views.student_card_pdf_view, name='student_card_pdf'),

@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}السجل العام للحضور والمواظبة — أكاديمية جينيوس{% else %}Registre Général des Présences — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<style>
+/* Styles d'impression propres pour le registre */
+@media print {
+    header, nav, .navbar, .page-actions, .filter-card, .period-nav, .no-print {
+        display: none !important;
+    }
+    body, .main-content, .container {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: white !important;
+    }
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #CBD5E1 !important;
+        break-inside: avoid;
+        margin-bottom: 1.5rem !important;
+    }
+    .print-header {
+        display: block !important;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0A192F;
+        padding-bottom: 0.5rem;
+    }
+}
+.print-header {
+    display: none;
+}
+.tab-btn.active {
+    background: var(--primary-navy, #0A192F) !important;
+    color: white !important;
+    border-color: var(--primary-navy, #0A192F) !important;
+}
+</style>
+
+<!-- En-tête imprimable exclusif (visible à l'impression) -->
+<div class="print-header">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 style="margin: 0; color: #0A192F;">GENIUS CHESS ACADEMY</h2>
+            <p style="margin: 0; font-size: 0.9rem; color: #64748B;">جمعية الشطرنج القاسمي — Registre Officiel des Présences</p>
+        </div>
+        <div style="text-align: right; font-size: 0.85rem;">
+            <b>Période :</b> {{ period_label }}<br>
+            <b>Taux Global :</b> {{ global_rate }}% ({{ present_cnt }}/{{ total_records }})
+        </div>
+    </div>
+</div>
+
+<!-- EN-TÊTE DE PAGE -->
+<div class="page-header" style="margin-bottom: 1.25rem;">
+    <div class="page-header-titles">
+        <h2>📊 {% if CURRENT_LANG == 'ar' %}السجل العام للحضور والمواظبة{% else %}Registre & Récapitulatif des Présences{% endif %}</h2>
+        <p>
+            {% if CURRENT_LANG == 'ar' %}
+                استعراض شامل للحضور والغياب مصنف حسب النشاط، الفوج، التاريخ والتوقيت (يوم، أسبوع، شهر أو سنة).
+            {% else %}
+                Suivi complet de l'assiduité classé par Activité, Groupe, Date et Heure (Journée, Semaine, Mois ou Année).
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Actions d'export et navigation -->
+    <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:attendance_recap_excel' %}?{{ request.GET.urlencode }}" class="btn btn-outline" style="background: white; border-color: #16A34A; color: #166534; font-weight: 700;">
+            📥 {% if CURRENT_LANG == 'ar' %}تصدير إكسل (Excel){% else %}Exporter Excel (.xlsx){% endif %}
+        </a>
+        <button type="button" onclick="window.print()" class="btn btn-outline" style="background: white; border-color: #475569; color: #1E293B; font-weight: 600;">
+            🖨️ {% if CURRENT_LANG == 'ar' %}طباعة السجل{% else %}Imprimer le Registre{% endif %}
+        </button>
+        <a href="{% url 'portal:attendance_list' %}" class="btn btn-primary" style="font-weight: 600;">
+            📋 {% if CURRENT_LANG == 'ar' %}أوراق الحضور اليومية{% else %}Pointage du Jour{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- BARRE DE SÉLECTION DE PÉRIODE (JOUR, SEMAINE, MOIS, ANNÉE) -->
+<div class="card period-nav" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem; border-radius: var(--radius-md);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        
+        <!-- Boutons de granularité temporelle -->
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+            <a href="?period=day&date={{ today|date:'Y-m-d' }}{% if subject_id %}&subject={{ subject_id }}{% endif %}{% if group_id %}&group={{ group_id }}{% endif %}" 
+               class="btn btn-sm {% if period == 'day' %}btn-primary{% else %}btn-outline{% endif %}" style="font-weight: 700;">
+                📅 {% if CURRENT_LANG == 'ar' %}اليوم{% else %}Journée{% endif %}
+            </a>
+            <a href="?period=week&date={{ today|date:'Y-m-d' }}{% if subject_id %}&subject={{ subject_id }}{% endif %}{% if group_id %}&group={{ group_id }}{% endif %}" 
+               class="btn btn-sm {% if period == 'week' %}btn-primary{% else %}btn-outline{% endif %}" style="font-weight: 700;">
+                📆 {% if CURRENT_LANG == 'ar' %}هذا الأسبوع{% else %}Cette Semaine{% endif %}
+            </a>
+            <a href="?period=month&month={{ today.month }}&year={{ today.year }}{% if subject_id %}&subject={{ subject_id }}{% endif %}{% if group_id %}&group={{ group_id }}{% endif %}" 
+               class="btn btn-sm {% if period == 'month' %}btn-primary{% else %}btn-outline{% endif %}" style="font-weight: 700;">
+                🗓️ {% if CURRENT_LANG == 'ar' %}هذا الشهر{% else %}Ce Mois{% endif %}
+            </a>
+            <a href="?period=year&year={{ today.year }}{% if subject_id %}&subject={{ subject_id }}{% endif %}{% if group_id %}&group={{ group_id }}{% endif %}" 
+               class="btn btn-sm {% if period == 'year' %}btn-primary{% else %}btn-outline{% endif %}" style="font-weight: 700;">
+                🏆 {% if CURRENT_LANG == 'ar' %}هذه السنة{% else %}Cette Année{% endif %}
+            </a>
+        </div>
+
+        <!-- Titre de la période sélectionnée -->
+        <div style="font-size: 1.1rem; font-weight: 800; color: var(--primary-navy);">
+            ⏳ {{ period_label }}
+        </div>
+    </div>
+</div>
+
+<!-- FORMULAIRE DE FILTRES MULTICRITÈRES -->
+<div class="card filter-card" style="margin-bottom: 1.5rem; padding: 1.1rem 1.25rem; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+    <form method="GET" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) 100px; gap: 0.75rem; align-items: end; margin: 0;">
+        <input type="hidden" name="period" value="{{ period }}">
+
+        <!-- Sélecteur de date / mois selon la période active -->
+        {% if period == 'day' or period == 'week' %}
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}التاريخ المراد :{% else %}Date cible :{% endif %}
+            </label>
+            <input type="date" name="date" value="{{ start_date|date:'Y-m-d' }}" class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+        </div>
+        {% elif period == 'month' %}
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}الشهر :{% else %}Mois :{% endif %}
+            </label>
+            <select name="month" class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                <option value="1" {% if start_date.month == 1 %}selected{% endif %}>Janvier / يناير</option>
+                <option value="2" {% if start_date.month == 2 %}selected{% endif %}>Février / فبراير</option>
+                <option value="3" {% if start_date.month == 3 %}selected{% endif %}>Mars / مارس</option>
+                <option value="4" {% if start_date.month == 4 %}selected{% endif %}>Avril / أبريل</option>
+                <option value="5" {% if start_date.month == 5 %}selected{% endif %}>Mai / ماي</option>
+                <option value="6" {% if start_date.month == 6 %}selected{% endif %}>Juin / يونيو</option>
+                <option value="7" {% if start_date.month == 7 %}selected{% endif %}>Juillet / يوليوز</option>
+                <option value="8" {% if start_date.month == 8 %}selected{% endif %}>Août / غشت</option>
+                <option value="9" {% if start_date.month == 9 %}selected{% endif %}>Septembre / شتنبر</option>
+                <option value="10" {% if start_date.month == 10 %}selected{% endif %}>Octobre / أكتوبر</option>
+                <option value="11" {% if start_date.month == 11 %}selected{% endif %}>Novembre / نونبر</option>
+                <option value="12" {% if start_date.month == 12 %}selected{% endif %}>Décembre / دجنبر</option>
+            </select>
+        </div>
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}السنة :{% else %}Année :{% endif %}
+            </label>
+            <select name="year" class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                {% for y in available_years %}
+                <option value="{{ y }}" {% if start_date.year == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% elif period == 'year' %}
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}السنة :{% else %}Année :{% endif %}
+            </label>
+            <select name="year" class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                {% for y in available_years %}
+                <option value="{{ y }}" {% if start_date.year == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <!-- Filtre Activité -->
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}النشاط :{% else %}Activité :{% endif %}
+            </label>
+            <select name="subject" class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                <option value="">{% if CURRENT_LANG == 'ar' %}جميع الأنشطة{% else %}Toutes les activités{% endif %}</option>
+                {% for sb in all_subjects %}
+                <option value="{{ sb.id }}" {% if subject_id == sb.id|stringformat:"i" %}selected{% endif %}>
+                    {{ sb|trans_field:CURRENT_LANG }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Filtre Groupe -->
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}الفوج :{% else %}Groupe :{% endif %}
+            </label>
+            <select name="group" class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                <option value="">{% if CURRENT_LANG == 'ar' %}جميع الأفواج{% else %}Tous les groupes{% endif %}</option>
+                {% for gp in all_groups %}
+                <option value="{{ gp.id }}" {% if group_id == gp.id|stringformat:"i" %}selected{% endif %}>
+                    {{ gp|trans_field:CURRENT_LANG }} ({{ gp.subject|trans_field:CURRENT_LANG }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Filtre Statut -->
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}الحالة :{% else %}Statut :{% endif %}
+            </label>
+            <select name="status" class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                <option value="">{% if CURRENT_LANG == 'ar' %}الكل{% else %}Tous les statuts{% endif %}</option>
+                <option value="present" {% if status_filter == 'present' %}selected{% endif %}>🟢 {% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présent{% endif %}</option>
+                <option value="absent" {% if status_filter == 'absent' %}selected{% endif %}>🔴 {% if CURRENT_LANG == 'ar' %}غائب{% else %}Absent{% endif %}</option>
+                <option value="late" {% if status_filter == 'late' %}selected{% endif %}>🟠 {% if CURRENT_LANG == 'ar' %}متأخر{% else %}En retard{% endif %}</option>
+                <option value="justified" {% if status_filter == 'justified' %}selected{% endif %}>🔵 {% if CURRENT_LANG == 'ar' %}مبرر{% else %}Justifié{% endif %}</option>
+            </select>
+        </div>
+
+        <!-- Recherche élève -->
+        <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                {% if CURRENT_LANG == 'ar' %}بحث عن تلميذ :{% else %}Recherche élève :{% endif %}
+            </label>
+            <input type="text" name="q" value="{{ q }}" placeholder="{% if CURRENT_LANG == 'ar' %}الاسم أو رقم القيد...{% else %}Nom ou matricule...{% endif %}" 
+                   class="search-input" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+        </div>
+
+        <!-- Bouton Valider -->
+        <div>
+            <button type="submit" class="btn btn-primary btn-sm" style="width: 100%; height: 35px; font-weight: 700;">
+                🔍 {% if CURRENT_LANG == 'ar' %}تصفية{% else %}Filtrer{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- CARTES KPI & STATISTIQUES GLOBALES -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+    <!-- Taux d'assiduité -->
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid {% if global_rate >= 80 %}#16A34A{% elif global_rate >= 50 %}#EA580C{% else %}#DC2626{% endif %}; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            {% if CURRENT_LANG == 'ar' %}نسبة المواظبة العامة{% else %}Taux d'Assiduité Global{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: {% if global_rate >= 80 %}#16A34A{% elif global_rate >= 50 %}#EA580C{% else %}#DC2626{% endif %}; margin-top: 0.2rem;">
+            {{ global_rate }}%
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {{ present_cnt }} {% if CURRENT_LANG == 'ar' %}حاضر من أصل{% else %}présents sur{% endif %} {{ total_records }}
+        </div>
+    </div>
+
+    <!-- Présents -->
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #16A34A; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            🟢 {% if CURRENT_LANG == 'ar' %}مجموع الحضور{% else %}Total Présents{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #166534; margin-top: 0.2rem;">
+            {{ present_cnt }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}إثبات حضور رسمي{% else %}Pointages validés{% endif %}
+        </div>
+    </div>
+
+    <!-- Absents -->
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #DC2626; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            🔴 {% if CURRENT_LANG == 'ar' %}الغيابات{% else %}Total Absents{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #991B1B; margin-top: 0.2rem;">
+            {{ absent_cnt }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}غياب غير مبرر{% else %}Sans justification{% endif %}
+        </div>
+    </div>
+
+    <!-- Retards -->
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #EA580C; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            🟠 {% if CURRENT_LANG == 'ar' %}التأخرات{% else %}Total Retards{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #9A3412; margin-top: 0.2rem;">
+            {{ late_cnt }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}وصول بعد انطلاق الحصة{% else %}Arrivés en retard{% endif %}
+        </div>
+    </div>
+
+    <!-- Justifiés -->
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #4F46E5; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            🔵 {% if CURRENT_LANG == 'ar' %}الغياب المبرر{% else %}Absences Justifiées{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #3730A3; margin-top: 0.2rem;">
+            {{ justified_cnt }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}بإشعار أو شهادة مبررة{% else %}Motif validé{% endif %}
+        </div>
+    </div>
+
+    <!-- Séances Tenues -->
+    <div class="card" style="padding: 1rem; border-radius: var(--radius-md); border-top: 4px solid #0A192F; background: white;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            🏛️ {% if CURRENT_LANG == 'ar' %}الحصص المسجلة{% else %}Séances Réalisées{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #0A192F; margin-top: 0.2rem;">
+            {{ total_sessions_count }}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}خلال هذه الفترة{% else %}Sur la période{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- SÉLECTEUR D'ONGLET (VUE HIÉRARCHIQUE PAR SÉANCE vs VUE PAR ÉLÈVE) -->
+<div class="no-print" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+    <button type="button" onclick="switchRecapTab('sessions')" id="tabBtnSessions" class="btn tab-btn active" style="font-weight: 700; border-radius: var(--radius-sm);">
+        🏛️ {% if CURRENT_LANG == 'ar' %}عرض تفصيلي حسب الأنشطة والحصص{% else %}Vue Détaillée par Activité & Séance{% endif %}
+    </button>
+    <button type="button" onclick="switchRecapTab('students')" id="tabBtnStudents" class="btn tab-btn btn-outline" style="font-weight: 700; border-radius: var(--radius-sm); background: white;">
+        👤 {% if CURRENT_LANG == 'ar' %}ملخص المواظبة لكل تلميذ{% else %}Synthèse par Élève (Assiduité){% endif %}
+    </button>
+</div>
+
+<!-- ========================================================================= -->
+<!-- ONGLET 1 : VUE HIÉRARCHIQUE CLASSÉE PAR ACTIVITÉ > GROUPE > SÉANCE        -->
+<!-- ========================================================================= -->
+<div id="recapViewSessions">
+    {% if subjects_tree %}
+        {% for subj_id, s_data in subjects_tree.items %}
+            <div style="margin-bottom: 2rem;">
+                
+                <!-- Titre Activité -->
+                <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--primary-navy);">
+                    <span style="font-size: 1.4rem;">🎯</span>
+                    <h3 style="margin: 0; color: var(--primary-navy); font-size: 1.25rem;">
+                        {{ s_data.name }}
+                    </h3>
+                </div>
+
+                <!-- Groupes de cette activité -->
+                {% for grp_id, g_data in s_data.groups.items %}
+                    <div class="card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                        
+                        <!-- En-tête Groupe -->
+                        <div style="padding: 0.85rem 1.25rem; background: #F1F5F9; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="badge" style="background: {{ g_data.color }}; color: white; font-weight: 700;">
+                                    👥 {{ g_data.name }}
+                                </span>
+                            </div>
+                            <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">
+                                {{ g_data.sessions|length }} {% if CURRENT_LANG == 'ar' %}حصة مقيدة{% else %}séance(s) enregistrée(s){% endif %}
+                            </span>
+                        </div>
+
+                        <!-- Liste des séances du groupe -->
+                        <div style="padding: 1.25rem;">
+                            {% for sess_key, sess in g_data.sessions.items %}
+                                <div style="margin-bottom: 1.5rem; border: 1px solid #E2E8F0; border-radius: var(--radius-sm); overflow: hidden;">
+                                    
+                                    <!-- Barre d'infos de la séance -->
+                                    <div style="padding: 0.75rem 1rem; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                                            <span style="font-weight: 800; color: var(--primary-navy); font-size: 0.95rem;">
+                                                📅 {{ sess.day_name }} {% local_date sess.date %}
+                                            </span>
+                                            <span class="badge" style="background: white; border: 1px solid #CBD5E1; color: var(--text-dark); font-weight: 600;">
+                                                ⏰ {{ sess.session.start_time|time:'H:i' }} - {{ sess.session.end_time|time:'H:i' }}
+                                            </span>
+                                            {% if sess.room_name %}
+                                            <span style="font-size: 0.82rem; color: var(--text-muted);">
+                                                🏛️ {{ sess.room_name }}
+                                            </span>
+                                            {% endif %}
+                                            {% if sess.trainer_name %}
+                                            <span style="font-size: 0.82rem; color: var(--text-muted);">
+                                                👨‍🏫 {{ sess.trainer_name }}
+                                            </span>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- Statistiques de cette séance spécifique -->
+                                        <div style="display: flex; gap: 0.35rem; align-items: center; font-size: 0.8rem;">
+                                            <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700;">🟢 {{ sess.present }}</span>
+                                            <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 700;">🔴 {{ sess.absent }}</span>
+                                            <span class="badge" style="background: #FFEDD5; color: #9A3412; font-weight: 700;">🟠 {{ sess.late }}</span>
+                                            <span class="badge" style="background: #E0E7FF; color: #3730A3; font-weight: 700;">🔵 {{ sess.justified }}</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Tableau des émargements élèves -->
+                                    <div class="table-responsive" style="overflow-x: auto;">
+                                        <table class="data-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                                            <thead>
+                                                <tr style="background: white; font-size: 0.8rem; border-bottom: 1px solid #E2E8F0;">
+                                                    <th style="padding: 0.5rem 0.75rem; text-align: center; width: 50px;">N°</th>
+                                                    <th style="padding: 0.5rem 0.75rem;">{% if CURRENT_LANG == 'ar' %}رقم القيد{% else %}Matricule{% endif %}</th>
+                                                    <th style="padding: 0.5rem 0.75rem;">{% if CURRENT_LANG == 'ar' %}اسم التلميذ{% else %}Élève{% endif %}</th>
+                                                    <th style="padding: 0.5rem 0.75rem; text-align: center;">{% if CURRENT_LANG == 'ar' %}الحالة{% else %}Statut{% endif %}</th>
+                                                    <th style="padding: 0.5rem 0.75rem;">{% if CURRENT_LANG == 'ar' %}ملاحظات / ساعة المسح{% else %}Remarques / Pointage{% endif %}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for att in sess.attendances %}
+                                                <tr style="font-size: 0.85rem; border-bottom: 1px solid #F1F5F9;">
+                                                    <td style="padding: 0.5rem 0.75rem; text-align: center; color: var(--text-muted);">{{ forloop.counter }}</td>
+                                                    <td style="padding: 0.5rem 0.75rem; font-family: monospace; font-weight: 700;">{{ att.student.registration_number }}</td>
+                                                    <td style="padding: 0.5rem 0.75rem; font-weight: 600;">{{ att.student|trans_field:CURRENT_LANG }}</td>
+                                                    <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                                                        {% if att.status == 'present' %}
+                                                            <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700;">🟢 {% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présent{% endif %}</span>
+                                                        {% elif att.status == 'absent' %}
+                                                            <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 700;">🔴 {% if CURRENT_LANG == 'ar' %}غائب{% else %}Absent{% endif %}</span>
+                                                        {% elif att.status == 'late' %}
+                                                            <span class="badge" style="background: #FFEDD5; color: #9A3412; font-weight: 700;">🟠 {% if CURRENT_LANG == 'ar' %}متأخر{% else %}Retard{% endif %}</span>
+                                                        {% elif att.status == 'justified' %}
+                                                            <span class="badge" style="background: #E0E7FF; color: #3730A3; font-weight: 700;">🔵 {% if CURRENT_LANG == 'ar' %}مبرر{% else %}Justifié{% endif %}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-size: 0.8rem;">
+                                                        {{ att.notes|default:"—" }}
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="card" style="padding: 3rem; text-align: center; color: var(--text-muted);">
+            <span style="font-size: 2.5rem; display: block; margin-bottom: 0.75rem;">📋</span>
+            <h4 style="margin-bottom: 0.5rem;">{% if CURRENT_LANG == 'ar' %}لا توجد تسجيلات حضور في هذه الفترة{% else %}Aucun émargement enregistré pour cette période{% endif %}</h4>
+            <p style="font-size: 0.85rem;">{% if CURRENT_LANG == 'ar' %}يمكنك فتح أوراق الحضور اليومية لمسح وتسجيل حضور التلاميذ.{% else %}Ouvrez une feuille d'appel dans le menu Présences pour scanner ou pointer les élèves.{% endif %}</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- ========================================================================= -->
+<!-- ONGLET 2 : SYNTHÈSE GLOBALE D'ASSIDUITÉ PAR ÉLÈVE                         -->
+<!-- ========================================================================= -->
+<div id="recapViewStudents" style="display: none;">
+    <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-md);">
+        <div style="padding: 1rem 1.25rem; background: #F8FAFC; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.05rem; color: var(--primary-navy);">
+                👤 {% if CURRENT_LANG == 'ar' %}نسبة مواظبة التلاميذ المسجلين ({{ student_summaries|length }} تلميذ){% else %}Taux d'Assiduité des Élèves ({{ student_summaries|length }} élèves){% endif %}
+            </h3>
+        </div>
+
+        {% if student_summaries %}
+        <div class="table-responsive" style="overflow-x: auto;">
+            <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #F1F5F9; font-size: 0.85rem;">
+                        <th style="padding: 0.75rem 1rem; text-align: center; width: 60px;">N°</th>
+                        <th style="padding: 0.75rem 1rem;">{% if CURRENT_LANG == 'ar' %}رقم القيد{% else %}Matricule{% endif %}</th>
+                        <th style="padding: 0.75rem 1rem;">{% if CURRENT_LANG == 'ar' %}اسم التلميذ{% else %}Nom de l'Élève{% endif %}</th>
+                        <th style="padding: 0.75rem 1rem; text-align: center;">{% if CURRENT_LANG == 'ar' %}مجموع الحصص{% else %}Total Séances{% endif %}</th>
+                        <th style="padding: 0.75rem 1rem; text-align: center;">{% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présents{% endif %}</th>
+                        <th style="padding: 0.75rem 1rem; text-align: center;">{% if CURRENT_LANG == 'ar' %}متأخر{% else %}Retards{% endif %}</th>
+                        <th style="padding: 0.75rem 1rem; text-align: center;">{% if CURRENT_LANG == 'ar' %}غائب{% else %}Absents{% endif %}</th>
+                        <th style="padding: 0.75rem 1rem; text-align: center; width: 220px;">{% if CURRENT_LANG == 'ar' %}نسبة المواظبة{% else %}Taux d'Assiduité{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in student_summaries %}
+                    <tr style="border-bottom: 1px solid #F1F5F9; font-size: 0.9rem;">
+                        <td style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted);">{{ forloop.counter }}</td>
+                        <td style="padding: 0.75rem 1rem; font-family: monospace; font-weight: 700;">{{ s.student.registration_number }}</td>
+                        <td style="padding: 0.75rem 1rem; font-weight: 700;">{{ s.student|trans_field:CURRENT_LANG }}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">{{ s.total }}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; color: #166534; font-weight: 700;">{{ s.present }}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; color: #9A3412; font-weight: 700;">{{ s.late }}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; color: #991B1B; font-weight: 700;">{{ s.absent }}</td>
+                        <td style="padding: 0.75rem 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <div style="flex: 1; height: 10px; background: #E2E8F0; border-radius: 6px; overflow: hidden;">
+                                    <div style="width: {{ s.rate }}%; height: 100%; background: {% if s.rate >= 80 %}#16A34A{% elif s.rate >= 50 %}#EA580C{% else %}#DC2626{% endif %}; border-radius: 6px;"></div>
+                                </div>
+                                <span style="font-size: 0.85rem; font-weight: 800; color: {% if s.rate >= 80 %}#16A34A{% elif s.rate >= 50 %}#EA580C{% else %}#DC2626{% endif %};">
+                                    {{ s.rate }}%
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}لا توجد بيانات مواظبة لعرضها{% else %}Aucune donnée d'assiduité à afficher pour cette sélection.{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function switchRecapTab(tabName) {
+    const vSessions = document.getElementById("recapViewSessions");
+    const vStudents = document.getElementById("recapViewStudents");
+    const bSessions = document.getElementById("tabBtnSessions");
+    const bStudents = document.getElementById("tabBtnStudents");
+
+    if (tabName === "sessions") {
+        vSessions.style.display = "block";
+        vStudents.style.display = "none";
+        bSessions.classList.add("active");
+        bSessions.classList.remove("btn-outline");
+        bStudents.classList.remove("active");
+        bStudents.classList.add("btn-outline");
+    } else {
+        vSessions.style.display = "none";
+        vStudents.style.display = "block";
+        bStudents.classList.add("active");
+        bStudents.classList.remove("btn-outline");
+        bSessions.classList.remove("active");
+        bSessions.classList.add("btn-outline");
+    }
+}
+</script>
+{% endblock %}

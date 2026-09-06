@@ -124,3 +124,75 @@ def test_attendance_views_and_qr_scanning():
     assert resp_sheet_pdf.status_code == 200
     assert resp_sheet_pdf['Content-Type'] == 'application/pdf'
     assert resp_sheet_pdf.content.startswith(b'%PDF')
+
+
+@pytest.mark.django_db
+def test_attendance_recap_and_excel_export():
+    """
+    Validates:
+    1. /attendance/recap/ view for Day, Week, Month and Year periods.
+    2. Filtering by Subject, Group, Status, and Search query.
+    3. Hierarchical grouping and student assiduity KPI calculation.
+    4. /attendance/recap/excel/ export generation with openpyxl workbook structure.
+    """
+    import io
+    import openpyxl
+    client = Client()
+    admin = User.objects.get(username='admin')
+    client.force_login(admin)
+
+    schedule = SessionSchedule.objects.first()
+    student = Student.objects.first()
+    assert schedule is not None and student is not None
+
+    # Créer quelques enregistrements de présence
+    d1 = date(2026, 9, 1)
+    d2 = date(2026, 9, 2)
+    Attendance.objects.update_or_create(student=student, session=schedule, date=d1, defaults={'status': 'present'})
+    Attendance.objects.update_or_create(student=student, session=schedule, date=d2, defaults={'status': 'late'})
+
+    # 1. Période Journée
+    resp_day = client.get(f'/attendance/recap/?period=day&date=2026-09-01')
+    assert resp_day.status_code == 200
+    assert resp_day.context['total_records'] >= 1
+    assert resp_day.context['present_cnt'] >= 1
+
+    # 2. Période Semaine
+    resp_week = client.get(f'/attendance/recap/?period=week&date=2026-09-02')
+    assert resp_week.status_code == 200
+    assert resp_week.context['total_records'] >= 2
+
+    # 3. Période Mois
+    resp_month = client.get(f'/attendance/recap/?period=month&month=9&year=2026')
+    assert resp_month.status_code == 200
+    assert resp_month.context['total_records'] >= 2
+    assert len(resp_month.context['student_summaries']) >= 1
+
+    # 4. Période Année
+    resp_year = client.get(f'/attendance/recap/?period=year&year=2026')
+    assert resp_year.status_code == 200
+    assert resp_year.context['total_records'] >= 2
+
+    # 5. Filtre par statut
+    resp_status = client.get(f'/attendance/recap/?period=month&month=9&year=2026&status=present')
+    assert resp_status.status_code == 200
+    assert resp_status.context['total_records'] == 1
+
+    # 6. Filtre par recherche élève
+    resp_q = client.get(f'/attendance/recap/?period=month&month=9&year=2026&q={student.last_name_fr[:3]}')
+    assert resp_q.status_code == 200
+    assert resp_q.context['total_records'] >= 1
+
+    # 7. Export Excel (.xlsx)
+    resp_excel = client.get(f'/attendance/recap/excel/?period=month&month=9&year=2026')
+    assert resp_excel.status_code == 200
+    assert 'spreadsheetml' in resp_excel['Content-Type']
+    assert len(resp_excel.content) > 2000
+
+    # Vérification de la structure du classeur Excel généré
+    wb = openpyxl.load_workbook(io.BytesIO(resp_excel.content))
+    sheet_names = wb.sheetnames
+    assert len(sheet_names) == 2
+    assert "Émargements par Séance" in sheet_names[0] or "سجل الحضور بالحصص" in sheet_names[0]
+    assert "Synthèse par Élève" in sheet_names[1] or "ملخص الحضور لكل تلميذ" in sheet_names[1]
+

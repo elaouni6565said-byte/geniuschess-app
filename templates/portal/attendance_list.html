@@ -12,6 +12,9 @@
         <p>{% if CURRENT_LANG == 'ar' %}إدارة أوراق الحضور، مسح بطاقات QR Code الذكية للتلاميذ وضبط الإحصائيات الفورية.{% else %}Gestion des feuilles d'émargement, scan caméra des badges QR Code et pointage en direct.{% endif %}</p>
     </div>
     <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:attendance_recap' %}" class="btn" style="background: #0A192F; color: white; font-weight: 700; box-shadow: var(--shadow-sm);">
+            📊 {% if CURRENT_LANG == 'ar' %}السجل العام للحضور والمواظبة{% else %}Registre & Récapitulatif Global{% endif %}
+        </a>
         <a href="{% url 'portal:students_cards_sheet_pdf' %}" target="_blank" class="btn btn-outline" style="background: white; border-color: #0F172A; color: #0F172A; font-weight: 700; box-shadow: var(--shadow-sm);">
             🪪 {% if CURRENT_LANG == 'ar' %}طباعة بطاقات جميع التلاميذ (PDF){% else %}Planche Badges Tous Élèves (PDF){% endif %}
         </a>
