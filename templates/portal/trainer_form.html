@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="form-card-wrapper" style="max-width: 720px; margin: 2rem auto;">
+    <div class="page-header" style="margin-bottom: 1.5rem;">
+        <div class="page-header-titles">
+            <h2>👨‍🏫 {{ title }}</h2>
+            <p>
+                {% if CURRENT_LANG == 'ar' %}
+                    جمعية الشطرنج القاسمي • تسجيل بيانات المدرب، الرقم الوطني، ونظام الراتب المعتمد
+                {% else %}
+                    GENIUS CHESS ACADEMY • Coordonnées du formateur, CIN et barème de rémunération
+                {% endif %}
+            </p>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'portal:trainers_list' %}" class="btn btn-outline">
+                ← {% trans "crud.cancel" %}
+            </a>
+        </div>
+    </div>
+
+    {% if form.errors %}
+        <div class="alert-banner alert-danger" style="margin-bottom: 1.5rem; border-radius: var(--radius-md); padding: 1rem 1.25rem;">
+            <span style="font-weight: 700;">⚠️ {% if CURRENT_LANG == 'ar' %}يرجى تصحيح الأخطاء الواردة أسفله:{% else %}Veuillez corriger les erreurs ci-dessous :{% endif %}</span>
+            <ul style="margin: 0.5rem 0 0 1.25rem; font-size: 0.85rem;">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <li><b>{{ field }}</b>: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <div class="card" style="border-top: 4px solid #001B57; box-shadow: var(--shadow-md);">
+        <form method="POST">
+            {% csrf_token %}
+
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Identité Bilingue -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Prénom (Français) *</label>
+                        {{ form.first_name_fr }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Nom (Français) *</label>
+                        {{ form.last_name_fr }}
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">الاسم الشخصي (بالعربية)</label>
+                        {{ form.first_name_ar }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">الاسم العائلي (بالعربية)</label>
+                        {{ form.last_name_ar }}
+                    </div>
+                </div>
+
+                <!-- CIN & Discipline -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">CIN (Carte d'identité) *</label>
+                        {{ form.cin }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Discipline / Spécialité *</label>
+                        {{ form.specialty }}
+                    </div>
+                </div>
+
+                <!-- Contact -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Téléphone *</label>
+                        {{ form.phone }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Email</label>
+                        {{ form.email }}
+                    </div>
+                </div>
+
+                <!-- Rémunération -->
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 1.25rem;">
+                    <div style="font-weight: 700; color: #001B57; margin-bottom: 0.75rem; font-size: 0.95rem;">
+                        💰 Barème de Rémunération par défaut
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Mode de calcul *</label>
+                            {{ form.compensation_type }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Tarif de base (DH) *</label>
+                            {{ form.default_rate }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coordonnées bancaires -->
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Nom de la Banque</label>
+                        {{ form.bank_name }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">RIB Bancaire (24 chiffres)</label>
+                        {{ form.bank_rib }}
+                    </div>
+                </div>
+
+                <!-- Adresse & Statut -->
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Adresse / Domicile</label>
+                    {{ form.address }}
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    {{ form.active }}
+                    <label for="{{ form.active.id_for_label }}" style="font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                        Formateur actuellement actif (peut être planifié et rémunéré)
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin-top: 1.75rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <a href="{% url 'portal:trainers_list' %}" class="btn btn-outline">{% trans "crud.cancel" %}</a>
+                <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 0.65rem 1.75rem;">
+                    💾 {% trans "crud.save" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
+
+{% block content %}
+<div class="form-card-wrapper" style="max-width: 760px; margin: 2rem auto;">
+    <div class="page-header" style="margin-bottom: 1.5rem;">
+        <div class="page-header-titles">
+            <h2>💰 {{ title }}</h2>
+            <p>
+                {% if CURRENT_LANG == 'ar' %}
+                    جمعية الشطرنج القاسمي • احتساب وتوليد بيان المستحقات، التعويضات والخصومات
+                {% else %}
+                    GENIUS CHESS ACADEMY • Calcul et saisie des honoraires, primes et déductions
+                {% endif %}
+            </p>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'portal:trainer_payouts_list' %}" class="btn btn-outline">
+                ← {% trans "crud.cancel" %}
+            </a>
+        </div>
+    </div>
+
+    {% if form.errors %}
+        <div class="alert-banner alert-danger" style="margin-bottom: 1.5rem; border-radius: var(--radius-md); padding: 1rem 1.25rem;">
+            <span style="font-weight: 700;">⚠️ Veuillez corriger les erreurs ci-dessous :</span>
+            <ul style="margin: 0.5rem 0 0 1.25rem; font-size: 0.85rem;">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <li><b>{{ field }}</b>: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <div class="card" style="border-top: 4px solid #001B57; box-shadow: var(--shadow-md);">
+        <form method="POST" id="payoutForm">
+            {% csrf_token %}
+
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Formateur, Mois, Année -->
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Formateur Bénéficiaire *</label>
+                        {{ form.trainer }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Mois *</label>
+                        {{ form.period_month }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Année *</label>
+                        {{ form.period_year }}
+                    </div>
+                </div>
+
+                <!-- Info Box Assistant -->
+                <div id="assistantBox" style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: var(--radius-md); padding: 0.75rem 1rem; display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.82rem; color: #1E40AF; font-weight: 600;" id="assistantMsg"></span>
+                        <button type="button" class="btn btn-sm btn-primary" id="btnAutoFill" style="font-size: 0.75rem; padding: 0.25rem 0.65rem;">
+                            ⚡ Appliquer les séances estimées
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mode de Calcul & Volume -->
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 1.25rem;">
+                    <div style="font-weight: 700; color: #001B57; margin-bottom: 0.75rem; font-size: 0.95rem;">
+                        📊 Base de Calcul de la Prestation
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Mode de calcul *</label>
+                            {{ form.compensation_type }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Volume (Séances/H)</label>
+                            {{ form.sessions_count }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Tarif unitaire (DH)</label>
+                            {{ form.rate_applied }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Montant Base (DH)</label>
+                            {{ form.base_amount }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Primes & Retenues -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <!-- Primes -->
+                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-md); padding: 1rem;">
+                        <div style="font-weight: 700; color: #047857; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                            ➕ Primes & Indemnités
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Montant de la prime (DH)</label>
+                            {{ form.bonus_amount }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Motif de la prime</label>
+                            {{ form.bonus_description }}
+                        </div>
+                    </div>
+
+                    <!-- Retenues -->
+                    <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-md); padding: 1rem;">
+                        <div style="font-weight: 700; color: #B91C1C; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                            ➖ Retenues & Avances
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Montant de la retenue (DH)</label>
+                            {{ form.deduction_amount }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Motif de la retenue</label>
+                            {{ form.deduction_description }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Règlement & Paiement -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Statut *</label>
+                        {{ form.status }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Date versement</label>
+                        {{ form.payment_date }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Mode de paiement</label>
+                        {{ form.payment_method }}
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Réf Chèque/Virement</label>
+                        {{ form.reference }}
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Observations & Notes</label>
+                    {{ form.notes }}
+                </div>
+            </div>
+
+            <div style="margin-top: 1.75rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <a href="{% url 'portal:trainer_payouts_list' %}" class="btn btn-outline">Annuler</a>
+                <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 0.65rem 1.75rem;">
+                    💾 Enregistrer le Bulletin
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const trainerSelect = document.getElementById("id_trainer");
+    const monthSelect = document.getElementById("id_period_month");
+    const yearInput = document.getElementById("id_period_year");
+    const compTypeSelect = document.getElementById("id_compensation_type");
+    const sessionsInput = document.getElementById("id_sessions_count");
+    const rateInput = document.getElementById("id_rate_applied");
+    const baseInput = document.getElementById("id_base_amount");
+    const assistantBox = document.getElementById("assistantBox");
+    const assistantMsg = document.getElementById("assistantMsg");
+    const btnAutoFill = document.getElementById("btnAutoFill");
+
+    let estimatedSessions = 0;
+
+    function fetchTrainerInfo() {
+        const trId = trainerSelect.value;
+        const month = monthSelect.value;
+        const year = yearInput.value;
+        if (!trId) {
+            assistantBox.style.display = "none";
+            return;
+        }
+        fetch(`/api/trainers/${trId}/info/?month=${month}&year=${year}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.id) {
+                    estimatedSessions = data.estimated_sessions;
+                    assistantBox.style.display = "block";
+                    assistantMsg.innerHTML = `📅 <b>${data.full_name}</b> : ${estimatedSessions} séances estimées dans l'emploi du temps pour ce mois. (Tarif par défaut: ${data.default_rate} DH)`;
+                }
+            })
+            .catch(() => {
+                assistantBox.style.display = "none";
+            });
+    }
+
+    if (btnAutoFill) {
+        btnAutoFill.addEventListener("click", function() {
+            if (sessionsInput) sessionsInput.value = estimatedSessions;
+            recalcBase();
+        });
+    }
+
+    function recalcBase() {
+        const type = compTypeSelect.value;
+        const sess = parseFloat(sessionsInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        if (type === 'per_session' || type === 'per_hour') {
+            baseInput.value = (sess * rate).toFixed(2);
+        }
+    }
+
+    if (trainerSelect) trainerSelect.addEventListener("change", fetchTrainerInfo);
+    if (monthSelect) monthSelect.addEventListener("change", fetchTrainerInfo);
+    if (sessionsInput) sessionsInput.addEventListener("input", recalcBase);
+    if (rateInput) rateInput.addEventListener("input", recalcBase);
+    if (compTypeSelect) compTypeSelect.addEventListener("change", recalcBase);
+
+    // Initial check
+    if (trainerSelect && trainerSelect.value) {
+        fetchTrainerInfo();
+    }
+});
+</script>
+{% endblock %}

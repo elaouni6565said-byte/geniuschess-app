@@ -164,9 +164,58 @@ class Student(models.Model):
         return f"[{self.registration_number}] {self.get_bilingual_full_name()}"
 
 
+class Trainer(models.Model):
+    COMPENSATION_CHOICES = [
+        ('monthly_fixed', 'Forfait mensuel fixe / مبلغ شهري قار'),
+        ('per_session', 'Par séance dispensée / بالحصّة'),
+        ('per_hour', 'Taux horaire / بالساعة'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="trainer_profile")
+    first_name_fr = models.CharField(max_length=100, verbose_name="Prénom (FR)")
+    last_name_fr = models.CharField(max_length=100, verbose_name="Nom (FR)")
+    first_name_ar = models.CharField(max_length=100, blank=True, verbose_name="الاسم الشخصي")
+    last_name_ar = models.CharField(max_length=100, blank=True, verbose_name="الاسم العائلي")
+    cin = models.CharField(max_length=30, blank=True, verbose_name="CIN (N° Carte d'identité)")
+    phone = models.CharField(max_length=30, verbose_name="Téléphone")
+    email = models.EmailField(blank=True, verbose_name="Email")
+    specialty = models.CharField(max_length=150, default="Échecs / الشطرنج", verbose_name="Discipline / Spécialité")
+    address = models.TextField(blank=True, default='', verbose_name="Adresse / Domicile")
+
+    compensation_type = models.CharField(max_length=20, choices=COMPENSATION_CHOICES, default='per_session', verbose_name="Mode de rémunération")
+    default_rate = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('150.00'), verbose_name="Tarif de base (DH)")
+
+    bank_name = models.CharField(max_length=100, blank=True, verbose_name="Nom de la Banque")
+    bank_rib = models.CharField(max_length=50, blank=True, verbose_name="RIB Bancaire (24 chiffres)")
+
+    active = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Formateur"
+        verbose_name_plural = "Formateurs"
+        ordering = ['last_name_fr', 'first_name_fr']
+
+    def get_full_name(self, lang="fr"):
+        if lang == "ar" and (self.first_name_ar or self.last_name_ar):
+            return f"{self.first_name_ar} {self.last_name_ar}".strip()
+        return f"{self.first_name_fr} {self.last_name_fr}".strip()
+
+    def get_bilingual_full_name(self):
+        fr = f"{self.first_name_fr} {self.last_name_fr}".strip()
+        ar = f"{self.first_name_ar} {self.last_name_ar}".strip()
+        if ar:
+            return f"{fr} / {ar}"
+        return fr
+
+    def __str__(self):
+        return self.get_bilingual_full_name()
+
+
 class SessionSchedule(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="schedules")
     room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True)
+    trainer = models.ForeignKey(Trainer, on_delete=models.SET_NULL, null=True, blank=True, related_name="schedules", verbose_name="Formateur titulaire")
     trainer_name_fr = models.CharField(max_length=100, default="Formateur GCA")
     trainer_name_ar = models.CharField(max_length=100, default="مدرب الأكاديمية")
     day_of_week = models.IntegerField(choices=[
@@ -187,6 +236,8 @@ class SessionSchedule(models.Model):
         return FRENCH_DAYS.get(self.day_of_week, "")
 
     def get_trainer_name(self, lang="fr"):
+        if self.trainer:
+            return self.trainer.get_full_name(lang)
         return self.trainer_name_ar if lang == "ar" and self.trainer_name_ar else self.trainer_name_fr
 
     def __str__(self):

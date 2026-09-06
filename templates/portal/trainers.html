@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}هيئة التأطير والمدربون — جمعية الشطرنج القاسمي{% else %}Formateurs & Encadrants — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>👨‍🏫 {% if CURRENT_LANG == 'ar' %}سجل المدربين وهيئة التأطير{% else %}Répertoire des Formateurs & Encadrants{% endif %}</h2>
+        <p>
+            {% if CURRENT_LANG == 'ar' %}
+                جمعية الشطرنج القاسمي • Genius Chess Academy — إدارة بيانات المدربين، التخصصات، وصيغ المستحقات المالية
+            {% else %}
+                GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي • Gestion des formateurs, disciplines et barèmes de rémunération
+            {% endif %}
+        </p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:trainer_payouts_list' %}" class="btn btn-outline" style="font-weight: 700;">
+            💰 {% if CURRENT_LANG == 'ar' %}بيانات الأجور والمستحقات{% else %}Honoraires & Règlements{% endif %}
+        </a>
+        <a href="{% url 'portal:expenses_list' %}" class="btn btn-outline" style="font-weight: 600;">
+            💸 {% if CURRENT_LANG == 'ar' %}المصاريف{% else %}Dépenses{% endif %}
+        </a>
+        <a href="{% url 'portal:trainer_add' %}" class="btn btn-primary" style="font-weight: 700;">
+            ➕ {% if CURRENT_LANG == 'ar' %}إضافة مدرب جديد{% else %}Nouveau Formateur{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- Filtres & Recherche -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+    <form method="GET" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 250px;">
+            <input type="text" name="q" value="{{ q }}" class="search-input" placeholder="{% if CURRENT_LANG == 'ar' %}بحث بالاسم، ر.ب.و، الهاتف، التخصص...{% else %}Rechercher par nom, CIN, téléphone, discipline...{% endif %}" style="margin: 0; width: 100%;">
+        </div>
+        <div style="min-width: 160px;">
+            <select name="status" class="search-input" style="margin: 0; width: 100%;" onchange="this.form.submit()">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>{% if CURRENT_LANG == 'ar' %}جميع الحالات{% else %}Tous les statuts{% endif %}</option>
+                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>{% if CURRENT_LANG == 'ar' %}النشطون فقط{% else %}Actifs uniquement{% endif %}</option>
+                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>{% if CURRENT_LANG == 'ar' %}غير النشطين{% else %}Inactifs{% endif %}</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">🔍 {% trans "crud.search" %}</button>
+        {% if q or status_filter != 'all' %}
+            <a href="{% url 'portal:trainers_list' %}" class="btn btn-outline">✕ {% trans "crud.reset" %}</a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Liste des formateurs -->
+<div class="card" style="padding: 0; overflow: hidden; box-shadow: var(--shadow-sm);">
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% if CURRENT_LANG == 'ar' %}المدرب (الاسم الكامل){% else %}Formateur (Nom & Prénom){% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}ر.ب.و (CIN){% else %}CIN{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}التخصص / المادة{% else %}Discipline / Spécialité{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}صيغة الراتب / التعويض{% else %}Mode de Rémunération{% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}التعريفة المرجعية{% else %}Tarif de Base{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}الاتصال{% else %}Contact{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}الحالة{% else %}Statut{% endif %}</th>
+                    <th style="text-align: center; width: 160px;">{% trans "crud.actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tr in trainers %}
+                <tr>
+                    <td style="font-weight: 700;">
+                        <a href="{% url 'portal:trainer_edit' tr.id %}" style="color: #0369A1; text-decoration: none;">
+                            {{ tr.get_bilingual_full_name }}
+                        </a>
+                        {% if tr.bank_rib %}
+                            <div style="font-size: 0.72rem; color: #64748B; font-weight: normal;">
+                                🏦 {{ tr.bank_name|default:"Banque" }} : {{ tr.bank_rib }}
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge" style="background: #F1F5F9; color: #334155; font-family: monospace;">
+                            {{ tr.cin|default:"---" }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-weight: 600;">
+                            {{ tr.specialty }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if tr.compensation_type == 'monthly_fixed' %}
+                            <span class="badge" style="background: #ECFDF5; color: #047857;">Forfait mensuel / شهري</span>
+                        {% elif tr.compensation_type == 'per_session' %}
+                            <span class="badge" style="background: #FEF3C7; color: #B45309;">Par séance / بالحصة</span>
+                        {% else %}
+                            <span class="badge" style="background: #F3E8FF; color: #7E22CE;">Taux horaire / بالساعة</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #001B57;">
+                        {{ tr.default_rate }} DH
+                    </td>
+                    <td style="font-size: 0.85rem;">
+                        <div>📞 {{ tr.phone|default:"---" }}</div>
+                        {% if tr.email %}
+                            <div style="font-size: 0.75rem; color: #64748B;">✉️ {{ tr.email }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tr.active %}
+                            <span class="badge badge-success">{% if CURRENT_LANG == 'ar' %}نشط{% else %}Actif{% endif %}</span>
+                        {% else %}
+                            <span class="badge" style="background: #F1F5F9; color: #94A3B8;">{% if CURRENT_LANG == 'ar' %}غير نشط{% else %}Inactif{% endif %}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; gap: 0.35rem; justify-content: center;">
+                            <a href="{% url 'portal:trainer_payout_add' %}?trainer={{ tr.id }}" class="btn btn-sm" style="background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;" title="Créer un bulletin de paie">
+                                💰
+                            </a>
+                            <a href="{% url 'portal:trainer_edit' tr.id %}" class="btn btn-sm btn-outline" title="Modifier">
+                                ✏️
+                            </a>
+                            <form method="POST" action="{% url 'portal:trainer_delete' tr.id %}" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ou désactiver ce formateur ?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA;" title="Supprimer">
+                                    🗑️
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 2.5rem 1rem; color: #64748B;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">👨‍🏫</div>
+                        <p style="margin: 0; font-weight: 600;">
+                            {% if CURRENT_LANG == 'ar' %}لا يوجد أي مدرب مسجل حالياً.{% else %}Aucun formateur enregistré pour le moment.{% endif %}
+                        </p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

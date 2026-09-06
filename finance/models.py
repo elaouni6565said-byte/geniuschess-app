@@ -1,6 +1,6 @@
 from django.db import models
 from decimal import Decimal
-from academy.models import Student, Group, User
+from academy.models import Student, Group, User, Trainer
 from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
 
 class Invoice(models.Model):
@@ -327,4 +327,200 @@ class FinancialClosing(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.status}) - Résultat: {self.net_result} DH"
+
+
+class TrainerPayout(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Brouillon / مسودة'),
+        ('validated', 'Validé / مصادق عليه'),
+        ('paid', 'Réglé / مؤدى'),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'Espèces / نقداً'),
+        ('transfer', 'Virement bancaire / تحويل بنكي'),
+        ('check', 'Chèque / شيك'),
+    ]
+
+    payout_number = models.CharField(max_length=50, unique=True, blank=True, verbose_name="N° Bulletin / Référence")
+    trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE, related_name="payouts", verbose_name="Formateur")
+    period_month = models.PositiveIntegerField(verbose_name="Mois")
+    period_year = models.PositiveIntegerField(default=2026, verbose_name="Année")
+
+    compensation_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('monthly_fixed', 'Forfait mensuel fixe / مبلغ شهري قار'),
+            ('per_session', 'Par séance dispensée / بالحصّة'),
+            ('per_hour', 'Taux horaire / بالساعة'),
+        ],
+        default='per_session',
+        verbose_name="Mode de calcul"
+    )
+
+    sessions_count = models.PositiveIntegerField(default=0, verbose_name="Nombre de séances")
+    rate_applied = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Taux / Tarif appliqué (DH)")
+    base_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Montant de Base (DH)")
+
+    bonus_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Primes & Indemnités (DH)")
+    bonus_description = models.CharField(max_length=255, blank=True, verbose_name="Motif de la prime")
+
+    deduction_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Retenues & Avances (DH)")
+    deduction_description = models.CharField(max_length=255, blank=True, verbose_name="Motif de la retenue")
+
+    net_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Net à Payer (DH)")
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Statut")
+    payment_date = models.DateField(null=True, blank=True, verbose_name="Date de paiement")
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash', verbose_name="Mode de paiement")
+    reference = models.CharField(max_length=100, blank=True, verbose_name="N° Chèque / Virement")
+    notes = models.TextField(blank=True, verbose_name="Observations")
+
+    expense = models.OneToOneField('finance.Expense', on_delete=models.SET_NULL, null=True, blank=True, related_name="trainer_payout", verbose_name="Écriture de dépense associée")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Enregistré par")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Bulletin d'honoraires formateur"
+        verbose_name_plural = "Bulletins d'honoraires formateurs"
+        ordering = ['-period_year', '-period_month', '-id']
+        unique_together = ('trainer', 'period_month', 'period_year')
+
+    def calculate_totals(self):
+        if self.compensation_type in ['per_session', 'per_hour']:
+            self.base_amount = Decimal(self.sessions_count) * (self.rate_applied or Decimal('0.00'))
+        elif self.compensation_type == 'monthly_fixed':
+            if (not self.base_amount or self.base_amount == Decimal('0.00')) and self.rate_applied:
+                self.base_amount = self.rate_applied
+
+        base = self.base_amount or Decimal('0.00')
+        bonus = self.bonus_amount or Decimal('0.00')
+        deduction = self.deduction_amount or Decimal('0.00')
+        self.net_amount = max(Decimal('0.00'), base + bonus - deduction)
+        return self.net_amount
+
+    def get_period_label(self, lang='fr'):
+        from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
+        if lang == 'ar':
+            m = ARABIC_MONTHS.get(self.period_month, str(self.period_month))
+            return f"{m} {self.period_year}"
+        m = FRENCH_MONTHS.get(self.period_month, str(self.period_month)).capitalize()
+        return f"{m} {self.period_year}"
+
+    def get_status_label(self, lang='fr'):
+        labels = {
+            'draft': {'fr': 'Brouillon', 'ar': 'مسودة'},
+            'validated': {'fr': 'Validé', 'ar': 'مصادق عليه'},
+            'paid': {'fr': 'Réglé', 'ar': 'مؤدى'},
+        }
+        return labels.get(self.status, {}).get(lang, self.status)
+
+    def get_method_label(self, lang='fr'):
+        labels = {
+            'cash': {'fr': 'Espèces', 'ar': 'نقداً'},
+            'transfer': {'fr': 'Virement bancaire', 'ar': 'تحويل بنكي'},
+            'check': {'fr': 'Chèque', 'ar': 'شيك'},
+        }
+        return labels.get(self.payment_method, {}).get(lang, self.payment_method)
+
+    @property
+    def period_label(self):
+        return self.get_period_label('fr')
+
+    @property
+    def period_label_fr(self):
+        return self.get_period_label('fr')
+
+    @property
+    def period_label_ar(self):
+        return self.get_period_label('ar')
+
+    @property
+    def status_label(self):
+        return self.get_status_label('fr')
+
+    @property
+    def status_label_fr(self):
+        return self.get_status_label('fr')
+
+    @property
+    def status_label_ar(self):
+        return self.get_status_label('ar')
+
+    @property
+    def method_label(self):
+        return self.get_method_label('fr')
+
+    @property
+    def method_label_fr(self):
+        return self.get_method_label('fr')
+
+    @property
+    def method_label_ar(self):
+        return self.get_method_label('ar')
+
+    def sync_with_expense(self):
+        """
+        Si le bulletin est 'paid', crée ou met à jour la dépense correspondante dans Expense.
+        Si le bulletin redevient 'draft' ou 'validated', détache ou supprime l'écriture de dépense.
+        """
+        from datetime import date
+        if self.status == 'paid':
+            cat, _ = ExpenseCategory.objects.get_or_create(
+                name_fr="Rémunération & Honoraires Formateurs",
+                defaults={
+                    "name_ar": "مستحقات وتعويضات المدربين",
+                    "icon": "👨‍🏫",
+                    "color": "#7C3AED",
+                    "is_active": True
+                }
+            )
+            pay_date = self.payment_date or date.today()
+            title = f"Honoraires {self.trainer.get_full_name('fr')} - {self.get_period_label('fr')}"
+
+            if self.expense:
+                self.expense.title = title
+                self.expense.amount = self.net_amount
+                self.expense.expense_date = pay_date
+                self.expense.payment_method = self.payment_method
+                self.expense.beneficiary = self.trainer.get_bilingual_full_name()
+                self.expense.invoice_number = self.payout_number
+                self.expense.category = cat
+                self.expense.save()
+            else:
+                exp = Expense.objects.create(
+                    title=title,
+                    category=cat,
+                    amount=self.net_amount,
+                    expense_date=pay_date,
+                    payment_method=self.payment_method,
+                    beneficiary=self.trainer.get_bilingual_full_name(),
+                    invoice_number=self.payout_number,
+                    notes=f"Généré automatiquement depuis le bulletin d'honoraires #{self.payout_number}",
+                    created_by=self.created_by
+                )
+                self.expense = exp
+                TrainerPayout.objects.filter(id=self.id).update(expense=exp)
+        elif self.expense:
+            old_exp = self.expense
+            TrainerPayout.objects.filter(id=self.id).update(expense=None)
+            self.expense = None
+            old_exp.delete()
+
+    def save(self, *args, **kwargs):
+        self.calculate_totals()
+        if not self.payout_number:
+            tr_id = self.trainer_id or 0
+            self.payout_number = f"BON-{self.period_year}{self.period_month:02d}-{tr_id:02d}"
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        old_exp = self.expense
+        res = super().delete(*args, **kwargs)
+        if old_exp:
+            old_exp.delete()
+        return res
+
+    def __str__(self):
+        return f"{self.payout_number} - {self.trainer.get_full_name('fr')} - {self.get_period_label('fr')} ({self.net_amount} DH)"
 

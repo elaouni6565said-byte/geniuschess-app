@@ -18,6 +18,9 @@
         </p>
     </div>
     <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:trainer_payouts_list' %}" class="btn btn-outline" style="font-weight: 600;">
+            💰 {% if CURRENT_LANG == 'ar' %}أجور ومستحقات المدربين{% else %}Honoraires Formateurs{% endif %}
+        </a>
         <a href="{% url 'portal:expenses_list' %}" class="btn btn-outline" style="font-weight: 600;">
             💸 {% if CURRENT_LANG == 'ar' %}المصاريف والنفقات{% else %}Dépenses & Charges{% endif %}
         </a>

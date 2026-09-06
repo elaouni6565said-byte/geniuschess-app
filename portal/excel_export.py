@@ -1008,3 +1008,173 @@ def export_annual_financial_report_to_excel(year, lang="fr", closing=None):
     return excel_bytes
 
 
+
+def export_trainers_payroll_to_excel(month, year, lang="fr"):
+    """
+    Génère un classeur Excel contenant le Bordereau Récapitulatif Mensuel
+    des honoraires et indemnités des formateurs de l'académie et de l'association.
+    """
+    from finance.models import TrainerPayout
+    from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
+    from django.db.models import Sum
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Bordereau Honoraires" if lang != "ar" else "بيان أجور ومستحقات المدربين"
+    if lang == "ar":
+        ws.sheet_view.rightToLeft = True
+
+    payouts = TrainerPayout.objects.filter(
+        period_month=month, period_year=year
+    ).select_related('trainer').order_by('trainer__last_name_fr', 'trainer__first_name_fr')
+
+    month_name = FRENCH_MONTHS.get(month, str(month)).capitalize() if lang != "ar" else ARABIC_MONTHS.get(month, str(month))
+    title_text = f"GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي — ÉTAT DES HONORAIRES ({month_name} {year})"
+    sub_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+
+    ws.merge_cells("A1:N1")
+    ws["A1"] = title_text
+    ws["A1"].font = TITLE_FONT
+    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
+
+    ws.merge_cells("A2:N2")
+    ws["A2"] = sub_text
+    ws["A2"].font = Font(name="Segoe UI", size=9, italic=True, color="64748B")
+    ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[2].height = 20
+
+    headers = [
+        "N° Bulletin",
+        "Formateur (Bénéficiaire)",
+        "CIN",
+        "Discipline",
+        "Mode Calcul",
+        "Volume (Séances/H)",
+        "Tarif Unitaire",
+        "Base (DH)",
+        "Primes (DH)",
+        "Retenues (DH)",
+        "Net à Payer (DH)",
+        "Mode Paiement",
+        "Date Versement",
+        "Statut"
+    ]
+    if lang == "ar":
+        headers = [
+            "رقم البيان",
+            "اسم المدرب (المستفيد)",
+            "ر.ب.و (CIN)",
+            "التخصص",
+            "طريقة الاحتساب",
+            "عدد الحصص",
+            "التعريفة",
+            "المبلغ الأساسي",
+            "المنح والتعويضات",
+            "الاقتطاعات والتسبيقات",
+            "الصافي للأداء",
+            "طريقة الأداء",
+            "تاريخ الأداء",
+            "الوضعية"
+        ]
+
+    for col_idx, h in enumerate(headers, 1):
+        c = ws.cell(row=4, column=col_idx, value=h)
+        c.font = HEADER_FONT
+        c.fill = NAVY_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER_THIN
+    ws.row_dimensions[4].height = 26
+
+    row_idx = 5
+    tot_base = Decimal("0.00")
+    tot_bonus = Decimal("0.00")
+    tot_deduct = Decimal("0.00")
+    tot_net = Decimal("0.00")
+
+    comp_labels = {
+        'monthly_fixed': 'Forfait mensuel',
+        'per_session': 'Par séance',
+        'per_hour': 'Horaire',
+    }
+
+    row_even_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    row_odd_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+
+    for p in payouts:
+        fill_to_use = row_even_fill if row_idx % 2 == 0 else row_odd_fill
+        tr = p.trainer
+        c_type = comp_labels.get(p.compensation_type, p.compensation_type)
+        pay_date_val = p.payment_date.strftime("%d/%m/%Y") if p.payment_date else "---"
+
+        row_vals = [
+            p.payout_number,
+            tr.get_bilingual_full_name() if lang != "ar" else tr.get_full_name("ar"),
+            tr.cin or "---",
+            tr.specialty or "Échecs",
+            c_type,
+            p.sessions_count,
+            float(p.rate_applied),
+            float(p.base_amount),
+            float(p.bonus_amount),
+            float(p.deduction_amount),
+            float(p.net_amount),
+            p.get_method_label(lang),
+            pay_date_val,
+            p.get_status_label(lang),
+        ]
+
+        tot_base += p.base_amount
+        tot_bonus += p.bonus_amount
+        tot_deduct += p.deduction_amount
+        tot_net += p.net_amount
+
+        for col_idx, val in enumerate(row_vals, 1):
+            c = ws.cell(row=row_idx, column=col_idx, value=val)
+            c.font = DATA_FONT
+            c.fill = fill_to_use
+            c.border = BORDER_THIN
+            if col_idx in [7, 8, 9, 10, 11]:
+                c.number_format = '#,##0.00 "DH"'
+                c.alignment = Alignment(horizontal="right", vertical="center")
+                if col_idx == 11:
+                    c.font = BOLD_DATA_FONT
+            elif col_idx in [1, 3, 5, 6, 12, 13, 14]:
+                c.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                c.alignment = Alignment(horizontal="left", vertical="center")
+
+        ws.row_dimensions[row_idx].height = 22
+        row_idx += 1
+
+    # Ligne de Total
+    ws.cell(row=row_idx, column=1, value="TOTAL DES HONORAIRES DU MOIS").font = BOLD_DATA_FONT
+    ws.cell(row=row_idx, column=1).alignment = Alignment(horizontal="center", vertical="center")
+    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=7)
+
+    ws.cell(row=row_idx, column=8, value=float(tot_base)).number_format = '#,##0.00 "DH"'
+    ws.cell(row=row_idx, column=9, value=float(tot_bonus)).number_format = '#,##0.00 "DH"'
+    ws.cell(row=row_idx, column=10, value=float(tot_deduct)).number_format = '#,##0.00 "DH"'
+    ws.cell(row=row_idx, column=11, value=float(tot_net)).number_format = '#,##0.00 "DH"'
+
+    total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    for c_i in range(1, 15):
+        cell_tot = ws.cell(row=row_idx, column=c_i)
+        cell_tot.font = BOLD_DATA_FONT
+        cell_tot.border = BORDER_TOTAL
+        cell_tot.fill = total_fill
+        if c_i in [8, 9, 10, 11]:
+            cell_tot.alignment = Alignment(horizontal="right", vertical="center")
+
+    ws.row_dimensions[row_idx].height = 25
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    excel_bytes = buffer.getvalue()
+    buffer.close()
+    return excel_bytes

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}مستحقات وأجور المدربين — جمعية الشطرنج القاسمي{% else %}Honoraires & Paie Formateurs — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>💰 {% if CURRENT_LANG == 'ar' %}بيانات أجور ومستحقات المدربين{% else %}Honoraires & Règlements des Formateurs{% endif %}</h2>
+        <p>
+            {% if CURRENT_LANG == 'ar' %}
+                جمعية الشطرنج القاسمي • Genius Chess Academy — تتبع الأجور، حساب الحصص، طباعة بيانات الصرف وتوليد المصاريف
+            {% else %}
+                GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي • Suivi des honoraires, calcul des séances, bulletins de paie et liaison comptable
+            {% endif %}
+        </p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:trainers_payroll_excel' %}?month={{ month|default:'all' }}&year={{ year }}" class="btn" style="background: #107C41; color: white; font-weight: 700;">
+            📊 {% if CURRENT_LANG == 'ar' %}تصدير بيان الشهر Excel{% else %}Bordereau Excel (.xlsx){% endif %}
+        </a>
+        <a href="{% url 'portal:trainers_list' %}" class="btn btn-outline" style="font-weight: 600;">
+            👨‍🏫 {% if CURRENT_LANG == 'ar' %}سجل المدربين{% else %}Liste Formateurs{% endif %}
+        </a>
+        <a href="{% url 'portal:trainer_payout_add' %}" class="btn btn-primary" style="font-weight: 700;">
+            ➕ {% if CURRENT_LANG == 'ar' %}إنشاء بيان مستحقات جديد{% else %}Nouveau Bulletin d'Honoraires{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="card" style="border-left: 4px solid #001B57; padding: 1.25rem;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Engagé (Période)</div>
+        <div style="font-size: 1.6rem; font-weight: 800; color: #001B57; margin-top: 0.35rem;">
+            {{ total_net }} <span style="font-size: 0.9rem; font-weight: 600;">DH</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.25rem;">{{ total_count }} bulletins émis</div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid #047857; padding: 1.25rem;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #047857; text-transform: uppercase;">Total Réglé & Décaissé</div>
+        <div style="font-size: 1.6rem; font-weight: 800; color: #047857; margin-top: 0.35rem;">
+            {{ total_paid }} <span style="font-size: 0.9rem; font-weight: 600;">DH</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #047857; margin-top: 0.25rem;">{{ paid_count }} bulletins acquittés</div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid #B45309; padding: 1.25rem;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #B45309; text-transform: uppercase;">En Attente de Paiement</div>
+        <div style="font-size: 1.6rem; font-weight: 800; color: #B45309; margin-top: 0.35rem;">
+            {{ total_pending }} <span style="font-size: 0.9rem; font-weight: 600;">DH</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #B45309; margin-top: 0.25rem;">À régler aux formateurs</div>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+    <form method="GET" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <div style="min-width: 140px;">
+            <select name="year" class="search-input" style="margin: 0; width: 100%;" onchange="this.form.submit()">
+                <option value="2026" {% if year == 2026 %}selected{% endif %}>Exercice 2026</option>
+                <option value="2025" {% if year == 2025 %}selected{% endif %}>Exercice 2025</option>
+            </select>
+        </div>
+        <div style="min-width: 160px;">
+            <select name="month" class="search-input" style="margin: 0; width: 100%;" onchange="this.form.submit()">
+                <option value="all" {% if month_str == 'all' %}selected{% endif %}>-- Tous les mois --</option>
+                {% for m in "1,2,3,4,5,6,7,8,9,10,11,12"|make_list %}
+                <option value="{{ forloop.counter }}" {% if month == forloop.counter and month_str != 'all' %}selected{% endif %}>
+                    Mois {{ forloop.counter|stringformat:"02d" }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="min-width: 180px;">
+            <select name="trainer" class="search-input" style="margin: 0; width: 100%;" onchange="this.form.submit()">
+                <option value="">-- Tous les formateurs --</option>
+                {% for tr in trainers %}
+                <option value="{{ tr.id }}" {% if trainer_filter == tr.id|stringformat:"s" %}selected{% endif %}>
+                    {{ tr.get_bilingual_full_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="min-width: 150px;">
+            <select name="status" class="search-input" style="margin: 0; width: 100%;" onchange="this.form.submit()">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>-- Tous statuts --</option>
+                <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Brouillon</option>
+                <option value="validated" {% if status_filter == 'validated' %}selected{% endif %}>Validé</option>
+                <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Réglé (Payé)</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">🔍 Filtrer</button>
+        <a href="{% url 'portal:trainer_payouts_list' %}" class="btn btn-outline">✕ Réinitialiser</a>
+    </form>
+</div>
+
+<!-- Table Payouts -->
+<div class="card" style="padding: 0; overflow: hidden; box-shadow: var(--shadow-sm);">
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>N° Réf</th>
+                    <th>Formateur</th>
+                    <th>Période</th>
+                    <th>Mode & Volume</th>
+                    <th style="text-align: right;">Base (DH)</th>
+                    <th style="text-align: right;">Primes / Retenues</th>
+                    <th style="text-align: right;">Net à Payer (DH)</th>
+                    <th>Statut & Paiement</th>
+                    <th style="text-align: center; width: 170px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payouts %}
+                <tr>
+                    <td style="font-family: monospace; font-weight: 700;">
+                        <a href="{% url 'portal:trainer_payout_detail' p.id %}" style="color: #0369A1; text-decoration: none;">
+                            {{ p.payout_number }}
+                        </a>
+                    </td>
+                    <td style="font-weight: 700;">
+                        {{ p.trainer.get_bilingual_full_name }}
+                        <div style="font-size: 0.72rem; color: #64748B; font-weight: normal;">
+                            CIN: {{ p.trainer.cin|default:"---" }}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge" style="background: #F1F5F9; color: #334155;">
+                            {{ p.period_label }}
+                        </span>
+                    </td>
+                    <td style="font-size: 0.85rem;">
+                        {% if p.compensation_type == 'per_session' %}
+                            <b>{{ p.sessions_count }}</b> séances × {{ p.rate_applied }} DH
+                        {% elif p.compensation_type == 'per_hour' %}
+                            <b>{{ p.sessions_count }}</b> h × {{ p.rate_applied }} DH
+                        {% else %}
+                            Forfait mensuel fixe
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; font-weight: 600;">
+                        {{ p.base_amount }} DH
+                    </td>
+                    <td style="text-align: right; font-size: 0.8rem;">
+                        {% if p.bonus_amount > 0 %}
+                            <div style="color: #047857; font-weight: 600;">+{{ p.bonus_amount }} DH</div>
+                        {% endif %}
+                        {% if p.deduction_amount > 0 %}
+                            <div style="color: #DC2626; font-weight: 600;">-{{ p.deduction_amount }} DH</div>
+                        {% endif %}
+                        {% if p.bonus_amount == 0 and p.deduction_amount == 0 %}
+                            <span style="color: #94A3B8;">---</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; font-weight: 800; font-size: 1.05rem; color: #001B57;">
+                        {{ p.net_amount }} DH
+                    </td>
+                    <td>
+                        {% if p.status == 'paid' %}
+                            <span class="badge badge-success">✓ Réglé</span>
+                            <div style="font-size: 0.72rem; color: #047857;">le {{ p.payment_date|date:"d/m/Y" }}</div>
+                        {% elif p.status == 'validated' %}
+                            <span class="badge" style="background: #FEF3C7; color: #B45309;">⏳ Validé</span>
+                        {% else %}
+                            <span class="badge" style="background: #F1F5F9; color: #64748B;">📝 Brouillon</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; gap: 0.35rem; justify-content: center;">
+                            <a href="{% url 'portal:trainer_payout_pdf' p.id %}?lang={{ CURRENT_LANG }}" class="btn btn-sm" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;" title="Télécharger Bulletin PDF" target="_blank">
+                                📄 PDF
+                            </a>
+                            <a href="{% url 'portal:trainer_payout_detail' p.id %}" class="btn btn-sm btn-outline" title="Consulter la fiche">
+                                👁️
+                            </a>
+                            {% if p.status != 'paid' %}
+                            <form method="POST" action="{% url 'portal:trainer_payout_mark_paid' p.id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm" style="background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;" title="Marquer comme payé">
+                                    ✓
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 2.5rem 1rem; color: #64748B;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💰</div>
+                        <p style="margin: 0; font-weight: 600;">
+                            Aucun bulletin d'honoraires trouvé pour les filtres sélectionnés.
+                        </p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 import re
 from django import forms
 from academy.models import Student, Parent, Subject, Group, Room, Level, SessionSchedule, User
+from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
 
 class StudentForm(forms.ModelForm):
     registration_number = forms.CharField(
@@ -254,6 +255,73 @@ class FinancialClosingForm(forms.ModelForm):
             'treasurer_notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Remarques ou explications d’écarts du Trésorier Général'}),
             'president_notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Avis et validation du Président de l’Association'}),
         }
+
+
+class TrainerForm(forms.ModelForm):
+    class Meta:
+        from academy.models import Trainer
+        model = Trainer
+        fields = [
+            'first_name_fr', 'last_name_fr', 'first_name_ar', 'last_name_ar',
+            'cin', 'phone', 'email', 'specialty', 'address',
+            'compensation_type', 'default_rate', 'bank_name', 'bank_rib', 'active'
+        ]
+        widgets = {
+            'first_name_fr': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Prénom en français'}),
+            'last_name_fr': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Nom en français'}),
+            'first_name_ar': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'الاسم الشخصي بالعربية', 'dir': 'rtl'}),
+            'last_name_ar': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'الاسم العائلي بالعربية', 'dir': 'rtl'}),
+            'cin': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: G123456'}),
+            'phone': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: 06 12 34 56 78'}),
+            'email': forms.EmailInput(attrs={'class': 'search-input', 'placeholder': 'formateur@email.com'}),
+            'specialty': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Échecs / الشطرنج, Robotique...'}),
+            'address': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Adresse de résidence'}),
+            'compensation_type': forms.Select(attrs={'class': 'search-input'}),
+            'default_rate': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50'}),
+            'bank_name': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Attijariwafa Bank, CIH...'}),
+            'bank_rib': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'RIB 24 chiffres'}),
+            'active': forms.CheckboxInput(attrs={'class': 'status-checkbox'}),
+        }
+
+
+class TrainerPayoutForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from academy.models import Trainer
+        self.fields['trainer'].queryset = Trainer.objects.filter(active=True).order_by('last_name_fr')
+        self.fields['trainer'].empty_label = "-- Sélectionner un formateur --"
+        self.fields['trainer'].label_from_instance = lambda obj: obj.get_bilingual_full_name()
+
+    class Meta:
+        from finance.models import TrainerPayout
+        from core.i18n import FRENCH_MONTHS
+        model = TrainerPayout
+        fields = [
+            'trainer', 'period_month', 'period_year', 'compensation_type',
+            'sessions_count', 'rate_applied', 'base_amount',
+            'bonus_amount', 'bonus_description',
+            'deduction_amount', 'deduction_description',
+            'status', 'payment_date', 'payment_method', 'reference', 'notes'
+        ]
+        widgets = {
+            'trainer': forms.Select(attrs={'class': 'search-input'}),
+            'period_month': forms.Select(choices=[(m, f"{m:02d} - {FRENCH_MONTHS.get(m, '').capitalize()}") for m in range(1, 13)], attrs={'class': 'search-input'}),
+            'period_year': forms.NumberInput(attrs={'class': 'search-input'}),
+            'compensation_type': forms.Select(attrs={'class': 'search-input'}),
+            'sessions_count': forms.NumberInput(attrs={'class': 'search-input', 'min': 0}),
+            'rate_applied': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50'}),
+            'base_amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50'}),
+            'bonus_amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50'}),
+            'bonus_description': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Arbitrage tournoi, prime déplacement'}),
+            'deduction_amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '0.50'}),
+            'deduction_description': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Acompte sur honoraires'}),
+            'status': forms.Select(attrs={'class': 'search-input'}),
+            'payment_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date'}),
+            'payment_method': forms.Select(attrs={'class': 'search-input'}),
+            'reference': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: N° Chèque ou Réf Virement'}),
+            'notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Notes ou observations'}),
+        }
+
 
 
 

@@ -2,7 +2,7 @@ import os
 from decimal import Decimal
 from portal.forms import (
     StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm,
-    ExpenseForm, ExpenseCategoryForm, FinancialClosingForm
+    ExpenseForm, ExpenseCategoryForm, FinancialClosingForm, TrainerForm, TrainerPayoutForm
 )
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -17,16 +17,17 @@ from core.i18n import (
 )
 from academy.models import (
     Student, Parent, Group, Subject, Room, SessionSchedule,
-    Attendance, Notification, User, ParentVisitLog
+    Attendance, Notification, User, ParentVisitLog, Trainer
 )
-from finance.models import Payment, Invoice, Expense, ExpenseCategory, FinancialClosing
+from finance.models import Payment, Invoice, Expense, ExpenseCategory, FinancialClosing, TrainerPayout
 from finance.receipt_pdf import generate_receipt_pdf
 from finance.annual_report_pdf import generate_annual_report_pdf
+from finance.trainer_slip_pdf import generate_trainer_slip_pdf
 from finance.reminders import generate_monthly_reminders
 from portal.excel_export import (
     export_students_to_excel, export_paid_payments_to_excel,
     export_unpaid_invoices_to_excel, export_expenses_to_excel,
-    export_annual_financial_report_to_excel
+    export_annual_financial_report_to_excel, export_trainers_payroll_to_excel
 )
 from portal.planning_pdf import generate_master_planning_pdf
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
@@ -2897,3 +2898,372 @@ def financial_annual_report_excel_view(request, closing_id):
     return response
 
 
+
+
+# =============================================================================
+# GESTION DES FORMATEURS & HONORAIRES / PAIE (PHASE 3)
+# =============================================================================
+
+@admin_required
+def trainers_list_view(request):
+    """Répertoire et gestion des formateurs de l'académie et de l'association."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    q = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', 'all')
+
+    trainers = Trainer.objects.all()
+
+    if status_filter == 'active':
+        trainers = trainers.filter(active=True)
+    elif status_filter == 'inactive':
+        trainers = trainers.filter(active=False)
+
+    if q:
+        trainers = trainers.filter(
+            Q(first_name_fr__icontains=q) |
+            Q(last_name_fr__icontains=q) |
+            Q(first_name_ar__icontains=q) |
+            Q(last_name_ar__icontains=q) |
+            Q(cin__icontains=q) |
+            Q(phone__icontains=q) |
+            Q(specialty__icontains=q)
+        )
+
+    context = {
+        'trainers': trainers,
+        'q': q,
+        'status_filter': status_filter,
+        'total_count': trainers.count(),
+        'active_count': Trainer.objects.filter(active=True).count(),
+    }
+    return render(request, 'portal/trainers.html', context)
+
+
+@admin_required
+def trainer_create_view(request):
+    """Ajout d'un nouveau formateur."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    if request.method == 'POST':
+        form = TrainerForm(request.POST)
+        if form.is_valid():
+            trainer = form.save()
+            messages.success(
+                request,
+                f"✓ Formateur « {trainer.get_bilingual_full_name()} » ajouté avec succès !" if lang != 'ar' else f"✓ تم إضافة المدرب « {trainer.get_full_name('ar')} » بنجاح !"
+            )
+            return redirect('portal:trainers_list')
+    else:
+        form = TrainerForm()
+
+    context = {
+        'form': form,
+        'is_edit': False,
+        'title': "Nouveau Formateur / إضافة مدرب جديد",
+    }
+    return render(request, 'portal/trainer_form.html', context)
+
+
+@admin_required
+def trainer_edit_view(request, trainer_id):
+    """Modification de la fiche d'un formateur."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    trainer = get_object_or_404(Trainer, id=trainer_id)
+
+    if request.method == 'POST':
+        form = TrainerForm(request.POST, instance=trainer)
+        if form.is_valid():
+            trainer = form.save()
+            messages.success(
+                request,
+                f"✓ Fiche formateur « {trainer.get_bilingual_full_name()} » mise à jour !" if lang != 'ar' else f"✓ تم تحديث بيانات المدرب بنجاح !"
+            )
+            return redirect('portal:trainers_list')
+    else:
+        form = TrainerForm(instance=trainer)
+
+    context = {
+        'form': form,
+        'trainer': trainer,
+        'is_edit': True,
+        'title': f"Modifier Formateur : {trainer.get_bilingual_full_name()}",
+    }
+    return render(request, 'portal/trainer_form.html', context)
+
+
+@admin_required
+def trainer_delete_view(request, trainer_id):
+    """Suppression d'un formateur."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    trainer = get_object_or_404(Trainer, id=trainer_id)
+
+    if request.method == 'POST':
+        name = trainer.get_bilingual_full_name()
+        # Si des bulletins existent, on désactive au lieu de supprimer
+        if trainer.payouts.exists():
+            trainer.active = False
+            trainer.save(update_fields=['active'])
+            messages.warning(
+                request,
+                f"Le formateur « {name} » possède des historiques de paiement. Il a été désactivé au lieu d'être supprimé." if lang != 'ar' else f"المدرب مرتبط ببيانات أداء سابقة، تم تعطيل حسابه بدلاً من حذفه."
+            )
+        else:
+            trainer.delete()
+            messages.success(
+                request,
+                f"✓ Formateur « {name} » supprimé avec succès !" if lang != 'ar' else f"✓ تم حذف المدرب بنجاح !"
+            )
+        return redirect('portal:trainers_list')
+
+    return redirect('portal:trainers_list')
+
+
+@admin_required
+def trainer_payouts_list_view(request):
+    """Tableau de bord des honoraires et règlements des formateurs."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    from datetime import date
+    today = date.today()
+
+    current_year = today.year
+    current_month = today.month
+
+    year_str = request.GET.get('year', str(current_year))
+    month_str = request.GET.get('month', str(current_month))
+    status_filter = request.GET.get('status', 'all')
+    trainer_filter = request.GET.get('trainer', '')
+
+    year = int(year_str) if year_str.isdigit() else current_year
+    month = int(month_str) if month_str.isdigit() else current_month
+
+    payouts = TrainerPayout.objects.filter(period_year=year)
+    if month_str and month_str != 'all':
+        payouts = payouts.filter(period_month=month)
+
+    if status_filter in ['draft', 'validated', 'paid']:
+        payouts = payouts.filter(status=status_filter)
+
+    if trainer_filter.isdigit():
+        payouts = payouts.filter(trainer_id=int(trainer_filter))
+
+    payouts = payouts.select_related('trainer').order_by('-period_year', '-period_month', 'trainer__last_name_fr')
+
+    # Agrégats statistiques
+    total_net = payouts.aggregate(t=Sum('net_amount'))['t'] or Decimal('0.00')
+    total_paid = payouts.filter(status='paid').aggregate(t=Sum('net_amount'))['t'] or Decimal('0.00')
+    total_pending = total_net - total_paid
+
+    context = {
+        'payouts': payouts,
+        'year': year,
+        'month': month if month_str != 'all' else '',
+        'month_str': month_str,
+        'status_filter': status_filter,
+        'trainer_filter': trainer_filter,
+        'trainers': Trainer.objects.filter(active=True).order_by('last_name_fr'),
+        'total_net': total_net,
+        'total_paid': total_paid,
+        'total_pending': total_pending,
+        'total_count': payouts.count(),
+        'paid_count': payouts.filter(status='paid').count(),
+    }
+    return render(request, 'portal/trainer_payouts.html', context)
+
+
+@admin_required
+def trainer_payout_create_view(request):
+    """Création / Saisie d'un bulletin de règlement d'honoraires."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    from datetime import date
+    today = date.today()
+
+    if request.method == 'POST':
+        form = TrainerPayoutForm(request.POST)
+        if form.is_valid():
+            payout = form.save(commit=False)
+            payout.created_by = request.user
+            payout.save()
+            if payout.status == 'paid':
+                payout.sync_with_expense()
+
+            messages.success(
+                request,
+                f"✓ Bulletin d'honoraires #{payout.payout_number} créé avec succès !" if lang != 'ar' else f"✓ تم إنشاء بيان المستحقات بنجاح !"
+            )
+            return redirect('portal:trainer_payout_detail', payout_id=payout.id)
+    else:
+        init_data = {
+            'period_year': today.year,
+            'period_month': today.month,
+            'payment_date': today,
+            'status': 'draft',
+        }
+        trainer_id = request.GET.get('trainer')
+        if trainer_id and trainer_id.isdigit():
+            tr = Trainer.objects.filter(id=int(trainer_id)).first()
+            if tr:
+                init_data['trainer'] = tr
+                init_data['compensation_type'] = tr.compensation_type
+                init_data['rate_applied'] = tr.default_rate
+                if tr.compensation_type == 'monthly_fixed':
+                    init_data['base_amount'] = tr.default_rate
+
+        form = TrainerPayoutForm(initial=init_data)
+
+    context = {
+        'form': form,
+        'is_edit': False,
+        'title': "Nouveau Bulletin d'Honoraires / إنشاء بيان مستحقات جديد",
+    }
+    return render(request, 'portal/trainer_payout_form.html', context)
+
+
+@admin_required
+def trainer_payout_edit_view(request, payout_id):
+    """Modification d'un bulletin d'honoraires."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    payout = get_object_or_404(TrainerPayout, id=payout_id)
+
+    if request.method == 'POST':
+        form = TrainerPayoutForm(request.POST, instance=payout)
+        if form.is_valid():
+            payout = form.save()
+            payout.sync_with_expense()
+            messages.success(
+                request,
+                f"✓ Bulletin #{payout.payout_number} mis à jour avec succès !" if lang != 'ar' else f"✓ تم تحديث بيان المستحقات بنجاح !"
+            )
+            return redirect('portal:trainer_payout_detail', payout_id=payout.id)
+    else:
+        form = TrainerPayoutForm(instance=payout)
+
+    context = {
+        'form': form,
+        'payout': payout,
+        'is_edit': True,
+        'title': f"Modifier le Bulletin #{payout.payout_number}",
+    }
+    return render(request, 'portal/trainer_payout_form.html', context)
+
+
+@admin_required
+def trainer_payout_detail_view(request, payout_id):
+    """Fiche détaillée d'un bulletin d'honoraires."""
+    payout = get_object_or_404(TrainerPayout.objects.select_related('trainer', 'expense', 'created_by'), id=payout_id)
+    context = {
+        'payout': payout,
+        'trainer': payout.trainer,
+    }
+    return render(request, 'portal/trainer_payout_detail.html', context)
+
+
+@admin_required
+@require_POST
+def trainer_payout_mark_paid_view(request, payout_id):
+    """Marque un bulletin comme réglé et génère automatiquement la dépense associée."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    from datetime import date
+    payout = get_object_or_404(TrainerPayout, id=payout_id)
+
+    payout.status = 'paid'
+    if not payout.payment_date:
+        payout.payment_date = date.today()
+    payout.save(update_fields=['status', 'payment_date'])
+    payout.sync_with_expense()
+
+    messages.success(
+        request,
+        f"✓ Bulletin #{payout.payout_number} marqué comme Réglé ({payout.net_amount} DH) ! Écriture de dépense comptabilisée." if lang != 'ar' else f"✓ تم تأكيد أداء المستحقات وتوليد المصروف تلقائياً في الحسابات !"
+    )
+    return redirect('portal:trainer_payout_detail', payout_id=payout.id)
+
+
+@admin_required
+@require_POST
+def trainer_payout_delete_view(request, payout_id):
+    """Suppression d'un bulletin d'honoraires et de son écriture de dépense liée."""
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    payout = get_object_or_404(TrainerPayout, id=payout_id)
+    ref = payout.payout_number
+    payout.delete()
+
+    messages.success(
+        request,
+        f"✓ Bulletin #{ref} supprimé avec succès !" if lang != 'ar' else f"✓ تم حذف بيان المستحقات بنجاح !"
+    )
+    return redirect('portal:trainer_payouts_list')
+
+
+@admin_required
+def trainer_payout_pdf_view(request, payout_id):
+    """Téléchargement du Bulletin de Règlement d'Honoraires en PDF officiel A4."""
+    lang = request.GET.get('lang')
+    if not lang:
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    payout = get_object_or_404(TrainerPayout.objects.select_related('trainer'), id=payout_id)
+    pdf_bytes = generate_trainer_slip_pdf(payout, lang=lang)
+
+    filename = f"Bulletin_Honoraires_{payout.payout_number}_{lang}.pdf"
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@admin_required
+def trainers_payroll_excel_view(request):
+    """Téléchargement du Bordereau Mensuel des Honoraires en Excel (.xlsx)."""
+    lang = request.GET.get('lang')
+    if not lang:
+        if request.user.is_authenticated and getattr(request.user, 'preferred_language', None):
+            lang = request.user.preferred_language
+        else:
+            lang = request.session.get('gca_language') or getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    from datetime import date
+    today = date.today()
+    month = int(request.GET.get('month', str(today.month)))
+    year = int(request.GET.get('year', str(today.year)))
+
+    excel_bytes = export_trainers_payroll_to_excel(month, year, lang=lang)
+
+    filename = f"Bordereau_Honoraires_{year}_{month:02d}_{lang}.xlsx"
+    response = HttpResponse(
+        excel_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@admin_required
+def api_trainer_info(request, trainer_id):
+    """API helper pour auto-remplir les données formateur et calculer les séances du mois."""
+    trainer = get_object_or_404(Trainer, id=trainer_id)
+    month = int(request.GET.get('month', '0'))
+    year = int(request.GET.get('year', '0'))
+
+    # Calcul estimé du nombre de séances du mois pour ce formateur
+    sessions_count = 0
+    if month and year:
+        import calendar
+        cal = calendar.Calendar()
+        # Récupérer les jours de la semaine encadrés par ce formateur
+        schedules = SessionSchedule.objects.filter(trainer=trainer)
+        days = list(schedules.values_list('day_of_week', flat=True))
+        for day, weekday in cal.itermonthdays2(year, month):
+            if day > 0 and weekday in days:
+                sessions_count += 1
+
+    return JsonResponse({
+        'id': trainer.id,
+        'full_name': trainer.get_bilingual_full_name(),
+        'compensation_type': trainer.compensation_type,
+        'default_rate': str(trainer.default_rate),
+        'estimated_sessions': sessions_count,
+        'cin': trainer.cin,
+        'phone': trainer.phone,
+        'rib': trainer.bank_rib,
+    })

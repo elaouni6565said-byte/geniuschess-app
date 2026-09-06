@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    Bulletin {{ payout.payout_number }} — Genius Chess Academy
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-titles">
+        <h2>📄 Bulletin d'Honoraires #{{ payout.payout_number }}</h2>
+        <p>
+            GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي • {{ payout.trainer.get_bilingual_full_name }} ({{ payout.period_label }})
+        </p>
+    </div>
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:trainer_payouts_list' %}" class="btn btn-outline">
+            ← Liste des Honoraires
+        </a>
+        <a href="{% url 'portal:trainer_payout_pdf' payout.id %}?lang={{ CURRENT_LANG }}" class="btn" style="background: #001B57; color: white; font-weight: 700;" target="_blank">
+            📄 Télécharger Bulletin PDF
+        </a>
+        <a href="{% url 'portal:trainer_payout_edit' payout.id %}" class="btn btn-outline">
+            ✏️ Modifier
+        </a>
+        {% if payout.status != 'paid' %}
+        <form method="POST" action="{% url 'portal:trainer_payout_mark_paid' payout.id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary" style="font-weight: 700;">
+                ✓ Marquer comme Réglé (Décaisser)
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Synthèse Fiche Formateur & Bulletin -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+    <!-- Décompte Prestations -->
+    <div class="card" style="border-top: 4px solid #001B57; padding: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="margin: 0; color: #001B57; font-size: 1.15rem;">
+                📋 Décompte Détaillé des Prestations
+            </h3>
+            <span class="badge" style="font-size: 0.85rem; padding: 0.35rem 0.75rem; 
+                {% if payout.status == 'paid' %}background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;
+                {% elif payout.status == 'validated' %}background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;
+                {% else %}background: #F1F5F9; color: #64748B;{% endif %}">
+                {{ payout.status_label }}
+            </span>
+        </div>
+
+        <table class="gca-table" style="margin-bottom: 1.5rem;">
+            <thead>
+                <tr>
+                    <th>Désignation</th>
+                    <th>Base / Taux</th>
+                    <th style="text-align: right;">Montant</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <b>Prestation d'encadrement</b>
+                        <div style="font-size: 0.75rem; color: #64748B;">
+                            {% if payout.compensation_type == 'per_session' %}Rémunération par séance dispensée
+                            {% elif payout.compensation_type == 'per_hour' %}Rémunération au taux horaire
+                            {% else %}Forfait mensuel conventionné{% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if payout.compensation_type != 'monthly_fixed' %}
+                            {{ payout.sessions_count }} × {{ payout.rate_applied }} DH
+                        {% else %}
+                            1 mois
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; font-weight: 700;">
+                        {{ payout.base_amount }} DH
+                    </td>
+                </tr>
+                {% if payout.bonus_amount > 0 %}
+                <tr style="background: #F0FDF4;">
+                    <td style="color: #047857;">
+                        <b>➕ Primes & Indemnités</b>
+                        <div style="font-size: 0.75rem;">{{ payout.bonus_description|default:"Indemnité de déplacement / arbitrage" }}</div>
+                    </td>
+                    <td style="color: #047857;">Prime</td>
+                    <td style="text-align: right; font-weight: 700; color: #047857;">
+                        +{{ payout.bonus_amount }} DH
+                    </td>
+                </tr>
+                {% endif %}
+                {% if payout.deduction_amount > 0 %}
+                <tr style="background: #FEF2F2;">
+                    <td style="color: #B91C1C;">
+                        <b>➖ Retenues & Avances</b>
+                        <div style="font-size: 0.75rem;">{{ payout.deduction_description|default:"Acompte versé sur honoraires" }}</div>
+                    </td>
+                    <td style="color: #B91C1C;">Déduction</td>
+                    <td style="text-align: right; font-weight: 700; color: #B91C1C;">
+                        -{{ payout.deduction_amount }} DH
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #FEF3C7; font-size: 1.1rem;">
+                    <td colspan="2" style="font-weight: 800; color: #001B57;">
+                        NET À VERSER AU FORMATEUR
+                    </td>
+                    <td style="text-align: right; font-weight: 800; color: #B45309;">
+                        {{ payout.net_amount }} DH
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- Intégration comptable automatique -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 1rem;">
+            <div style="font-weight: 700; color: #001B57; font-size: 0.9rem; margin-bottom: 0.35rem;">
+                🔗 Liaison Comptable & Trésorerie
+            </div>
+            {% if payout.expense %}
+                <div style="color: #047857; font-size: 0.85rem;">
+                    ✓ Écriture de dépense enregistrée : <b>Dépense #{{ payout.expense.id }}</b> ({{ payout.expense.amount }} DH) dans la catégorie <i>{{ payout.expense.category.name_fr }}</i>.
+                </div>
+            {% else %}
+                <div style="color: #64748B; font-size: 0.85rem;">
+                    ℹ️ Dès que ce bulletin est validé et marqué comme <b>Réglé</b>, une écriture de dépense sera automatiquement créée dans la comptabilité du club.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Fiche Formateur -->
+    <div class="card" style="padding: 1.5rem;">
+        <h3 style="margin: 0 0 1rem 0; color: #001B57; font-size: 1.1rem;">
+            👤 Fiche Formateur
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.88rem;">
+            <div>
+                <span style="color: #64748B; display: block; font-size: 0.75rem;">Nom & Prénom</span>
+                <b>{{ trainer.get_bilingual_full_name }}</b>
+            </div>
+            <div>
+                <span style="color: #64748B; display: block; font-size: 0.75rem;">CIN (Carte d'identité)</span>
+                <b>{{ trainer.cin|default:"Non renseigné" }}</b>
+            </div>
+            <div>
+                <span style="color: #64748B; display: block; font-size: 0.75rem;">Discipline</span>
+                <b>{{ trainer.specialty }}</b>
+            </div>
+            <div>
+                <span style="color: #64748B; display: block; font-size: 0.75rem;">Téléphone</span>
+                <b>{{ trainer.phone|default:"---" }}</b>
+            </div>
+            <div>
+                <span style="color: #64748B; display: block; font-size: 0.75rem;">Mode de Règlement</span>
+                <b>{{ payout.method_label }}</b>
+                {% if trainer.bank_rib %}
+                    <div style="font-size: 0.75rem; color: #64748B; margin-top: 0.15rem;">
+                        {{ trainer.bank_name }} : {{ trainer.bank_rib }}
+                    </div>
+                {% endif %}
+            </div>
+            <div>
+                <span style="color: #64748B; display: block; font-size: 0.75rem;">Date de Versement</span>
+                <b>{{ payout.payment_date|date:"d/m/Y"|default:"En attente" }}</b>
+            </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; border-top: 1px solid #E2E8F0; padding-top: 1rem;">
+            <form method="POST" action="{% url 'portal:trainer_payout_delete' payout.id %}" onsubmit="return confirm('Confirmez-vous la suppression de ce bulletin ?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm" style="width: 100%; background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA;">
+                    🗑️ Supprimer ce Bulletin
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from finance.models import Invoice, Payment, ExpenseCategory, Expense, FinancialClosing
+from finance.models import Invoice, Payment, ExpenseCategory, Expense, FinancialClosing, TrainerPayout
 
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
@@ -30,4 +30,11 @@ class FinancialClosingAdmin(admin.ModelAdmin):
     list_display = ('title', 'period_type', 'year', 'month', 'total_collected', 'total_expense', 'net_result', 'status', 'is_locked', 'closing_date')
     list_filter = ('period_type', 'year', 'status', 'is_locked')
     search_fields = ('title', 'treasurer_notes', 'president_notes')
+
+@admin.register(TrainerPayout)
+class TrainerPayoutAdmin(admin.ModelAdmin):
+    list_display = ('payout_number', 'trainer', 'period_month', 'period_year', 'compensation_type', 'sessions_count', 'rate_applied', 'net_amount', 'status', 'payment_date')
+    list_filter = ('status', 'period_year', 'period_month', 'compensation_type')
+    search_fields = ('payout_number', 'trainer__first_name_fr', 'trainer__last_name_fr', 'trainer__cin')
+
 
