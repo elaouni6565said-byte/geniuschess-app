@@ -1,4 +1,4 @@
-﻿content = """import io
+content = """import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -28,7 +28,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         ws.sheet_view.rightToLeft = True
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="right", vertical="center")
-        title_text = "أكاديمية جينيوس للشطرنج - لائحة التلاميذ المسجلين 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - لائحة التلاميذ المسجلين 2026"
         headers = [
             "رقم التسجيل", "الاسم بالعربية", "الاسم بالفرنسية",
             "النشاط والمستوى", "المجموعة", "ولي الأمر", "الهاتف", "الحالة"
@@ -37,7 +37,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         ws.title = "Élèves - التلاميذ"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste des Élèves / لائحة التلاميذ 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Élèves / لائحة التلاميذ 2026"
         headers = [
             "Matricule / التسجيل", "Nom (FR)", "الاسم (AR)",
             "Activité / النشاط", "Groupe / المجموعة", "Parent / ولي الأمر", "Tél / الهاتف", "Statut / الحالة"
@@ -46,7 +46,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         ws.title = "Liste des Élèves"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste des Élèves Inscrits 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Élèves Inscrits 2026"
         headers = [
             "Matricule", "Nom (Français)", "Nom (Arabe)",
             "Activité & Niveau", "Groupe", "Parent", "Téléphone", "Statut"

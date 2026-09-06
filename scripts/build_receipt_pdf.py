@@ -1,4 +1,4 @@
-﻿content = """import io
+content = """import io
 import os
 from decimal import Decimal
 from reportlab.lib.pagesizes import A5, landscape
@@ -88,30 +88,31 @@ def generate_receipt_pdf(payment, lang="fr"):
     balance = invoice.get_balance() if invoice else Decimal("0.00")
     period_str = invoice.get_period_label(lang) if invoice else "Cotisation 2026"
 
-    # Header texts
+    # Header texts - Organization & Academy
+    academy_name = "GENIUS CHESS ACADEMY"
+    org_subtitle = prepare_arabic_text_for_pdf("جمعية الشطرنج القاسمي")
+
     if lang == "ar":
         title_text = prepare_arabic_text_for_pdf("وصل الأداء")
-        academy_name = prepare_arabic_text_for_pdf("أكاديمية جينيوس للشطرنج")
         academy_sub = prepare_arabic_text_for_pdf("شطرنج • روبوتيك • حساب ذهني")
         contact_text = prepare_arabic_text_for_pdf("سيدي قاسم / الرباط - هاتف: 0661000000")
     elif lang == "bilingual":
         title_text = f"REÇU DE PAIEMENT / {prepare_arabic_text_for_pdf('وصل الأداء')}"
-        academy_name = f"GENIUS CHESS ACADEMY / {prepare_arabic_text_for_pdf('أكاديمية جينيوس للشطرنج')}"
         academy_sub = f"Échecs • Robotique • Calcul Mental / {prepare_arabic_text_for_pdf('شطرنج • روبوتيك • حساب ذهني')}"
         contact_text = "Sidi Kacem / Rabat - Tél: 06 61 00 00 00"
     else: # fr
         title_text = "REÇU DE PAIEMENT"
-        academy_name = "GENIUS CHESS ACADEMY"
         academy_sub = "Échecs • Robotique • Calcul Mental"
         contact_text = "Sidi Kacem / Rabat - Tél: 06 61 00 00 00"
 
     # Header banner Table
     header_data = [
         [
-            Paragraph(f"<b><font size=14 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
-                      f"<font size=8 color='{BLUE.hexval()}'>{academy_sub}</font><br/>"
-                      f"<font size=7 color='#666666'>{contact_text}</font>",
-                      ParagraphStyle('H1', fontName=font_name, leading=12)),
+            Paragraph(f"<b><font size=12 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
+                      f"<b><font size=9.5 color='{BLUE.hexval()}'>{org_subtitle}</font></b><br/>"
+                      f"<font size=7.5 color='{DARK_GRAY.hexval()}'>{academy_sub}</font><br/>"
+                      f"<font size=6.5 color='#666666'>{contact_text}</font>",
+                      ParagraphStyle('H1', fontName=font_name, leading=11)),
             Paragraph(f"<b><font size=15 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
                       f"<font size=9 color='{NAVY.hexval()}'>N°: <b>{payment.receipt_number}</b></font><br/>"
                       f"<font size=8 color='#555555'>{format_date_localized(payment.payment_date, lang=lang)}</font>",

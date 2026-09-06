@@ -45,7 +45,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         ws.sheet_view.rightToLeft = True
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="right", vertical="center")
-        title_text = "أكاديمية جينيوس للشطرنج - لائحة جميع التلاميذ المسجلين 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - لائحة جميع التلاميذ المسجلين 2026"
         headers = [
             "رقم التسجيل", "الاسم بالعربية", "الاسم بالفرنسية", "تاريخ الازدياد",
             "النشاط والمستوى", "المجموعة", "ولي الأمر", "الهاتف", "البريد الإلكتروني", "الحالة"
@@ -54,7 +54,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         ws.title = "Élèves - التلاميذ"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste Complète des Élèves / لائحة التلاميذ 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste Complète des Élèves / لائحة التلاميذ 2026"
         headers = [
             "Matricule / التسجيل", "Nom (FR)", "الاسم (AR)", "Date Naissance",
             "Activité / النشاط", "Groupe / المجموعة", "Parent / ولي الأمر", "Tél / الهاتف", "Email", "Statut / الحالة"
@@ -63,7 +63,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         ws.title = "Liste des Élèves"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste Complète des Élèves Inscrits 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste Complète des Élèves Inscrits 2026"
         headers = [
             "Matricule", "Nom (Français)", "Nom (Arabe)", "Date de Naissance",
             "Activité & Niveau", "Groupe", "Parent / Tuteur", "Téléphone", "Email", "Statut"
@@ -150,7 +150,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         ws.sheet_view.rightToLeft = True
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="right", vertical="center")
-        title_text = "أكاديمية جينيوس للشطرنج - قائمة المقبوضات والأداءات المؤداة 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - قائمة المقبوضات والأداءات المؤداة 2026"
         headers = [
             "رقم الإيصال", "تاريخ الأداء", "رقم التسجيل", "اسم التلميذ (بالعربية)", "اسم التلميذ (بالفرنسية)",
             "المادة / النشاط", "المجموعة", "ولي الأمر", "الهاتف", "طريقة الأداء", "المبلغ المؤدى (درهم)"
@@ -159,7 +159,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         ws.title = "Paiements Réglés"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste des Paiements Réglés / قائمة المقبوضات 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Réglés / قائمة المقبوضات 2026"
         headers = [
             "N° Reçu", "Date Paiement", "Matricule", "Élève (FR)", "الاسم (AR)",
             "Activité / النشاط", "Groupe", "Parent / ولي الأمر", "Téléphone", "Mode Règlement", "Montant (DH)"
@@ -168,7 +168,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         ws.title = "Liste des Paiements"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste des Paiements Encaissés (Payants) 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Encaissés (Payants) 2026"
         headers = [
             "N° Reçu", "Date Paiement", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
             "Activité", "Groupe", "Parent / Tuteur", "Téléphone", "Mode Règlement", "Montant Réglé (DH)"
@@ -290,7 +290,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         ws.sheet_view.rightToLeft = True
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="right", vertical="center")
-        title_text = "أكاديمية جينيوس للشطرنج - لائحة المستحقات غير المؤداة (المتأخرات) 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - لائحة المستحقات غير المؤداة (المتأخرات) 2026"
         headers = [
             "رقم التسجيل", "اسم التلميذ (بالعربية)", "اسم التلميذ (بالفرنسية)", "ولي الأمر",
             "رقم الهاتف للمتابعة", "المادة / النشاط", "الشهر المعني", "الواجب الشهري (درهم)",
@@ -300,7 +300,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         ws.title = "Impayés - المتأخرات"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste des Impayés / لائحة المستحقات غير المؤداة 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Impayés / لائحة المستحقات غير المؤداة 2026"
         headers = [
             "Matricule", "Élève (FR)", "الاسم (AR)", "Parent / ولي الأمر",
             "Tél Relance", "Activité / النشاط", "Mois", "Montant Dû (DH)",
@@ -310,7 +310,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         ws.title = "Liste des Impayés"
         align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_data = Alignment(horizontal="left", vertical="center")
-        title_text = "GENIUS CHESS ACADEMY - Liste des Élèves Non-Payants & Impayés 2026"
+        title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Élèves Non-Payants & Impayés 2026"
         headers = [
             "Matricule", "Nom Élève (FR)", "Nom Élève (AR)", "Parent / Tuteur",
             "Téléphone Relance", "Activité & Niveau", "Mois Concerné", "Montant Dû (DH)",

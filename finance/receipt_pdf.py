@@ -47,13 +47,12 @@ def init_fonts():
     _FONTS_INITIALIZED = True
 
 
-def get_preferred_font(lang):
+def get_preferred_font(lang="bilingual"):
     init_fonts()
     registered = pdfmetrics.getRegisteredFontNames()
-    if lang in ("ar", "bilingual"):
-        for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
-            if fname in registered:
-                return fname
+    for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
+        if fname in registered:
+            return fname
     return "Helvetica"
 
 
@@ -87,20 +86,20 @@ def generate_receipt_pdf(payment, lang="fr"):
     balance = invoice.get_balance() if invoice else Decimal("0.00")
     period_str = invoice.get_period_label(lang) if invoice else "Cotisation 2026"
 
-    # Header texts
+    # Header texts - Organization & Academy
+    academy_name = "GENIUS CHESS ACADEMY"
+    org_subtitle = prepare_arabic_text_for_pdf("جمعية الشطرنج القاسمي")
+
     if lang == "ar":
         title_text = prepare_arabic_text_for_pdf("وصل الأداء")
-        academy_name = prepare_arabic_text_for_pdf("أكاديمية جينيوس للشطرنج")
         academy_sub = prepare_arabic_text_for_pdf("شطرنج • روبوتيك • حساب ذهني")
         contact_text = prepare_arabic_text_for_pdf("سيدي قاسم / الرباط - هاتف: 0661000000")
     elif lang == "bilingual":
         title_text = f"REÇU DE PAIEMENT / {prepare_arabic_text_for_pdf('وصل الأداء')}"
-        academy_name = f"GENIUS CHESS ACADEMY / {prepare_arabic_text_for_pdf('أكاديمية جينيوس للشطرنج')}"
         academy_sub = f"Échecs • Robotique • Calcul Mental / {prepare_arabic_text_for_pdf('شطرنج • روبوتيك • حساب ذهني')}"
         contact_text = "Sidi Kacem / Rabat - Tél: 06 61 00 00 00"
     else: # fr
         title_text = "REÇU DE PAIEMENT"
-        academy_name = "GENIUS CHESS ACADEMY"
         academy_sub = "Échecs • Robotique • Calcul Mental"
         contact_text = "Sidi Kacem / Rabat - Tél: 06 61 00 00 00"
 
@@ -113,10 +112,11 @@ def generate_receipt_pdf(payment, lang="fr"):
         header_data = [
             [
                 logo_img,
-                Paragraph(f"<b><font size=13 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
-                          f"<font size=8 color='{BLUE.hexval()}'>{academy_sub}</font><br/>"
-                          f"<font size=7 color='#666666'>{contact_text}</font>",
-                          ParagraphStyle('H1', fontName=font_name, leading=12)),
+                Paragraph(f"<b><font size=12 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
+                          f"<b><font size=9.5 color='{BLUE.hexval()}'>{org_subtitle}</font></b><br/>"
+                          f"<font size=7.5 color='{DARK_GRAY.hexval()}'>{academy_sub}</font><br/>"
+                          f"<font size=6.5 color='#666666'>{contact_text}</font>",
+                          ParagraphStyle('H1', fontName=font_name, leading=11)),
                 Paragraph(f"<b><font size=14 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
                           f"<font size=9 color='{NAVY.hexval()}'>N°: <b>{payment.receipt_number}</b></font><br/>"
                           f"<font size=8 color='#555555'>{format_date_localized(payment.payment_date, lang=lang)}</font>",
@@ -132,11 +132,12 @@ def generate_receipt_pdf(payment, lang="fr"):
     else:
         header_data = [
             [
-                Paragraph(f"<b><font size=14 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
-                          f"<font size=8 color='{BLUE.hexval()}'>{academy_sub}</font><br/>"
-                          f"<font size=7 color='#666666'>{contact_text}</font>",
-                          ParagraphStyle('H1', fontName=font_name, leading=12)),
-                Paragraph(f"<b><font size=15 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
+                Paragraph(f"<b><font size=13 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
+                          f"<b><font size=9.5 color='{BLUE.hexval()}'>{org_subtitle}</font></b><br/>"
+                          f"<font size=7.5 color='{DARK_GRAY.hexval()}'>{academy_sub}</font><br/>"
+                          f"<font size=6.5 color='#666666'>{contact_text}</font>",
+                          ParagraphStyle('H1', fontName=font_name, leading=11)),
+                Paragraph(f"<b><font size=14 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
                           f"<font size=9 color='{NAVY.hexval()}'>N°: <b>{payment.receipt_number}</b></font><br/>"
                           f"<font size=8 color='#555555'>{format_date_localized(payment.payment_date, lang=lang)}</font>",
                           ParagraphStyle('H2', fontName=font_name, alignment=2, leading=13)),
@@ -247,13 +248,13 @@ def generate_receipt_pdf(payment, lang="fr"):
 
     # Bottom Signatures & Stamp area
     if lang == "ar":
-        footer_msg = prepare_arabic_text_for_pdf("وثيقة رسمية صادرة عن أكاديمية جينيوس للشطرنج. تعتبر إثباتاً قانونياً للأداء.")
+        footer_msg = prepare_arabic_text_for_pdf("وثيقة رسمية صادرة عن جمعية الشطرنج القاسمي (GENIUS CHESS ACADEMY). تعتبر إثباتاً قانونياً للأداء.")
         stamp_title = prepare_arabic_text_for_pdf("الخاتم والتوقيع المعتمد")
     elif lang == "bilingual":
-        footer_msg = f"Document officiel GCA / {prepare_arabic_text_for_pdf('وثيقة رسمية صادرة عن الأكاديمية')}"
+        footer_msg = f"Document officiel émis par GENIUS CHESS ACADEMY • {prepare_arabic_text_for_pdf('وثيقة رسمية صادرة عن جمعية الشطرنج القاسمي')}"
         stamp_title = f"Cachet & Signature / {prepare_arabic_text_for_pdf('الخاتم والتوقيع')}"
     else:
-        footer_msg = "Document officiel délivré par Genius Chess Academy. Valable comme justificatif de paiement."
+        footer_msg = "Document officiel délivré par GENIUS CHESS ACADEMY. Valable comme justificatif de paiement."
         stamp_title = "Cachet & Signature de l'Administration"
 
     sign_data = [
@@ -262,7 +263,7 @@ def generate_receipt_pdf(payment, lang="fr"):
                       f"Réf système: GCA-SECURE-{payment.id:06d}</font>",
                       ParagraphStyle('F1', fontName=font_name, leading=10)),
             Paragraph(f"<b><font size=8 color='{NAVY.hexval()}'>{stamp_title}</font></b><br/><br/><br/>"
-                      f"<font size=7 color='#999999'>[ GENIUS CHESS ACADEMY - VALIDÉ ]</font>",
+                      f"<font size=6.5 color='#999999'>[ GENIUS CHESS ACADEMY • {org_subtitle} ]</font>",
                       ParagraphStyle('F2', fontName=font_name, alignment=1, leading=11)),
         ]
     ]

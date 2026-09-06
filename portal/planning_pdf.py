@@ -44,13 +44,12 @@ def init_fonts():
     _FONTS_INITIALIZED = True
 
 
-def get_preferred_font(lang):
+def get_preferred_font(lang="bilingual"):
     init_fonts()
     registered = pdfmetrics.getRegisteredFontNames()
-    if lang in ("ar", "bilingual"):
-        for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
-            if fname in registered:
-                return fname
+    for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
+        if fname in registered:
+            return fname
     return "Helvetica"
 
 
@@ -82,19 +81,19 @@ def generate_master_planning_pdf(schedules, lang="fr", room=None):
     font_name = get_preferred_font(lang)
     styles = getSampleStyleSheet()
 
-    # Header Titles based on language
+    # Header Titles - Organization & Academy
+    academy_name = "GENIUS CHESS ACADEMY"
+    org_subtitle = prepare_arabic_text_for_pdf("جمعية الشطرنج القاسمي")
+
     if lang == "ar":
-        academy_name = prepare_arabic_text_for_pdf("أكاديمية جينيوس للشطرنج")
         academy_sub = prepare_arabic_text_for_pdf("البرنامج العام الأسبوعي للحصص والتداريب • الموسم 2026")
         contact_text = prepare_arabic_text_for_pdf("سيدي قاسم / الرباط • الموقع: geniuschess.ma • هاتف: 0661000000")
         doc_title = prepare_arabic_text_for_pdf("البرنامج الأسبوعي العام")
     elif lang == "bilingual":
-        academy_name = f"GENIUS CHESS ACADEMY / {prepare_arabic_text_for_pdf('أكاديمية جينيوس للشطرنج')}"
         academy_sub = f"PLANNING OFFICIEL HEBDOMADAIRE / {prepare_arabic_text_for_pdf('البرنامج الأسبوعي العام')} • 2026"
         contact_text = "Sidi Kacem / Rabat • www.geniuschess.ma • Tél: 06 61 00 00 00"
         doc_title = f"PLANNING OFFICIEL / {prepare_arabic_text_for_pdf('برنامج الحصص')}"
     else:
-        academy_name = "GENIUS CHESS ACADEMY"
         academy_sub = "PLANNING OFFICIEL HEBDOMADAIRE DES COURS • SAISON 2026"
         contact_text = "Sidi Kacem / Rabat • www.geniuschess.ma • Tél: 06 61 00 00 00"
         doc_title = "PLANNING GÉNÉRAL DES COURS"
@@ -120,10 +119,11 @@ def generate_master_planning_pdf(schedules, lang="fr", room=None):
         hdr_table_data = [
             [
                 logo_img,
-                Paragraph(f"<b><font size=14 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
-                          f"<font size=8.5 color='{BLUE.hexval()}'>{academy_sub}</font><br/>"
-                          f"<font size=7.5 color='#64748B'>{contact_text}</font>",
-                          ParagraphStyle('HdrLeft', fontName=font_name, leading=13)),
+                Paragraph(f"<b><font size=13 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
+                          f"<b><font size=9.5 color='{BLUE.hexval()}'>{org_subtitle}</font></b><br/>"
+                          f"<font size=8 color='#475569'>{academy_sub}</font><br/>"
+                          f"<font size=7 color='#64748B'>{contact_text}</font>",
+                          ParagraphStyle('HdrLeft', fontName=font_name, leading=11.5)),
                 Paragraph(f"<b><font size=12 color='{ORANGE.hexval()}'>{doc_title}</font></b><br/>"
                           f"<font size=8 color='#334155'><b>{filter_info}</b></font><br/>"
                           f"<font size=7 color='#64748B'>Édité le {now_str}</font>",
@@ -138,7 +138,7 @@ def generate_master_planning_pdf(schedules, lang="fr", room=None):
         ]))
         story.append(hdr_table)
     else:
-        story.append(Paragraph(f"<b><font size=16 color='{NAVY.hexval()}'>{academy_name}</font></b>", styles['Title']))
+        story.append(Paragraph(f"<b><font size=15 color='{NAVY.hexval()}'>{academy_name}</font></b><br/><b><font size=10 color='{BLUE.hexval()}'>{org_subtitle}</font></b>", styles['Title']))
 
     story.append(Spacer(1, 4 * mm))
 
@@ -335,9 +335,11 @@ def generate_master_planning_pdf(schedules, lang="fr", room=None):
     story.append(Spacer(1, 4 * mm))
 
     # Summary & Stamp Footer
-    summary_text = f"Total des créneaux hebdomadaires : <b>{len(sorted_schedules)} séances</b> • Genius Chess Academy"
+    summary_text = f"Total des créneaux hebdomadaires : <b>{len(sorted_schedules)} séances</b> • GENIUS CHESS ACADEMY"
     if lang == "ar":
-        summary_text = prepare_arabic_text_for_pdf(f"مجموع الحصص الأسبوعية: {len(sorted_schedules)} حصة • أكاديمية جينيوس للشطرنج")
+        summary_text = prepare_arabic_text_for_pdf(f"مجموع الحصص الأسبوعية: {len(sorted_schedules)} حصة • جمعية الشطرنج القاسمي")
+    elif lang == "bilingual":
+        summary_text = f"Total des créneaux : <b>{len(sorted_schedules)} séances</b> • {org_subtitle}"
 
     footer_table_data = [
         [

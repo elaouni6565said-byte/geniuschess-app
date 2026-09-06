@@ -43,13 +43,12 @@ def init_fonts():
     _FONTS_INITIALIZED = True
 
 
-def get_preferred_font(lang):
+def get_preferred_font(lang="bilingual"):
     init_fonts()
     registered = pdfmetrics.getRegisteredFontNames()
-    if lang in ("ar", "bilingual"):
-        for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
-            if fname in registered:
-                return fname
+    for fname in ["Amiri", "Amiri-Regular", "Amiri-Regular-Static", "Amiri-Bold", "Amiri-Bold-Static"]:
+        if fname in registered:
+            return fname
     return "Helvetica"
 
 
@@ -94,20 +93,20 @@ def generate_timetable_pdf(student, lang="fr"):
             })
     sessions_list.sort(key=lambda x: (x['day_of_week'], x['start_time']))
 
-    # Headers
+    # Headers - Organization & Academy
+    academy_name = "GENIUS CHESS ACADEMY"
+    org_subtitle = prepare_arabic_text_for_pdf("جمعية الشطرنج القاسمي")
+
     if lang == "ar":
         title_text = prepare_arabic_text_for_pdf("جدول الحصص والتوقيت الأسبوعي")
-        academy_name = prepare_arabic_text_for_pdf("أكاديمية جينيوس للشطرنج")
         academy_sub = prepare_arabic_text_for_pdf("الموسم الدراسي 2026 • شطرنج • روبوتيك • حساب ذهني")
         contact_text = prepare_arabic_text_for_pdf("سيدي قاسم / الرباط • الموقع: geniuschess.ma • هاتف: 0661000000")
     elif lang == "bilingual":
         title_text = f"EMPLOI DU TEMPS / {prepare_arabic_text_for_pdf('جدول الحصص الأسبوعي')}"
-        academy_name = f"GENIUS CHESS ACADEMY / {prepare_arabic_text_for_pdf('أكاديمية جينيوس للشطرنج')}"
         academy_sub = f"Saison 2026 • Échecs • Robotique • Calcul Mental"
         contact_text = "Sidi Kacem / Rabat • www.geniuschess.ma • Tél: 06 61 00 00 00"
     else:
         title_text = "EMPLOI DU TEMPS HEBDOMADAIRE"
-        academy_name = "GENIUS CHESS ACADEMY"
         academy_sub = "Saison Académique 2026 • Échecs • Robotique • Calcul Mental"
         contact_text = "Sidi Kacem / Rabat • www.geniuschess.ma • Tél: 06 61 00 00 00"
 
@@ -120,26 +119,28 @@ def generate_timetable_pdf(student, lang="fr"):
         hdr_data = [
             [
                 logo_img,
-                Paragraph(f"<b><font size=14 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
-                          f"<font size=8.5 color='{BLUE.hexval()}'>{academy_sub}</font><br/>"
-                          f"<font size=7.5 color='#666666'>{contact_text}</font>",
-                          ParagraphStyle('H1', fontName=font_name, leading=13)),
-                Paragraph(f"<b><font size=13 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
+                Paragraph(f"<b><font size=13 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
+                          f"<b><font size=9.5 color='{BLUE.hexval()}'>{org_subtitle}</font></b><br/>"
+                          f"<font size=8 color='#555555'>{academy_sub}</font><br/>"
+                          f"<font size=7 color='#666666'>{contact_text}</font>",
+                          ParagraphStyle('H1', fontName=font_name, leading=12)),
+                Paragraph(f"<b><font size=12 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
                           f"<font size=8.5 color='#555555'>Année 2026 / 2027</font>",
-                          ParagraphStyle('H2', fontName=font_name, alignment=2, leading=14)),
+                          ParagraphStyle('H2', fontName=font_name, alignment=2, leading=13)),
             ]
         ]
         hdr_table = Table(hdr_data, colWidths=[28 * mm, 95 * mm, 59 * mm])
     else:
         hdr_data = [
             [
-                Paragraph(f"<b><font size=14 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
-                          f"<font size=8.5 color='{BLUE.hexval()}'>{academy_sub}</font><br/>"
-                          f"<font size=7.5 color='#666666'>{contact_text}</font>",
-                          ParagraphStyle('H1', fontName=font_name, leading=13)),
-                Paragraph(f"<b><font size=13 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
+                Paragraph(f"<b><font size=13 color='{NAVY.hexval()}'>{academy_name}</font></b><br/>"
+                          f"<b><font size=9.5 color='{BLUE.hexval()}'>{org_subtitle}</font></b><br/>"
+                          f"<font size=8 color='#555555'>{academy_sub}</font><br/>"
+                          f"<font size=7 color='#666666'>{contact_text}</font>",
+                          ParagraphStyle('H1', fontName=font_name, leading=12)),
+                Paragraph(f"<b><font size=12 color='{ORANGE.hexval()}'>{title_text}</font></b><br/>"
                           f"<font size=8.5 color='#555555'>Année 2026 / 2027</font>",
-                          ParagraphStyle('H2', fontName=font_name, alignment=2, leading=14)),
+                          ParagraphStyle('H2', fontName=font_name, alignment=2, leading=13)),
             ]
         ]
         hdr_table = Table(hdr_data, colWidths=[120 * mm, 62 * mm])
@@ -337,8 +338,8 @@ def generate_timetable_pdf(student, lang="fr"):
                       f"<font size=8 color='#475569'>{p1}<br/>{p2}<br/>{p3}</font>",
                       ParagraphStyle('Notes', fontName=font_name, leading=11)),
             Paragraph(f"<b>Cachet & Signature de l'Académie :</b><br/><br/><br/><br/>"
-                      f"<font size=7.5 color='#94A3B8'>Genius Chess Academy — Direction</font>",
-                      ParagraphStyle('Stamp', fontName=font_name, alignment=1, leading=10)),
+                      f"<font size=7 color='#94A3B8'>GENIUS CHESS ACADEMY — {org_subtitle}</font>",
+                      ParagraphStyle('Stamp', fontName=font_name, alignment=1, leading=9)),
         ]
     ]
     notice_table = Table(notice_rows, colWidths=[125 * mm, 57 * mm])

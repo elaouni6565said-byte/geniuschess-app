@@ -167,9 +167,9 @@ def generate_attendance_excel(attendances, student_summaries, period_label, lang
     ws2.merge_cells("A1:H1")
     t2 = ws2["A1"]
     t2.value = (
-        f"Synthèse d'Assiduité par Élève • {period_label}"
+        f"GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي • Synthèse d'Assiduité par Élève ({period_label})"
         if lang == "fr" else
-        f"ملخص ونسبة المواظبة لكل تلميذ • {period_label}"
+        f"GENIUS CHESS ACADEMY — جمعية الشطرنج القاسمي • ملخص ونسبة المواظبة لكل تلميذ ({period_label})"
     )
     t2.font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
     t2.fill = PatternFill(start_color=NAVY_HEADER, end_color=NAVY_HEADER, fill_type="solid")
