@@ -251,3 +251,26 @@ class ParentVisitLog(models.Model):
         st_name = self.student.get_full_name() if self.student else "Tous"
         return f"{self.parent.full_name_fr} -> {st_name} ({self.timestamp.strftime('%d/%m/%Y %H:%M')})"
 
+
+class SessionCancellation(models.Model):
+    """
+    Permet à l'administrateur d'annuler une séance précise ou toute une journée.
+    Si cancel_all_day=True, toutes les séances et rappels de cette date sont désactivés.
+    Si schedule est renseigné, seule cette séance précise pour cette date est désactivée.
+    """
+    schedule = models.ForeignKey(SessionSchedule, on_delete=models.CASCADE, related_name="cancellations", null=True, blank=True)
+    date = models.DateField(db_index=True)
+    reason = models.CharField(max_length=255, blank=True, default='')
+    cancel_all_day = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+        verbose_name = "Annulation de séance"
+        verbose_name_plural = "Annulations de séances"
+
+    def __str__(self):
+        if self.cancel_all_day:
+            return f"Journée entière annulée le {self.date}"
+        return f"Séance {self.schedule} annulée le {self.date}"
+

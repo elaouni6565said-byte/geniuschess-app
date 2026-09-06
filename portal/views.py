@@ -1359,7 +1359,12 @@ def payment_delete_view(request, payment_id):
 def whatsapp_reminders_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     from datetime import date, datetime
-    from academy.whatsapp_reminders import get_daily_sessions_reminders, dispatch_daily_whatsapp_reminders
+    from academy.whatsapp_reminders import (
+        get_daily_sessions_reminders, dispatch_daily_whatsapp_reminders,
+        is_day_cancelled, is_schedule_cancelled, cancel_day, restore_day,
+        cancel_schedule, restore_schedule, send_whatsapp_via_gateway
+    )
+    from academy.models import SessionSchedule
     from core.i18n import FRENCH_DAYS, ARABIC_DAYS
 
     date_param = request.GET.get('date')
@@ -1373,33 +1378,117 @@ def whatsapp_reminders_view(request):
 
     has_gateway = bool(getattr(settings, 'WHATSAPP_GATEWAY_URL', '') or getattr(settings, 'WHATSAPP_TOKEN', ''))
 
-    if request.method == 'POST' and request.POST.get('action') == 'dispatch_all':
-        res = dispatch_daily_whatsapp_reminders(target_date)
-        if res.get('whatsapp_sent_via_api', 0) > 0:
-            msg = (
-                f"✓ {res['whatsapp_sent_via_api']} message(s) WhatsApp envoyé(s) directement via l'API pour le {target_date.strftime('%d/%m/%Y')}."
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'dispatch_all':
+            res = dispatch_daily_whatsapp_reminders(target_date)
+            if res.get('day_cancelled'):
+                messages.warning(
+                    request,
+                    "⚠️ Cette journée a été marquée comme annulée. Aucun rappel n'a été envoyé."
+                    if lang == 'fr' else
+                    "⚠️ تم تحديد هذا اليوم كملغى. لم يتم إرسال أي تذكيرات."
+                )
+            elif res.get('whatsapp_sent_via_api', 0) > 0:
+                msg = (
+                    f"✓ {res['whatsapp_sent_via_api']} message(s) WhatsApp envoyé(s) directement via l'API pour le {target_date.strftime('%d/%m/%Y')}."
+                    if lang == 'fr' else
+                    f"✓ تم إرسال {res['whatsapp_sent_via_api']} رسالة واتساب بنجاح عبر بوابة API ليوم {target_date.strftime('%d/%m/%Y')}."
+                )
+                messages.success(request, msg)
+            else:
+                msg = (
+                    f"✓ {res['notifications_created']} notification(s) de rappel enregistrée(s) pour le {target_date.strftime('%d/%m/%Y')}."
+                    if lang == 'fr' else
+                    f"✓ تم تسجيل {res['notifications_created']} إشعار تذكير بنجاح ليوم {target_date.strftime('%d/%m/%Y')}."
+                )
+                messages.success(request, msg)
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
+        elif action == 'cancel_day':
+            cancel_day(target_date)
+            messages.warning(
+                request,
+                f"⛔ Toutes les séances du {target_date.strftime('%d/%m/%Y')} sont désormais ANNULÉES. Aucun rappel automatique ne partira ce jour-là."
                 if lang == 'fr' else
-                f"✓ تم إرسال {res['whatsapp_sent_via_api']} رسالة واتساب بنجاح عبر بوابة API ليوم {target_date.strftime('%d/%m/%Y')}."
+                f"⛔ تم إلغاء جميع حصص يوم {target_date.strftime('%d/%m/%Y')}. لن يتم إرسال أي تذكير تلقائي في هذا اليوم."
             )
-        else:
-            msg = (
-                f"✓ {res['notifications_created']} notification(s) de rappel enregistrée(s) pour le {target_date.strftime('%d/%m/%Y')}."
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
+        elif action == 'restore_day':
+            restore_day(target_date)
+            messages.success(
+                request,
+                f"✅ La journée du {target_date.strftime('%d/%m/%Y')} est RÉACTIVÉE. Les rappels partiront normalement à 13h00."
                 if lang == 'fr' else
-                f"✓ تم تسجيل {res['notifications_created']} إشعار تذكير بنجاح ليوم {target_date.strftime('%d/%m/%Y')}."
+                f"✅ تم إعادة تفعيل يوم {target_date.strftime('%d/%m/%Y')}. سيتم إرسال التذكيرات بشكل طبيعي في الساعة 13:00."
             )
-        messages.success(request, msg)
-        return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
+        elif action == 'cancel_schedule':
+            sch_id = request.POST.get('schedule_id')
+            if sch_id:
+                try:
+                    sch = SessionSchedule.objects.get(id=sch_id)
+                    cancel_schedule(sch, target_date)
+                    messages.warning(
+                        request,
+                        f"⛔ La séance « {sch.group.name_fr} » ({sch.start_time.strftime('%H:%M')}) est ANNULÉE pour le {target_date.strftime('%d/%m/%Y')}."
+                        if lang == 'fr' else
+                        f"⛔ تم إلغاء حصة « {sch.group.name_ar} » ليوم {target_date.strftime('%d/%m/%Y')}."
+                    )
+                except SessionSchedule.DoesNotExist:
+                    pass
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
+        elif action == 'restore_schedule':
+            sch_id = request.POST.get('schedule_id')
+            if sch_id:
+                try:
+                    sch = SessionSchedule.objects.get(id=sch_id)
+                    restore_schedule(sch, target_date)
+                    messages.success(
+                        request,
+                        f"✅ La séance « {sch.group.name_fr} » est RÉTABLIE pour le {target_date.strftime('%d/%m/%Y')}."
+                        if lang == 'fr' else
+                        f"✅ تمت استعادة حصة « {sch.group.name_ar} » ليوم {target_date.strftime('%d/%m/%Y')}."
+                    )
+                except SessionSchedule.DoesNotExist:
+                    pass
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
+        elif action == 'notify_cancellation_all':
+            # Send cancellation notification to all parents of cancelled sessions for this day via Gateway
+            reminders = get_daily_sessions_reminders(target_date)
+            cancelled_items = [r for r in reminders if r.get('is_cancelled')]
+            sent_count = 0
+            for item in cancelled_items:
+                res = send_whatsapp_via_gateway(item['whatsapp_phone'], item['cancellation_text'])
+                if res.get('success'):
+                    sent_count += 1
+            messages.info(
+                request,
+                f"📢 Avis d'annulation WhatsApp expédié à {sent_count} parent(s)."
+                if lang == 'fr' else
+                f"📢 تم إرسال إشعار الإلغاء عبر واتساب إلى {sent_count} من أولياء الأمور."
+            )
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
 
     reminders = get_daily_sessions_reminders(target_date)
     day_name = ARABIC_DAYS.get(target_date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(target_date.weekday(), '')
+    day_cancelled = is_day_cancelled(target_date)
 
     context = {
         'target_date': target_date,
         'day_name': day_name,
         'reminders': reminders,
         'total_count': len(reminders),
+        'active_count': len([r for r in reminders if not r.get('is_cancelled')]),
+        'cancelled_count': len([r for r in reminders if r.get('is_cancelled')]),
         'is_today': target_date == date.today(),
         'has_gateway': has_gateway,
+        'day_cancelled': day_cancelled,
     }
     return render(request, 'portal/whatsapp_reminders.html', context)
 

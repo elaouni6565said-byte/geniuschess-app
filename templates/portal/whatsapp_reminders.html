@@ -100,10 +100,58 @@
 </div>
 {% endif %}
 
-<!-- BARRE DE SÉLECTION DE LA DATE -->
+<!-- BANNER SI TOUTE LA JOURNÉE EST ANNULÉE -->
+{% if day_cancelled %}
+<div class="card" style="background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); border: 2px solid #EF4444; margin-bottom: 1.5rem; padding: 1.25rem 1.5rem; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background: #EF4444; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.4);">
+                ⛔
+            </div>
+            <div>
+                <h4 style="color: #991B1B; font-size: 1.15rem; margin: 0 0 0.3rem 0; font-weight: 800;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        ⛔ تم إلغاء جميع حصص هذا اليوم !
+                    {% else %}
+                        ⛔ TOUTES LES SÉANCES DE CETTE JOURNÉE SONT ANNULÉES
+                    {% endif %}
+                </h4>
+                <p style="font-size: 0.9rem; color: #B91C1C; margin: 0; font-weight: 600;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        تم إيقاف الإرسال التلقائي تماماً. لن يتم إرسال أي تذكير للآباء في الساعة 13:00.
+                    {% else %}
+                        L'envoi automatique est bloqué. Aucun rappel ne sera envoyé aux parents à 13h00.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="restore_day">
+                <button type="submit" class="btn btn-primary" style="background: #16A34A; border-color: #16A34A; font-weight: 700;">
+                    🔄 {% if CURRENT_LANG == 'ar' %}إلغاء الإلغاء (إعادة تفعيل اليوم){% else %}Rétablir toute la journée{% endif %}
+                </button>
+            </form>
+            {% if has_gateway and cancelled_count > 0 %}
+            <form method="POST" style="margin: 0;" onsubmit="return confirm('{% if CURRENT_LANG == "ar" %}هل أنت متأكد من إرسال إشعار الإلغاء لجميع أولياء الأمور عبر واتساب ؟{% else %}Voulez-vous envoyer un avis d\'annulation WhatsApp à tous les parents concernés ?{% endif %}');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="notify_cancellation_all">
+                <button type="submit" class="btn btn-outline" style="border-color: #DC2626; color: #DC2626; background: white; font-weight: 700;">
+                    📢 {% if CURRENT_LANG == 'ar' %}إشعار جميع الأولياء بالإلغاء (واتساب){% else %}Aviser tous les parents de l'annulation{% endif %}
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- BARRE DE SÉLECTION DE LA DATE ET ACTIONS D'ANNULATION -->
 <div class="card" style="margin-bottom: 1.75rem; padding: 1rem 1.25rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
             <h3 style="font-size: 1.2rem; color: var(--primary-navy); margin: 0;">
                 📅 <b>{{ day_name }}</b> — {% local_date target_date %}
             </h3>
@@ -115,14 +163,31 @@
             <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 600;">
                 {{ total_count }} {% if CURRENT_LANG == 'ar' %}تلميذ مبرمج{% else %}élève(s) concerné(s){% endif %}
             </span>
+            {% if cancelled_count > 0 %}
+                <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 700;">
+                    ⛔ {{ cancelled_count }} {% if CURRENT_LANG == 'ar' %}ملغى{% else %}annulé(s){% endif %}
+                </span>
+            {% endif %}
         </div>
 
-        <form method="GET" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
-                {% if CURRENT_LANG == 'ar' %}تغيير اليوم :{% else %}Changer la date :{% endif %}
-            </label>
-            <input type="date" name="date" value="{{ target_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; height: auto;">
-        </form>
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            {% if not day_cancelled and total_count > 0 %}
+            <form method="POST" style="margin: 0;" onsubmit="return confirm('{% if CURRENT_LANG == "ar" %}هل أنت متأكد من إلغاء جميع حصص هذا اليوم وتعطيل التذكيرات التلقائية ؟{% else %}Voulez-vous vraiment annuler toutes les séances de cette journée et bloquer les rappels automatiques ?{% endif %}');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cancel_day">
+                <button type="submit" class="btn btn-sm btn-outline" style="border-color: #EF4444; color: #DC2626; font-weight: 700; background: white;" title="Annuler tous les cours du jour et bloquer l'envoi de 13h00">
+                    ⛔ {% if CURRENT_LANG == 'ar' %}إلغاء حصص اليوم بالكامل{% else %}Annuler toute la journée{% endif %}
+                </button>
+            </form>
+            {% endif %}
+
+            <form method="GET" style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;">
+                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
+                    {% if CURRENT_LANG == 'ar' %}تغيير اليوم :{% else %}Changer la date :{% endif %}
+                </label>
+                <input type="date" name="date" value="{{ target_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; height: auto;">
+            </form>
+        </div>
     </div>
 </div>
 
@@ -175,7 +240,7 @@
         <h3 class="card-title">
             📋 {% if CURRENT_LANG == 'ar' %}قائمة الحصص ورسائل الواتساب المقترحة{% else %}Séances du Jour & Messages WhatsApp Prêts à l'Envoi{% endif %}
         </h3>
-        {% if reminders %}
+        {% if reminders and not day_cancelled %}
         <button type="button" onclick="startFastWhatsAppQueue()" class="btn btn-sm" style="background: #25D366; color: white; border: none; font-weight: 700;">
             🚀 {% if CURRENT_LANG == 'ar' %}إرسال متسلسل سريع{% else %}Mode Envoi Rapide{% endif %}
         </button>
@@ -198,20 +263,26 @@
             </thead>
             <tbody>
                 {% for r in reminders %}
-                <tr id="row-{{ r.id }}">
+                <tr id="row-{{ r.id }}" {% if r.is_cancelled %}style="background: #FFF1F2;"{% endif %}>
                     <td>
-                        <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem;">
-                            <input type="checkbox" class="wa-sent-check" data-id="{{ r.id }}" onchange="toggleWaSentStatus('{{ r.id }}', this.checked)">
-                            <span id="badge-status-{{ r.id }}" class="badge" style="background: #F1F5F9; color: #64748B;">À envoyer</span>
-                        </label>
+                        {% if r.is_cancelled %}
+                            <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 800;">
+                                ⛔ {% if CURRENT_LANG == 'ar' %}ملغاة{% else %}Annulée{% endif %}
+                            </span>
+                        {% else %}
+                            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem;">
+                                <input type="checkbox" class="wa-sent-check" data-id="{{ r.id }}" onchange="toggleWaSentStatus('{{ r.id }}', this.checked)">
+                                <span id="badge-status-{{ r.id }}" class="badge" style="background: #F1F5F9; color: #64748B;">À envoyer</span>
+                            </label>
+                        {% endif %}
                     </td>
                     <td>
-                        <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 700; white-space: nowrap;">
+                        <span class="badge" style="{% if r.is_cancelled %}background: #E2E8F0; color: #64748B; text-decoration: line-through;{% else %}background: #E0F2FE; color: #0369A1;{% endif %} font-weight: 700; white-space: nowrap;">
                             🕒 {{ r.time_str }}
                         </span>
                     </td>
                     <td>
-                        <span class="badge" style="background: {{ r.group_color }}; color: white; font-weight: 700;">
+                        <span class="badge" style="background: {{ r.group_color }}; color: white; font-weight: 700; {% if r.is_cancelled %}opacity: 0.7;{% endif %}">
                             👥 {{ r.schedule.group|trans_field:CURRENT_LANG }}
                         </span>
                         <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
@@ -219,7 +290,7 @@
                         </div>
                     </td>
                     <td>
-                        <b>{{ r.student|trans_field:CURRENT_LANG }}</b>
+                        <b {% if r.is_cancelled %}style="color: #64748B;"{% endif %}>{{ r.student|trans_field:CURRENT_LANG }}</b>
                         <div style="font-size: 0.78rem; color: var(--text-muted);">
                             Matricule: {{ r.student.registration_number }}
                         </div>
@@ -240,29 +311,71 @@
                         {% endif %}
                     </td>
                     <td>
-                        <details style="cursor: pointer;">
-                            <summary style="font-size: 0.8rem; color: var(--primary-blue); font-weight: 600;">
-                                👁️ {% if CURRENT_LANG == 'ar' %}عرض نص الرسالة{% else %}Voir le texte{% endif %}
-                            </summary>
-                            <div style="margin-top: 0.5rem; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.78rem; white-space: pre-line; max-width: 380px;" id="msg-text-{{ r.id }}">
-                                {{ r.message_text }}
-                            </div>
-                        </details>
+                        {% if r.is_cancelled %}
+                            <details style="cursor: pointer;">
+                                <summary style="font-size: 0.8rem; color: #DC2626; font-weight: 700;">
+                                    ⚠️ {% if CURRENT_LANG == 'ar' %}نص إشعار الإلغاء{% else %}Texte d'annulation{% endif %}
+                                </summary>
+                                <div style="margin-top: 0.5rem; background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.78rem; white-space: pre-line; max-width: 380px; color: #991B1B;" id="msg-cancel-{{ r.id }}">
+                                    {{ r.cancellation_text }}
+                                </div>
+                            </details>
+                        {% else %}
+                            <details style="cursor: pointer;">
+                                <summary style="font-size: 0.8rem; color: var(--primary-blue); font-weight: 600;">
+                                    👁️ {% if CURRENT_LANG == 'ar' %}عرض نص الرسالة{% else %}Voir le texte{% endif %}
+                                </summary>
+                                <div style="margin-top: 0.5rem; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.78rem; white-space: pre-line; max-width: 380px;" id="msg-text-{{ r.id }}">
+                                    {{ r.message_text }}
+                                </div>
+                            </details>
+                        {% endif %}
                     </td>
                     <td style="text-align: center; white-space: nowrap;">
                         <div style="display: inline-flex; gap: 0.35rem; align-items: center;">
-                            <button type="button" onclick="copyIndividualMessage('{{ r.id }}')" class="btn btn-outline btn-sm" title="Copier le texte du message">
-                                📋
-                            </button>
-                            {% if r.whatsapp_url %}
-                                <a href="{{ r.whatsapp_url }}" target="_blank" onclick="markSentRow('{{ r.id }}')"
-                                   class="btn btn-sm" 
-                                   style="background: #25D366; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.4rem 0.75rem; box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3);"
-                                   title="Ouvrir WhatsApp avec le message pré-rempli">
-                                    <span>📲 WhatsApp</span>
-                                </a>
+                            {% if r.is_cancelled %}
+                                <!-- Action si annulé : envoyer l'avis d'annulation et option de rétablir -->
+                                {% if r.cancellation_url %}
+                                    <a href="{{ r.cancellation_url }}" target="_blank"
+                                       class="btn btn-sm" 
+                                       style="background: #DC2626; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.4rem 0.65rem; box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);"
+                                       title="Envoyer un avis WhatsApp d'annulation au parent">
+                                        <span>📢 {% if CURRENT_LANG == 'ar' %}إشعار بالإلغاء{% else %}Aviser Annulation{% endif %}</span>
+                                    </a>
+                                {% endif %}
+
+                                {% if not day_cancelled %}
+                                <form method="POST" style="margin: 0; display: inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="restore_schedule">
+                                    <input type="hidden" name="schedule_id" value="{{ r.schedule.id }}">
+                                    <button type="submit" class="btn btn-outline btn-sm" style="border-color: #16A34A; color: #16A34A; font-weight: 700;" title="Rétablir cette séance">
+                                        🔄 {% if CURRENT_LANG == 'ar' %}استعادة{% else %}Rétablir{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
                             {% else %}
-                                <button class="btn btn-sm" disabled style="opacity: 0.5;">✕</button>
+                                <!-- Action si active : copier, envoyer WhatsApp ou annuler la séance -->
+                                <button type="button" onclick="copyIndividualMessage('{{ r.id }}')" class="btn btn-outline btn-sm" title="Copier le texte du message">
+                                    📋
+                                </button>
+                                {% if r.whatsapp_url %}
+                                    <a href="{{ r.whatsapp_url }}" target="_blank" onclick="markSentRow('{{ r.id }}')"
+                                       class="btn btn-sm" 
+                                       style="background: #25D366; color: white; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.4rem 0.75rem; box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3);"
+                                       title="Ouvrir WhatsApp avec le message pré-rempli">
+                                        <span>📲 WhatsApp</span>
+                                    </a>
+                                {% endif %}
+
+                                <form method="POST" style="margin: 0; display: inline;" onsubmit="return confirm('{% if CURRENT_LANG == "ar" %}هل أنت متأكد من إلغاء هذه الحصة لهذا اليوم وتعطيل التذكير التلقائي ؟{% else %}Annuler cette séance spécifique pour aujourd\'hui et bloquer le rappel automatique ?{% endif %}');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="cancel_schedule">
+                                    <input type="hidden" name="schedule_id" value="{{ r.schedule.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline" style="border-color: #F87171; color: #DC2626; padding: 0.4rem 0.55rem;" title="Annuler cette séance aujourd'hui">
+                                        ⛔
+                                    </button>
+                                </form>
                             {% endif %}
                         </div>
                     </td>
@@ -287,6 +400,7 @@
 <script>
 const remindersQueue = [
     {% for r in reminders %}
+    {% if not r.is_cancelled %}
     {
         id: "{{ r.id }}",
         parentName: "{{ r.parent|trans_field:CURRENT_LANG|escapejs }}",
@@ -295,7 +409,8 @@ const remindersQueue = [
         timeStr: "{{ r.time_str|escapejs }}",
         url: "{{ r.whatsapp_url|escapejs }}",
         text: `{{ r.message_text|escapejs }}`
-    }{% if not forloop.last %},{% endif %}
+    },
+    {% endif %}
     {% endfor %}
 ];
 

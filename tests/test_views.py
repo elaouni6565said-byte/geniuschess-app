@@ -727,6 +727,28 @@ def test_daily_whatsapp_session_reminders():
     assert resp_post.status_code == 302
     assert '/reminders/whatsapp/' in resp_post.url
 
+    # 5. Cancel schedule and verify
+    resp_cancel = client.post('/reminders/whatsapp/?date=2026-09-05', {'action': 'cancel_schedule', 'schedule_id': schedule.id})
+    assert resp_cancel.status_code == 302
+    resp_check = client.get('/reminders/whatsapp/?date=2026-09-05')
+    assert resp_check.context['cancelled_count'] > 0
+
+    # 6. Restore schedule
+    resp_restore = client.post('/reminders/whatsapp/?date=2026-09-05', {'action': 'restore_schedule', 'schedule_id': schedule.id})
+    assert resp_restore.status_code == 302
+
+    # 7. Cancel entire day
+    resp_cancel_day = client.post('/reminders/whatsapp/?date=2026-09-05', {'action': 'cancel_day'})
+    assert resp_cancel_day.status_code == 302
+    resp_check_day = client.get('/reminders/whatsapp/?date=2026-09-05')
+    assert resp_check_day.context['day_cancelled'] is True
+
+    # 8. Restore day
+    resp_restore_day = client.post('/reminders/whatsapp/?date=2026-09-05', {'action': 'restore_day'})
+    assert resp_restore_day.status_code == 302
+    resp_check_day2 = client.get('/reminders/whatsapp/?date=2026-09-05')
+    assert resp_check_day2.context['day_cancelled'] is False
+
 
 @pytest.mark.django_db
 def test_device_switcher_and_responsive_elements():
