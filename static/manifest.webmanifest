@@ -1,0 +1,87 @@
+{
+  "name": "Genius Chess Academy — جمعية الشطرنج القاسمي",
+  "short_name": "Genius Chess",
+  "description": "Plateforme officielle de gestion, présences par QR Code, plannings et suivi de Genius Chess Academy",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "window-controls-overlay",
+    "minimal-ui"
+  ],
+  "background_color": "#0A192F",
+  "theme_color": "#0A192F",
+  "orientation": "portrait-primary",
+  "lang": "fr-FR",
+  "dir": "auto",
+  "icons": [
+    {
+      "src": "/static/img/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/img/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Présences",
+      "short_name": "Présences",
+      "description": "Feuilles de présence et scanner QR Code",
+      "url": "/attendance/",
+      "icons": [
+        {
+          "src": "/static/img/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Paiements",
+      "short_name": "Paiements",
+      "description": "Gestion des paiements et relances WhatsApp",
+      "url": "/payments/",
+      "icons": [
+        {
+          "src": "/static/img/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Planning",
+      "short_name": "Planning",
+      "description": "Emploi du temps et séances",
+      "url": "/planning/",
+      "icons": [
+        {
+          "src": "/static/img/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "categories": [
+    "education",
+    "sports",
+    "productivity"
+  ]
+}

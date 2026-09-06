@@ -10,7 +10,16 @@
     {% endif %}
     <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260904.5">
+    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260906.1">
+    
+    <!-- PWA & Mobile Web App Capabilities -->
+    <meta name="theme-color" content="#0A192F">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Genius Chess">
+    <link rel="apple-touch-icon" href="{% static 'img/icons/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% url 'portal:pwa_manifest' %}">
     <script>
         (function() {
             var urlParams = new URLSearchParams(window.location.search);
@@ -86,6 +95,11 @@
 
         <!-- Navbar Controls: User + Device Switcher + Language Switcher + Hamburger -->
         <div class="navbar-controls">
+            <!-- PWA Install Button (Shown dynamically on installable devices) -->
+            <button type="button" id="gcaPwaInstallBtn" class="btn-pwa-install" style="display: none;" title="{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على جهازك{% else %}Installer l'application sur votre appareil{% endif %}">
+                <span>📲</span> <span class="btn-text">{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق{% else %}Installer l'appli{% endif %}</span>
+            </button>
+
             <!-- User Auth & Session Status -->
             <div class="user-auth-pill">
                 {% if request.user.is_authenticated %}
@@ -180,6 +194,58 @@
     </footer>
 
     <script src="{% static 'js/gca-bilingual.js' %}?v=20260904.5"></script>
+    
+    <!-- PWA Service Worker Registration & Installation Handler -->
+    <script>
+        (function() {
+            // 1. Enregistrement du Service Worker
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+                        .then(function(reg) {
+                            console.log('GCA PWA: Service Worker actif (scope:', reg.scope, ')');
+                        })
+                        .catch(function(err) {
+                            console.warn('GCA PWA: Service Worker non enregistré:', err);
+                        });
+                });
+            }
+
+            // 2. Gestion du prompt d'installation native
+            var deferredPrompt = null;
+            var installBtn = document.getElementById('gcaPwaInstallBtn');
+
+            window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                deferredPrompt = e;
+                if (installBtn) {
+                    installBtn.style.display = 'inline-flex';
+                }
+            });
+
+            if (installBtn) {
+                installBtn.addEventListener('click', function() {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then(function(choiceResult) {
+                            if (choiceResult.outcome === 'accepted') {
+                                console.log('GCA PWA: Installation acceptée par l utilisateur');
+                            }
+                            deferredPrompt = null;
+                            installBtn.style.display = 'none';
+                        });
+                    }
+                });
+            }
+
+            window.addEventListener('appinstalled', function() {
+                console.log('GCA PWA: Application installée avec succès !');
+                if (installBtn) {
+                    installBtn.style.display = 'none';
+                }
+            });
+        })();
+    </script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

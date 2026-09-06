@@ -64,4 +64,9 @@ urlpatterns = [
     path('attendance/<int:session_id>/notify-absent/<int:student_id>/', views.attendance_notify_single_absent_view, name='attendance_notify_single_absent'),
     path('students/<int:student_id>/card-pdf/', views.student_card_pdf_view, name='student_card_pdf'),
     path('students/cards-pdf/', views.students_cards_sheet_pdf_view, name='students_cards_sheet_pdf'),
+
+    # Progressive Web App (PWA)
+    path('manifest.webmanifest', views.pwa_manifest_view, name='pwa_manifest'),
+    path('manifest.json', views.pwa_manifest_view, name='pwa_manifest_json'),
+    path('service-worker.js', views.pwa_service_worker_view, name='pwa_service_worker'),
 ]

@@ -1,5 +1,6 @@
-from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm
+import os
 from decimal import Decimal
+from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
@@ -2311,5 +2312,31 @@ def attendance_recap_excel_view(request):
     return response
 
 
+def pwa_manifest_view(request):
+    """Sert le fichier de configuration PWA Manifest officiel."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    manifest_path = os.path.join(base_dir, 'static', 'manifest.webmanifest')
+    if not os.path.exists(manifest_path):
+        manifest_path = os.path.join(base_dir, 'staticfiles', 'manifest.webmanifest')
+    if os.path.exists(manifest_path):
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    else:
+        content = '{}'
+    return HttpResponse(content, content_type='application/manifest+json; charset=utf-8')
 
 
+def pwa_service_worker_view(request):
+    """Sert le service worker PWA avec l'autorisation de portée globale (Scope: /)."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sw_path = os.path.join(base_dir, 'static', 'js', 'service-worker.js')
+    if not os.path.exists(sw_path):
+        sw_path = os.path.join(base_dir, 'staticfiles', 'js', 'service-worker.js')
+    if os.path.exists(sw_path):
+        with open(sw_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    else:
+        content = '/* Service Worker fallback */'
+    response = HttpResponse(content, content_type='application/javascript; charset=utf-8')
+    response['Service-Worker-Allowed'] = '/'
+    return response
