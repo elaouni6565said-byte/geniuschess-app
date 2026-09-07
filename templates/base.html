@@ -10,7 +10,7 @@
     {% endif %}
     <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260907.2">
+    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260907.5">
     
     <!-- PWA & Mobile Web App Capabilities -->
     <meta name="theme-color" content="#0A192F">
@@ -81,9 +81,6 @@
                     </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'payments' %}active{% endif %}">
                         <a href="{% url 'portal:payments' %}">💳 {% trans "nav.payments" %}</a>
-                    </li>
-                    <li class="nav-item {% if request.resolver_match.url_name == 'parent_space' %}active{% endif %}">
-                        <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
                     </li>
                 {% elif request.user.is_authenticated and request.user.is_parent_role %}
                     <li class="nav-item active">
@@ -189,7 +186,7 @@
         </p>
     </footer>
 
-    <script src="{% static 'js/gca-bilingual.js' %}?v=20260904.5"></script>
+    <script src="{% static 'js/gca-bilingual.js' %}?v=20260907.5"></script>
     
     <!-- Service Worker Auto-Cleaner & Cache Purge -->
     <script>
