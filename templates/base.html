@@ -10,7 +10,7 @@
     {% endif %}
     <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260907.1">
+    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260906.2">
     
     <!-- PWA & Mobile Web App Capabilities -->
     <meta name="theme-color" content="#0A192F">
@@ -49,7 +49,7 @@
     <!-- Official Bilingual Navbar -->
     <header class="gca-navbar">
         <div class="brand-section">
-            <a href="{% if request.user.is_authenticated and request.user.is_parent_role %}{% url 'portal:parent_space' %}{% elif request.user.is_authenticated and request.user.is_trainer_role %}{% url 'portal:trainer_space' %}{% else %}{% url 'portal:dashboard' %}{% endif %}" style="display: inline-flex; align-items: center; text-decoration: none;">
+            <a href="{% if request.user.is_authenticated and request.user.is_parent_role %}{% url 'portal:parent_space' %}{% else %}{% url 'portal:dashboard' %}{% endif %}" style="display: inline-flex; align-items: center; text-decoration: none;">
                 <img src="{% static 'img/logo.png' %}" alt="Logo Genius Chess Academy" class="brand-logo-img">
             </a>
             <div class="brand-titles">
@@ -70,9 +70,6 @@
                     <li class="nav-item {% if 'parents_list' in request.resolver_match.url_name or 'parent_add' in request.resolver_match.url_name or 'parent_edit' in request.resolver_match.url_name %}active{% endif %}">
                         <a href="{% url 'portal:parents_list' %}">👨‍👩‍👦 {% trans "nav.parents" %}</a>
                     </li>
-                    <li class="nav-item {% if 'trainer' in request.resolver_match.url_name and request.resolver_match.url_name != 'trainer_space' %}active{% endif %}">
-                        <a href="{% url 'portal:trainers_list' %}">👨‍🏫 {% if CURRENT_LANG == 'ar' %}المدربون{% else %}Formateurs{% endif %}</a>
-                    </li>
                     <li class="nav-item {% if 'activit' in request.resolver_match.url_name or 'group' in request.resolver_match.url_name %}active{% endif %}">
                         <a href="{% url 'portal:activities_list' %}">🎯 {% trans "nav.activities" %}</a>
                     </li>
@@ -82,27 +79,11 @@
                     <li class="nav-item {% if 'attendance' in request.resolver_match.url_name %}active{% endif %}">
                         <a href="{% url 'portal:attendance_list' %}">📋 {% if CURRENT_LANG == 'ar' %}الحضور والغياب{% else %}Présences{% endif %}</a>
                     </li>
-                    <li class="nav-item {% if 'payment' in request.resolver_match.url_name or 'financial_forecast' in request.resolver_match.url_name or 'unpaid' in request.resolver_match.url_name %}active{% endif %}">
+                    <li class="nav-item {% if request.resolver_match.url_name == 'payments' %}active{% endif %}">
                         <a href="{% url 'portal:payments' %}">💳 {% trans "nav.payments" %}</a>
                     </li>
-                    <li class="nav-item {% if 'expense' in request.resolver_match.url_name or 'closing' in request.resolver_match.url_name %}active{% endif %}">
-                        <a href="{% url 'portal:expenses_list' %}">💸 {% if CURRENT_LANG == 'ar' %}المصاريف{% else %}Dépenses{% endif %}</a>
-                    </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'parent_space' %}active{% endif %}">
-                        <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% if CURRENT_LANG == 'ar' %}فضاء الآباء{% else %}Espace Parents{% endif %}</a>
-                    </li>
-                    <li class="nav-item {% if request.resolver_match.url_name == 'trainer_space' %}active{% endif %}">
-                        <a href="{% url 'portal:trainer_space' %}">👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدرب (Trainer){% else %}Espace Formateur (Trainer){% endif %}</a>
-                    </li>
-                {% elif request.user.is_authenticated and request.user.is_trainer_role %}
-                    <li class="nav-item {% if request.resolver_match.url_name == 'trainer_space' %}active{% endif %}">
-                        <a href="{% url 'portal:trainer_space' %}">👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدرب{% else %}Espace Formateur{% endif %}</a>
-                    </li>
-                    <li class="nav-item {% if 'attendance' in request.resolver_match.url_name %}active{% endif %}">
-                        <a href="{% url 'portal:attendance_list' %}">📋 {% if CURRENT_LANG == 'ar' %}الحضور والغياب{% else %}Présences{% endif %}</a>
-                    </li>
-                    <li class="nav-item {% if 'planning' in request.resolver_match.url_name %}active{% endif %}">
-                        <a href="{% url 'portal:planning' %}">📅 {% trans "nav.planning" %}</a>
+                        <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
                     </li>
                 {% elif request.user.is_authenticated and request.user.is_parent_role %}
                     <li class="nav-item active">

@@ -24,42 +24,6 @@ urlpatterns = [
     path('payments/unpaid-reminders/send/<int:invoice_id>/', views.unpaid_reminders_send_single_view, name='unpaid_reminders_send_single'),
     path('reminders/run/', views.run_reminders_view, name='run_reminders'),
     path('reminders/whatsapp/', views.whatsapp_reminders_view, name='whatsapp_reminders'),
-
-    # Dépenses & Charges (Phase 1)
-    path('expenses/', views.expenses_list_view, name='expenses_list'),
-    path('expenses/add/', views.expense_create_view, name='expense_add'),
-    path('expenses/<int:expense_id>/edit/', views.expense_edit_view, name='expense_edit'),
-    path('expenses/<int:expense_id>/delete/', views.expense_delete_view, name='expense_delete'),
-    path('expenses/categories/', views.expense_categories_list_view, name='expense_categories'),
-    path('expenses/categories/<int:category_id>/edit/', views.expense_category_edit_view, name='expense_category_edit'),
-    path('expenses/categories/<int:category_id>/delete/', views.expense_category_delete_view, name='expense_category_delete'),
-    path('expenses/export-excel/', views.export_expenses_excel_view, name='export_expenses_excel'),
-
-    # Clôtures Financières & Rapport AG (Phase 2)
-    path('closings/', views.financial_closings_list_view, name='financial_closings'),
-    path('closings/add/', views.financial_closing_create_view, name='financial_closing_add'),
-    path('closings/<int:closing_id>/', views.financial_closing_detail_view, name='financial_closing_detail'),
-    path('closings/<int:closing_id>/toggle-lock/', views.financial_closing_toggle_lock_view, name='financial_closing_toggle_lock'),
-    path('closings/<int:closing_id>/delete/', views.financial_closing_delete_view, name='financial_closing_delete'),
-    path('closings/<int:closing_id>/pdf/', views.financial_annual_report_pdf_view, name='financial_closing_pdf'),
-    path('closings/<int:closing_id>/excel/', views.financial_annual_report_excel_view, name='financial_closing_excel'),
-
-    # Formateurs & Rémunérations / Paie (Phase 3)
-    path('trainers/', views.trainers_list_view, name='trainers_list'),
-    path('trainers/add/', views.trainer_create_view, name='trainer_add'),
-    path('trainers/<int:trainer_id>/edit/', views.trainer_edit_view, name='trainer_edit'),
-    path('trainers/<int:trainer_id>/delete/', views.trainer_delete_view, name='trainer_delete'),
-    path('trainers/payouts/', views.trainer_payouts_list_view, name='trainer_payouts_list'),
-    path('trainers/payouts/add/', views.trainer_payout_create_view, name='trainer_payout_add'),
-    path('trainers/payouts/<int:payout_id>/', views.trainer_payout_detail_view, name='trainer_payout_detail'),
-    path('trainers/payouts/<int:payout_id>/edit/', views.trainer_payout_edit_view, name='trainer_payout_edit'),
-    path('trainers/payouts/<int:payout_id>/mark-paid/', views.trainer_payout_mark_paid_view, name='trainer_payout_mark_paid'),
-    path('trainers/payouts/<int:payout_id>/delete/', views.trainer_payout_delete_view, name='trainer_payout_delete'),
-    path('trainers/payouts/<int:payout_id>/pdf/', views.trainer_payout_pdf_view, name='trainer_payout_pdf'),
-    path('trainers/payouts/excel/', views.trainers_payroll_excel_view, name='trainers_payroll_excel'),
-    path('api/trainers/<int:trainer_id>/info/', views.api_trainer_info, name='api_trainer_info'),
-    path('trainer/', views.trainer_space_view, name='trainer_space'),
-
     path('parent/', views.parent_space_view, name='parent_space'),
     path('register/', views.register_view, name='register'),
     path('login/', views.login_view, name='login'),

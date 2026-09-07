@@ -53,22 +53,17 @@
         </form>
 
         <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); text-align: center;">
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
                 {% if CURRENT_LANG == 'ar' %}
-                    الدخول إلى الفضاءات المخصصة :
+                    هل أنت ولي أمر ؟
                 {% else %}
-                    Accès aux Espaces Dédiés :
+                    Vous êtes parent d'élève ?
                 {% endif %}
             </p>
             <div style="display: flex; flex-direction: column; gap: 0.6rem; align-items: center;">
-                <div style="display: flex; gap: 0.5rem; width: 100%;">
-                    <a href="{% url 'portal:trainer_space' %}" class="btn btn-outline btn-sm" style="font-size: 0.82rem; flex: 1;">
-                        👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدرب{% else %}Espace Formateur{% endif %}
-                    </a>
-                    <a href="{% url 'portal:parent_space' %}" class="btn btn-outline btn-sm" style="font-size: 0.82rem; flex: 1;">
-                        👨‍👩‍👧 {% if CURRENT_LANG == 'ar' %}فضاء الآباء{% else %}Espace Parents{% endif %}
-                    </a>
-                </div>
+                <a href="{% url 'portal:parent_space' %}" class="btn btn-outline btn-sm" style="font-size: 0.85rem; width: 100%;">
+                    👨‍👩‍👧 {% trans "parent_space.title" %}
+                </a>
                 <a href="{% url 'portal:register' %}" class="btn btn-secondary btn-sm" style="font-size: 0.85rem; width: 100%; border: 1px dashed var(--primary-navy); background: #F8FAFC; color: var(--primary-navy); font-weight: 600;">
                     📝 {% if CURRENT_LANG == 'ar' %}تسجيل أسرة جديدة (استمارة التسجيل){% else %}Nouvelle Inscription Famille{% endif %}
                 </a>
