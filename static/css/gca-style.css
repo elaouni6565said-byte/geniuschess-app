@@ -178,6 +178,21 @@ a:hover {
   white-space: nowrap;
 }
 
+/* Navigation Logout Item for Mobile Drawer */
+.nav-logout-mobile-item {
+  display: none;
+}
+
+@media (max-width: 991px) {
+  html:not([data-device-mode="pc"]) .nav-logout-mobile-item {
+    display: block;
+  }
+}
+
+html[data-device-mode="mobile"] .nav-logout-mobile-item {
+  display: block;
+}
+
 /* Device Mode Switcher (PC / Smartphone / Auto) */
 .device-switcher-widget {
   display: inline-flex;

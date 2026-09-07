@@ -867,13 +867,28 @@ def login_view(request):
         'next_url': next_url,
         'entered_username': entered_username,
     }
-    return render(request, 'portal/login.html', context)
+    response = render(request, 'portal/login.html', context)
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 def logout_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     auth_logout(request)
-    messages.info(request, get_translation('auth.logged_out', lang=lang))
-    return redirect('portal:login')
+    try:
+        request.session.flush()
+    except Exception:
+        pass
+    msg = get_translation('auth.logged_out', lang=lang)
+    messages.info(request, msg)
+    response = redirect('portal:login')
+    session_cookie_name = getattr(settings, 'SESSION_COOKIE_NAME', 'sessionid')
+    response.delete_cookie(session_cookie_name, path='/')
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 
 def csrf_failure_view(request, reason=""):

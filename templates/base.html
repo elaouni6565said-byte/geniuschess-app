@@ -10,7 +10,7 @@
     {% endif %}
     <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260907.5">
+    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260907.6">
     
     <!-- PWA & Mobile Web App Capabilities -->
     <meta name="theme-color" content="#0A192F">
@@ -85,6 +85,13 @@
                 {% elif request.user.is_authenticated and request.user.is_parent_role %}
                     <li class="nav-item active">
                         <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
+                    </li>
+                {% endif %}
+                {% if request.user.is_authenticated %}
+                    <li class="nav-item nav-logout-mobile-item">
+                        <a href="{% url 'portal:logout' %}" style="color: #F87171 !important; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: var(--radius-sm); margin-top: 0.5rem;">
+                            🚪 {% trans "auth.logout_btn" %} ({{ request.user.username }})
+                        </a>
                     </li>
                 {% endif %}
             </ul>
