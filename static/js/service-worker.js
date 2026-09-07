@@ -1,7 +1,6 @@
 /* Genius Chess Academy — Service Worker (PWA) */
-const CACHE_NAME = 'gca-pwa-v1';
+const CACHE_NAME = 'gca-pwa-v2';
 const PRECACHE_ASSETS = [
-  '/',
   '/manifest.webmanifest',
   '/static/css/gca-style.css',
   '/static/img/logo.png',

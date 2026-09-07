@@ -2370,4 +2370,5 @@ def pwa_service_worker_view(request):
         content = '/* Service Worker fallback */'
     response = HttpResponse(content, content_type='application/javascript; charset=utf-8')
     response['Service-Worker-Allowed'] = '/'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
