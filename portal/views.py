@@ -2354,7 +2354,10 @@ def pwa_manifest_view(request):
             content = f.read()
     else:
         content = '{}'
-    return HttpResponse(content, content_type='application/manifest+json; charset=utf-8')
+    response = HttpResponse(content, content_type='application/manifest+json; charset=utf-8')
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 
 def pwa_service_worker_view(request):

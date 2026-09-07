@@ -1,7 +1,6 @@
 /* Genius Chess Academy — Service Worker (PWA) */
-const CACHE_NAME = 'gca-pwa-v2';
+const CACHE_NAME = 'gca-pwa-v3';
 const PRECACHE_ASSETS = [
-  '/manifest.webmanifest',
   '/static/css/gca-style.css',
   '/static/img/logo.png',
   '/static/img/icons/icon-192.png',
@@ -40,6 +39,13 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
+  // Bypass service worker for manifest and service worker itself
+  if (url.pathname === '/manifest.webmanifest' || 
+      url.pathname === '/manifest.json' || 
+      url.pathname === '/service-worker.js') {
+    return;
+  }
+
   // 1. Static assets: Cache-First strategy
   if (url.pathname.startsWith('/static/')) {
     event.respondWith(
@@ -51,6 +57,8 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(req, respClone));
           }
           return response;
+        }).catch(() => {
+          return new Response('', { status: 408, statusText: 'Request Timeout' });
         });
       })
     );
@@ -62,8 +70,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((response) => {
-          const respClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, respClone));
           return response;
         })
         .catch(() => caches.match(req).then((cached) => cached || caches.match('/')))
@@ -71,8 +77,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Other requests
+  // 3. Other requests: Network with Cache fallback
   event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req))
+    fetch(req).catch(() => caches.match(req))
   );
 });
