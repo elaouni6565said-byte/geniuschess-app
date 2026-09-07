@@ -244,16 +244,20 @@ a:hover {
   0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
   50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
 }
+/* PWA Navigation & Installation Buttons — Strictement aucun doublon */
 .pwa-nav-item {
-  display: none;
+  display: none !important;
 }
+
 @media (max-width: 991px) {
-  html:not([data-device-mode="pc"]) .pwa-nav-item {
-    display: block;
+  /* Sur écran mobile / tablette : masquer le bouton de la barre supérieure */
+  .navbar-controls .btn-pwa-install {
+    display: none !important;
   }
-}
-html[data-device-mode="mobile"] .pwa-nav-item {
-  display: block;
+  /* Afficher le bouton PWA UNIQUEMENT dans le menu tiroir mobile déroulé */
+  .gca-nav-menu.is-open .pwa-nav-item {
+    display: block !important;
+  }
 }
 
 .btn-pwa-mobile-item {
