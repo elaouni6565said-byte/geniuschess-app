@@ -238,8 +238,8 @@ def planning_view(request):
     days_dict = ARABIC_DAYS if lang == 'ar' else FRENCH_DAYS
     months_dict = ARABIC_MONTHS if lang == 'ar' else FRENCH_MONTHS
 
-    # Today anchor
-    today = date(2026, 9, 3)
+    # Today dynamic
+    today = date.today()
     all_groups = Group.objects.select_related('subject').all()
 
     context = {
