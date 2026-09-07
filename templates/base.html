@@ -191,17 +191,40 @@
 
     <script src="{% static 'js/gca-bilingual.js' %}?v=20260904.5"></script>
     
-    <!-- PWA Service Worker Registration -->
+    <!-- PWA Service Worker Registration & Auto-Heal -->
     <script>
         (function() {
             if ('serviceWorker' in navigator) {
+                // Détecter et forcer l'activation immédiate de tout Service Worker en attente
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (var r of registrations) {
+                        r.update();
+                        if (r.waiting) {
+                            r.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    }
+                }).catch(function(){});
+
                 window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+                    navigator.serviceWorker.register('/service-worker.js?v=4', { scope: '/' })
                         .then(function(reg) {
-                            console.log('GCA PWA: Service Worker actif (scope:', reg.scope, ')');
+                            reg.update();
+                            if (reg.waiting) {
+                                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                            }
+                            reg.addEventListener('updatefound', function() {
+                                var newWorker = reg.installing;
+                                if (newWorker) {
+                                    newWorker.addEventListener('statechange', function() {
+                                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                        }
+                                    });
+                                }
+                            });
                         })
                         .catch(function(err) {
-                            console.warn('GCA PWA: Service Worker non enregistré:', err);
+                            console.warn('GCA PWA:', err);
                         });
                 });
             }

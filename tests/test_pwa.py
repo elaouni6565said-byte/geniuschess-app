@@ -25,7 +25,7 @@ def test_pwa_service_worker_endpoint():
     assert 'application/javascript' in resp.headers.get('Content-Type')
     assert resp.headers.get('Service-Worker-Allowed') == '/'
     content = resp.content.decode('utf-8')
-    assert 'gca-pwa-v3' in content
+    assert 'gca-pwa-v4' in content
 
 @pytest.mark.django_db
 def test_pwa_icons_exist():
