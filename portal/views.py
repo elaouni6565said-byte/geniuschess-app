@@ -681,7 +681,7 @@ def parent_space_view(request):
                 child_schedules.append({
                     'group': g,
                     'subject': g.subject,
-                    'room': sch.room or g.room,
+                    'room': sch.room,
                     'schedule': sch,
                     'day_of_week': sch.day_of_week,
                     'day_name_fr': sch.get_day_name('fr'),

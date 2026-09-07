@@ -87,7 +87,7 @@ def generate_timetable_pdf(student, lang="fr"):
                 'end_time': sch.end_time,
                 'group': g,
                 'subject': g.subject,
-                'room': sch.room or g.room,
+                'room': sch.room,
                 'trainer_fr': sch.get_trainer_name('fr'),
                 'trainer_ar': sch.get_trainer_name('ar'),
             })
