@@ -50,4 +50,4 @@ def test_base_html_pwa_meta():
     assert 'manifest.webmanifest' in html
     assert 'apple-touch-icon' in html
     assert 'theme-color' in html
-    assert 'gcaPwaInstallBtn' in html
+    assert 'service-worker.js' in html

@@ -10,7 +10,7 @@
     {% endif %}
     <title>{% block title %}{% trans "app_name" %}{% endblock %} — GCA 2026</title>
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260906.2">
+    <link rel="stylesheet" href="{% static 'css/gca-style.css' %}?v=20260907.2">
     
     <!-- PWA & Mobile Web App Capabilities -->
     <meta name="theme-color" content="#0A192F">
@@ -90,20 +90,11 @@
                         <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
                     </li>
                 {% endif %}
-                <li class="nav-item pwa-nav-item" style="margin-top: 0.25rem;">
-                    <button type="button" class="btn-pwa-mobile-item" id="gcaPwaMobileMenuBtn">
-                        <span>📲</span> <span>{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على الهاتف{% else %}Installer l'application (PWA){% endif %}</span>
-                    </button>
-                </li>
             </ul>
         </nav>
 
         <!-- Navbar Controls: User + Device Switcher + Language Switcher + Hamburger -->
         <div class="navbar-controls">
-            <!-- PWA Install Button (Permanent & Interactive) -->
-            <button type="button" id="gcaPwaInstallBtn" class="btn-pwa-install" title="{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على جهازك{% else %}Installer l'application sur votre appareil{% endif %}">
-                <span>📲</span> <span class="btn-text">{% if CURRENT_LANG == 'ar' %}تثبيت التطبيق{% else %}Installer l'appli{% endif %}</span>
-            </button>
 
             <!-- User Auth & Session Status -->
             <div class="user-auth-pill">
@@ -195,10 +186,6 @@
             <span class="footer-device-indicator">
                 {% trans "device.title" %} : <b id="footerActiveDeviceLabel">Auto</b>
             </span>
-            <span class="footer-mode-separator"> • </span>
-            <a href="javascript:void(0)" id="gcaPwaFooterLink" style="color: #60A5FA; text-decoration: none; font-weight: 700;">
-                📲 {% if CURRENT_LANG == 'ar' %}تثبيت التطبيق على جهازك{% else %}Installer l'application (PWA){% endif %}
-            </a>
         </p>
     </footer>
 
