@@ -9,7 +9,10 @@
         <h2>👨‍👩‍👧 {% trans "parent_crud.list_title" %}</h2>
         <p>Gestion et enregistrement des tuteurs légaux et coordonnées des familles</p>
     </div>
-    <div class="page-actions">
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="{% url 'portal:parent_space' %}" class="btn btn-secondary" style="font-weight: 700;">
+            👨‍👩‍👧 {% if CURRENT_LANG == 'ar' %}فضاء الآباء (معاينة){% else %}Espace Parents (Aperçu){% endif %}
+        </a>
         <a href="{% url 'portal:parent_add' %}" class="btn btn-primary">
             ➕ {% trans "parent_crud.add_title" %}
         </a>

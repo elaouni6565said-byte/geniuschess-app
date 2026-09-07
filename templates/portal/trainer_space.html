@@ -10,10 +10,14 @@
     <div class="page-header-titles">
         <h2>👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدرب وهيئة التأطير{% else %}Espace Formateur & Encadrant{% endif %}</h2>
         <p>
-            {% if CURRENT_LANG == 'ar' %}
-                مرحباً بالمدرب : <b>{{ trainer.get_bilingual_full_name }}</b> • التخصص : {{ trainer.specialty }}
+            {% if trainer %}
+                {% if CURRENT_LANG == 'ar' %}
+                    مرحباً بالمدرب : <b>{{ trainer.get_bilingual_full_name }}</b> • التخصص : {{ trainer.specialty }}
+                {% else %}
+                    Bienvenue : <b>{{ trainer.get_bilingual_full_name }}</b> • Spécialité : {{ trainer.specialty }}
+                {% endif %}
             {% else %}
-                Bienvenue : <b>{{ trainer.get_bilingual_full_name }}</b> • Spécialité : {{ trainer.specialty }}
+                {% if CURRENT_LANG == 'ar' %}وضع المعاينة الإدارية — لا يوجد أي مدرب مسجل{% else %}Mode Prévisualisation Administrateur — Aucun formateur enregistré{% endif %}
             {% endif %}
         </p>
     </div>
@@ -42,6 +46,7 @@
     </div>
 </div>
 
+{% if trainer %}
 <!-- KPI Cards -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
     <div class="card" style="border-left: 4px solid #001B57; padding: 1.25rem;">
@@ -291,4 +296,27 @@
         {% endfor %}
     </div>
 </div>
+{% else %}
+<div class="card" style="padding: 3rem 1.5rem; text-align: center; border-radius: var(--radius-md); margin-top: 1.5rem; border-top: 5px solid var(--primary-navy); box-shadow: var(--shadow-md);">
+    <div style="font-size: 3.5rem; margin-bottom: 1rem;">👨‍🏫</div>
+    <h3 style="color: var(--primary-navy); margin-bottom: 0.75rem; font-size: 1.35rem; font-weight: 800;">
+        {% if CURRENT_LANG == 'ar' %}فضاء المدرب (وضع المعاينة الإدارية){% else %}Espace Formateur / Trainer Space (Mode Prévisualisation Administrateur){% endif %}
+    </h3>
+    <p style="color: var(--text-muted); max-width: 620px; margin: 0 auto 1.75rem; font-size: 0.95rem; line-height: 1.6;">
+        {% if CURRENT_LANG == 'ar' %}
+            لا يوجد حالياً أي ملف مدرب مسجل في النظام. يمكنك إضافة أول مدرب أو ربط المدربين بالحصص المبرمجة لإتاحة فضاء المدربين.
+        {% else %}
+            Aucun profil de formateur n'est encore sélectionné ou enregistré dans la base de données. Vous pouvez ajouter un formateur ou consulter le répertoire.
+        {% endif %}
+    </p>
+    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'portal:trainer_create' %}" class="btn btn-primary" style="font-weight: 700; padding: 0.65rem 1.25rem;">
+            ➕ {% if CURRENT_LANG == 'ar' %}إضافة مدرب جديد{% else %}Ajouter un Formateur{% endif %}
+        </a>
+        <a href="{% url 'portal:trainers_list' %}" class="btn btn-outline" style="font-weight: 600; padding: 0.65rem 1.25rem;">
+            👨‍🏫 {% if CURRENT_LANG == 'ar' %}لائحة المدربين{% else %}Répertoire des Formateurs{% endif %}
+        </a>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

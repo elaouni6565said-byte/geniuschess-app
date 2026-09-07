@@ -7,7 +7,13 @@
 <div class="page-header">
     <div class="page-header-titles">
         <h2>👨‍👩‍👧 {% trans "parent_space.title" %}</h2>
-        <p>{% trans "parent_space.welcome" %} : <b>{{ parent|trans_field:CURRENT_LANG }}</b></p>
+        <p>
+            {% if parent %}
+                {% trans "parent_space.welcome" %} : <b>{{ parent|trans_field:CURRENT_LANG }}</b>
+            {% else %}
+                {% if CURRENT_LANG == 'ar' %}وضع المعاينة الإدارية{% else %}Mode Prévisualisation Administrateur{% endif %}
+            {% endif %}
+        </p>
     </div>
     
     <div class="page-actions" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
@@ -35,6 +41,7 @@
     </div>
 </div>
 
+{% if parent %}
 <!-- Overdue Alert if any -->
 {% if invoices %}
     {% for inv in invoices %}
@@ -314,4 +321,27 @@
         {% endfor %}
     </div>
 </div>
+{% else %}
+<div class="card" style="padding: 3rem 1.5rem; text-align: center; border-radius: var(--radius-md); margin-top: 1.5rem; border-top: 5px solid var(--primary-navy); box-shadow: var(--shadow-md);">
+    <div style="font-size: 3.5rem; margin-bottom: 1rem;">👨‍👩‍👧</div>
+    <h3 style="color: var(--primary-navy); margin-bottom: 0.75rem; font-size: 1.35rem; font-weight: 800;">
+        {% if CURRENT_LANG == 'ar' %}فضاء أولياء الأمور (وضع المعاينة الإدارية){% else %}Espace Parents (Mode Prévisualisation Administrateur){% endif %}
+    </h3>
+    <p style="color: var(--text-muted); max-width: 620px; margin: 0 auto 1.75rem; font-size: 0.95rem; line-height: 1.6;">
+        {% if CURRENT_LANG == 'ar' %}
+            لا يوجد حالياً أي ملف ولي أمر مسجل في النظام. يمكنك تسجيل أول أسرة وتلاميذها عبر استمارة التسجيل الرسمية أو الانتقال إلى لائحة الأولياء.
+        {% else %}
+            Aucun dossier parent d'élève n'est encore sélectionné ou enregistré dans la base de données. Vous pouvez inscrire une première famille et ses enfants via le formulaire officiel d'inscription.
+        {% endif %}
+    </p>
+    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'portal:register' %}" class="btn btn-primary" style="font-weight: 700; padding: 0.65rem 1.25rem;">
+            📝 {% if CURRENT_LANG == 'ar' %}تسجيل أسرة جديدة (استمارة التسجيل){% else %}Nouvelle Inscription Famille{% endif %}
+        </a>
+        <a href="{% url 'portal:parents_list' %}" class="btn btn-outline" style="font-weight: 600; padding: 0.65rem 1.25rem;">
+            👨‍👩‍👦 {% if CURRENT_LANG == 'ar' %}لائحة أولياء الأمور{% else %}Répertoire des Parents{% endif %}
+        </a>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

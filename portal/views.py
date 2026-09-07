@@ -674,8 +674,17 @@ def parent_space_view(request):
         return redirect('portal:login')
 
     if not parent:
+        if request.user.is_admin_role() or request.user.is_superuser:
+            return render(request, 'portal/parent_space.html', {
+                'parent': None,
+                'all_parents': all_parents,
+                'all_children': [],
+                'invoices': [],
+                'selected_child_id': None,
+                'CURRENT_LANG': lang,
+            })
         messages.warning(request, "Aucun profil parent associé à ce compte." if lang == 'fr' else "لا يوجد ملف ولي أمر مرتبط بهذا الحساب.")
-        return redirect('portal:login')
+        return redirect('portal:dashboard')
 
     # 4. Get all children belonging STRICTLY to this parent
     all_children = list(parent.students.filter(active=True).prefetch_related(
@@ -811,13 +820,23 @@ def trainer_space_view(request):
         return redirect('portal:login')
 
     if not trainer:
+        if request.user.is_admin_role() or request.user.is_superuser:
+            return render(request, 'portal/trainer_space.html', {
+                'trainer': None,
+                'all_trainers': all_trainers,
+                'schedules': [],
+                'groups': [],
+                'students': [],
+                'payouts': [],
+                'total_sessions_week': 0,
+                'total_students_count': 0,
+                'CURRENT_LANG': lang,
+            })
         messages.warning(
             request,
             "Aucun profil formateur disponible ou associé." if lang != 'ar' else "لا يوجد ملف مدرب مرتبط بهذا الحساب."
         )
-        if request.user.is_admin_role() or request.user.is_superuser:
-            return redirect('portal:trainers_list')
-        return redirect('portal:login')
+        return redirect('portal:dashboard')
 
     # 4. Séances assignées à ce formateur
     schedules = SessionSchedule.objects.filter(

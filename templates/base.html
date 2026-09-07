@@ -89,10 +89,10 @@
                         <a href="{% url 'portal:expenses_list' %}">💸 {% if CURRENT_LANG == 'ar' %}المصاريف{% else %}Dépenses{% endif %}</a>
                     </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'parent_space' %}active{% endif %}">
-                        <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% trans "nav.parent_space" %}</a>
+                        <a href="{% url 'portal:parent_space' %}">👨‍👩‍👧 {% if CURRENT_LANG == 'ar' %}فضاء الآباء{% else %}Espace Parents{% endif %}</a>
                     </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'trainer_space' %}active{% endif %}">
-                        <a href="{% url 'portal:trainer_space' %}">🎓 {% if CURRENT_LANG == 'ar' %}فضاء المدرب{% else %}Espace Formateur{% endif %}</a>
+                        <a href="{% url 'portal:trainer_space' %}">👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدرب (Trainer){% else %}Espace Formateur (Trainer){% endif %}</a>
                     </li>
                 {% elif request.user.is_authenticated and request.user.is_trainer_role %}
                     <li class="nav-item {% if request.resolver_match.url_name == 'trainer_space' %}active{% endif %}">

@@ -75,7 +75,43 @@
             </a>
         </div>
         <div class="kpi-icon red">⚠️</div>
-    </div>
+</div>
+
+<!-- Portails d'accès & Espaces Dédiés -->
+<div style="margin-bottom: 1.75rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+    <!-- Carte Espace Formateur -->
+    <a href="{% url 'portal:trainer_space' %}" class="card" style="text-decoration: none; color: inherit; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; border-left: 5px solid #001B57; border-right: 5px solid #001B57; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); box-shadow: var(--shadow-sm); border-radius: var(--radius-md);">
+        <div style="font-size: 2.2rem; background: #EEF2F6; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">👨‍🏫</div>
+        <div style="flex: 1;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #001B57; text-transform: uppercase; letter-spacing: 0.05em;">
+                {% if CURRENT_LANG == 'ar' %}هيئة التدريب والتأطير{% else %}Corps Enseignant & Encadrement{% endif %}
+            </div>
+            <h3 style="margin: 0.2rem 0; font-size: 1.15rem; color: #001B57; font-weight: 800;">
+                {% if CURRENT_LANG == 'ar' %}فضاء المدرب (Espace Trainer){% else %}Espace Formateur (Trainer){% endif %}
+            </h3>
+            <p style="margin: 0; font-size: 0.82rem; color: #64748B;">
+                {% if CURRENT_LANG == 'ar' %}تسجيل الحضور، البرنامج الأسبوعي وبيانات الأتعاب{% else %}Faire l'appel des présences, planning & honoraires{% endif %}
+            </p>
+        </div>
+        <div style="font-size: 1.2rem; font-weight: 700; color: #001B57;">➔</div>
+    </a>
+
+    <!-- Carte Espace Parents -->
+    <a href="{% url 'portal:parent_space' %}" class="card" style="text-decoration: none; color: inherit; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; border-left: 5px solid #0284C7; border-right: 5px solid #0284C7; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); box-shadow: var(--shadow-sm); border-radius: var(--radius-md);">
+        <div style="font-size: 2.2rem; background: #E0F2FE; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">👨‍👩‍👧</div>
+        <div style="flex: 1;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #0284C7; text-transform: uppercase; letter-spacing: 0.05em;">
+                {% if CURRENT_LANG == 'ar' %}أولياء الأمور والأسر{% else %}Familles & Tuteurs{% endif %}
+            </div>
+            <h3 style="margin: 0.2rem 0; font-size: 1.15rem; color: #001B57; font-weight: 800;">
+                {% if CURRENT_LANG == 'ar' %}فضاء أولياء الأمور (Espace Parents){% else %}Espace Parents{% endif %}
+            </h3>
+            <p style="margin: 0; font-size: 0.82rem; color: #64748B;">
+                {% if CURRENT_LANG == 'ar' %}تتبع مستوى الأبناء، الحضور ووصولات الأداء{% else %}Suivi des enfants, présences & reçus officiels{% endif %}
+            </p>
+        </div>
+        <div style="font-size: 1.2rem; font-weight: 700; color: #0284C7;">➔</div>
+    </a>
 </div>
 
 <!-- Main Sections Grid -->
