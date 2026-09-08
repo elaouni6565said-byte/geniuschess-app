@@ -38,7 +38,8 @@ def build_whatsapp_absence_message(schedule, student, target_date=None, lang="fr
             f"نرجو أن يكون المانع خيراً. نرجو منكم التكرم بإشعارنا في حال وجود أي مانع أو عذر مسبق. نتمنى لأبنائنا السلامة والعافية دائماً ! 🌟\n\n"
             f"👨‍🏫 المؤطر : {coach_ar}\n"
             f"📍 أكاديمية جينيوس للشطرنج — سيدي قاسم / الرباط\n"
-            f"🌐 الموقع : https://geniuschess.ma"
+            f"🌐 الموقع : https://geniuschess.ma\n\n"
+            f"🤖 _تم إنشاء هذه الرسالة تلقائياً بواسطة منصة أكاديمية جينيوس للشطرنج._"
         )
     else:
         message = (
@@ -48,7 +49,8 @@ def build_whatsapp_absence_message(schedule, student, target_date=None, lang="fr
             f"Nous espérons que tout va bien. N'hésitez pas à nous informer en cas d'empêchement ou pour toute justification. Nous souhaitons le meilleur à nos élèves ! 🌟\n\n"
             f"👨‍🏫 Formateur : {coach_fr}\n"
             f"📍 Genius Chess Academy — جمعية الشطرنج القاسمي\n"
-            f"🌐 Site Web : https://geniuschess.ma"
+            f"🌐 Site Web : https://geniuschess.ma\n\n"
+            f"🤖 _Ce message a été généré automatiquement par la plateforme Genius Chess Academy._"
         )
     return message
 

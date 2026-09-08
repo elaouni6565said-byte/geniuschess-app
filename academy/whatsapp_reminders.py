@@ -27,11 +27,15 @@ def format_phone_for_whatsapp(phone):
     return clean
 
 
-def build_whatsapp_reminder_text(schedule, student, lang="fr"):
+def build_whatsapp_reminder_text(schedule, student, lang="fr", target_date=None):
     """
     Builds the personalized WhatsApp reminder message for a parent.
     Respects the parent's chosen language (FR or AR).
+    Includes the exact date of the session and an automated message notice.
     """
+    if target_date is None:
+        target_date = date.today()
+
     parent = student.parent
     p_name_fr = parent.full_name_fr if parent else "Parent"
     p_name_ar = parent.full_name_ar if parent else "ولي الأمر"
@@ -43,6 +47,7 @@ def build_whatsapp_reminder_text(schedule, student, lang="fr"):
     subj_fr = schedule.group.subject.name_fr
     subj_ar = schedule.group.subject.name_ar
 
+    date_formatted = target_date.strftime('%d/%m/%Y')
     time_str = f"{schedule.start_time.strftime('%H:%M')} - {schedule.end_time.strftime('%H:%M')}"
     room_fr = schedule.room.name_fr if schedule.room else "Salle principale"
     room_ar = schedule.room.name_ar if schedule.room else "القاعة الرئيسية"
@@ -52,14 +57,16 @@ def build_whatsapp_reminder_text(schedule, student, lang="fr"):
     if lang == "ar":
         message = (
             f"السلام عليكم ورحمة الله السيد(ة) {p_name_ar}،\n\n"
-            f"♟️ تذكير بحصة اليوم في *أكاديمية جينيوس للشطرنج* :\n"
+            f"♟️ *تذكير بحصة اليوم — أكاديمية جينيوس للشطرنج* :\n"
             f"👤 التلميذ(ة) : *{st_name_ar}*\n"
             f"📚 النشاط : *{subj_ar}* ({grp_ar})\n"
-            f"🕒 التوقيت اليوم : *{time_str}*\n"
+            f"📅 تاريخ الحصة : *{date_formatted}*\n"
+            f"🕒 التوقيت : *{time_str}*\n"
             f"🏛️ القاعة : {room_ar}\n"
             f"👨‍🏫 المؤطر(ة) : {coach_ar}\n\n"
             f"يرجى الحرص على الحضور 5 دقائق قبل الموعد. نتمنى لأبنائنا حصة ممتعة ومفيدة ! 🌟\n"
-            f"📍 سيدي قاسم / الرباط • الموقع: https://geniuschess.ma"
+            f"📍 سيدي قاسم / الرباط • الموقع: https://geniuschess.ma\n\n"
+            f"🤖 _تم إنشاء هذه الرسالة تلقائياً بواسطة منصة أكاديمية جينيوس للشطرنج._"
         )
     else:
         message = (
@@ -67,11 +74,13 @@ def build_whatsapp_reminder_text(schedule, student, lang="fr"):
             f"♟️ *Rappel de Séance — Genius Chess Academy* :\n"
             f"👤 Élève : *{st_name_fr}*\n"
             f"📚 Activité : *{subj_fr}* ({grp_fr})\n"
-            f"🕒 Horaire aujourd'hui : *{time_str}*\n"
+            f"📅 Date de la séance : *{date_formatted}*\n"
+            f"🕒 Horaire : *{time_str}*\n"
             f"🏛️ Salle : {room_fr}\n"
             f"👨‍🏫 Formateur : {coach_fr}\n\n"
             f"Merci de veiller à la ponctualité de votre enfant (5 min avant le cours). Excellente séance ! 🌟\n"
-            f"📍 Sidi Kacem / Rabat • Site Web: https://geniuschess.ma"
+            f"📍 Sidi Kacem / Rabat • Site Web: https://geniuschess.ma\n\n"
+            f"🤖 _Ce message a été généré automatiquement par la plateforme Genius Chess Academy._"
         )
     return message
 
@@ -196,7 +205,7 @@ def get_daily_sessions_reminders(target_date=None):
             lang = getattr(parent, 'preferred_language', 'fr') or 'fr'
             phone = parent.phone
             wa_phone = format_phone_for_whatsapp(phone)
-            msg_text = build_whatsapp_reminder_text(sch, st, lang=lang)
+            msg_text = build_whatsapp_reminder_text(sch, st, lang=lang, target_date=target_date)
             encoded_msg = urllib.parse.quote(msg_text)
             # WhatsApp Click to Chat URL (standard format wa.me, works seamlessly on Web and Mobile)
             wa_url = f"https://wa.me/{wa_phone}?text={encoded_msg}" if wa_phone else ""
