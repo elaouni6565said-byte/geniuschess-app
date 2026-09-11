@@ -68,12 +68,13 @@
 
                 <div>
                     <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
-                        {% if CURRENT_LANG == 'ar' %}رقم الهاتف (إلزامي) *{% else %}Numéro de Téléphone *{% endif %}
+                        📲 {% if CURRENT_LANG == 'ar' %}رقم هاتف واتساب (إلزامي للتواصل والتذكيرات) *{% else %}Numéro de Téléphone WhatsApp (Obligatoire) *{% endif %}
                     </label>
                     <input type="tel" name="parent_phone" required class="search-input" 
-                           placeholder="Ex: 0661112233" value="{{ request.POST.parent_phone }}">
+                           placeholder="Ex: 06 61 23 45 67" value="{{ request.POST.parent_phone }}"
+                           pattern="[0-9+ \.\-]{9,20}" title="Veuillez saisir un numéro de téléphone valide (ex: 0661112233 ou +212...)">
                     <small style="color: var(--text-muted); font-size: 0.75rem;">
-                        {% if CURRENT_LANG == 'ar' %}سيُستخدم هذا الرقم لتسجيل الدخول والتواصل معكم.{% else %}Ce numéro servira d'identifiant de connexion pour votre espace.{% endif %}
+                        {% if CURRENT_LANG == 'ar' %}هذا الرقم ضروري لتلقي تذكيرات الحصص عبر واتساب وتسجيل الدخول.{% else %}Ce numéro est indispensable pour recevoir les rappels WhatsApp de séance et vos alertes.{% endif %}
                     </small>
                 </div>
 

@@ -1270,11 +1270,18 @@ def register_view(request):
         parent_name_ar = re.sub(r'\s+', ' ', parent_name_ar).strip()
 
         # 1. Validation des champs obligatoires du tuteur
+        clean_phone_digits = re.sub(r'[^0-9]', '', parent_phone)
         if not parent_name_fr or not parent_name_ar or not parent_phone:
             error_msg = (
                 "Veuillez renseigner le nom complet du tuteur (FR et AR) ainsi que le numéro de téléphone."
                 if lang == 'fr' else
                 "يرجى ملء الاسم الكامل لولي الأمر (بالعربية والفرنسية) ورقم الهاتف الإلزامي."
+            )
+        elif len(clean_phone_digits) < 9:
+            error_msg = (
+                "Le numéro de téléphone WhatsApp doit comporter au moins 9 à 10 chiffres valides (ex: 06 61 23 45 67)."
+                if lang == 'fr' else
+                "يرجى إدخال رقم هاتف واتساب صحيح مكون من 9 إلى 10 أرقام على الأقل (مثال: 0661112233)."
             )
         else:
             # 2. Validation des enfants

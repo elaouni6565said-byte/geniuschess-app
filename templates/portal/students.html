@@ -96,7 +96,15 @@
                             {% endif %}
                         {% endwith %}
                     </td>
-                    <td><bdi>{{ st.parent.phone }}</bdi></td>
+                    <td>
+                        {% if st.parent and st.parent.phone %}
+                            <bdi>{{ st.parent.phone }}</bdi>
+                        {% else %}
+                            <span class="badge" style="background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; font-size: 0.75rem;">
+                                ⚠️ {% if CURRENT_LANG == 'ar' %}بدون هاتف{% else %}Sans tél.{% endif %}
+                            </span>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if st.active %}
                             <span class="badge badge-paid">✓ Actif</span>

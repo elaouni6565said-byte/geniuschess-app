@@ -86,6 +86,13 @@ class ParentForm(forms.ModelForm):
         val = self.cleaned_data.get('full_name_ar', '')
         return re.sub(r'\s+', ' ', val).strip()
 
+    def clean_phone(self):
+        val = self.cleaned_data.get('phone', '').strip()
+        cleaned_digits = re.sub(r'[^0-9]', '', val)
+        if len(cleaned_digits) < 9:
+            raise forms.ValidationError("Le numéro de téléphone doit comporter au moins 9 à 10 chiffres (ex: 0661112233).")
+        return val
+
     def save(self, commit=True):
         parent = super().save(commit=False)
         if not parent.user:

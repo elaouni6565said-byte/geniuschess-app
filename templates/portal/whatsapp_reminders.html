@@ -73,10 +73,18 @@
                     {% endif %}
                 </h4>
                 <p style="font-size: 0.85rem; color: #1E3A8A; margin: 0; max-width: 720px;">
-                    {% if CURRENT_LANG == 'ar' %}
-                        الرسائل مجهّزة ومخصصة لكل تلميذ (المادة، التوقيت، القاعة، المؤطر). اضغط على زر <b>«واتساب»</b> بجانب كل ولي أمر أو استخدم <b>«الإرسال المتسلسل»</b> لفتح محادثة واتساب مع الرسالة مكتوبة مسبقاً، واضغط إرسال فقط !
+                    {% if reminders %}
+                        {% if CURRENT_LANG == 'ar' %}
+                            الرسائل مجهّزة ومخصصة لكل تلميذ (المادة، التوقيت، القاعة، المؤطر). اضغط على زر <b>«واتساب»</b> بجانب كل ولي أمر أو استخدم <b>«الإرسال المتسلسل»</b> لفتح محادثة واتساب مع الرسالة مكتوبة مسبقاً، واضغط إرسال فقط !
+                        {% else %}
+                            Les messages sont déjà rédigés et personnalisés pour chaque famille (heure, matière, salle, coach). Cliquez sur <b>« 📲 WhatsApp »</b> ou lancez <b>« L'envoi en série »</b> pour ouvrir WhatsApp avec le texte pré-rempli et envoyer d'un simple clic !
+                        {% endif %}
                     {% else %}
-                        Les messages sont déjà rédigés et personnalisés pour chaque famille (heure, matière, salle, coach). Cliquez sur <b>« 📲 WhatsApp »</b> ou lancez <b>« L'envoi en série »</b> pour ouvrir WhatsApp avec le texte pré-rempli et envoyer d'un simple clic !
+                        {% if CURRENT_LANG == 'ar' %}
+                            ☕ لا توجد أي حصص مبرمجة لهذا اليوم (<b>{{ day_name }} {{ target_date|date:"d/m/Y" }}</b>). يرجى اختيار تاريخ آخر من الأداة أسفله (مثلاً يوم السبت أو الأربعاء) لمعاينة رسائل الحصص.
+                        {% else %}
+                            ☕ Aucune séance n'est programmée pour cette date (<b>{{ day_name }} {{ target_date|date:"d/m/Y" }}</b>). Choisissez une autre date dans le sélecteur ci-dessous (ex: Samedi ou Mercredi) pour préparer les rappels.
+                        {% endif %}
                     {% endif %}
                 </p>
             </div>

@@ -37,7 +37,15 @@
                 <tr>
                     <td><b>{{ p.full_name_fr }}</b></td>
                     <td style="font-weight: 600; color: var(--primary-navy);">{{ p.full_name_ar }}</td>
-                    <td><bdi>{{ p.phone }}</bdi></td>
+                    <td>
+                        {% if p.phone %}
+                            <bdi>{{ p.phone }}</bdi>
+                        {% else %}
+                            <span class="badge" style="background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; font-size: 0.75rem;">
+                                ⚠️ {% if CURRENT_LANG == 'ar' %}بدون هاتف{% else %}Sans tél.{% endif %}
+                            </span>
+                        {% endif %}
+                    </td>
                     <td><span class="badge" style="background: #F1F5F9; color: #475569;">{{ p.cin|default:"—" }}</span></td>
                     <td>
                         {% if p.preferred_language == 'ar' %}
