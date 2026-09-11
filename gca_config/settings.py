@@ -107,9 +107,9 @@ CSRF_FAILURE_VIEW = 'portal.views.csrf_failure_view'
 # Code de sécurité financier pour autoriser la modification des paiements
 ADMIN_FINANCIAL_SECURITY_CODE = '6565'
 
-# Configuration Passerelle WhatsApp Automatique (WAHA Local sur Ubuntu)
-WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', 'http://127.0.0.1:3000/api/sendText')
-WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '367c424698f14bf99a75902e14282110')
+# Configuration Mode WhatsApp (Mode Direct / Manuel par l'administration)
+WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', '')
+WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '')
 WHATSAPP_SESSION_NAME = os.getenv('WHATSAPP_SESSION_NAME', 'default')
 
 
