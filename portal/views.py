@@ -1,6 +1,6 @@
 import os
 from decimal import Decimal
-from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm
+from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm, GroupMessageForm
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
@@ -14,7 +14,7 @@ from core.i18n import (
 )
 from academy.models import (
     Student, Parent, Group, Subject, Room, SessionSchedule,
-    Attendance, Notification, User, ParentVisitLog
+    Attendance, Notification, User, ParentVisitLog, GroupMessage
 )
 from finance.models import Payment, Invoice
 from finance.receipt_pdf import generate_receipt_pdf
@@ -670,12 +670,13 @@ def parent_space_view(request):
 
     # 4. Get all children belonging STRICTLY to this parent
     all_children = list(parent.students.filter(active=True).prefetch_related(
-        'groups__subject', 'groups__schedules__room'
+        'groups__subject', 'groups__level', 'groups__schedules__room', 'groups__messages__author'
     ))
 
     # Process all children metrics
     for ch in all_children:
         child_schedules = []
+        child_groups_info = []
         for g in ch.groups.all():
             for sch in g.schedules.all():
                 child_schedules.append({
@@ -691,8 +692,17 @@ def parent_space_view(request):
                     'trainer_fr': sch.get_trainer_name('fr'),
                     'trainer_ar': sch.get_trainer_name('ar'),
                 })
+            g_messages = list(g.messages.select_related('author').order_by('-created_at')[:8])
+            child_groups_info.append({
+                'group': g,
+                'subject': g.subject,
+                'level': g.level,
+                'messages': g_messages,
+                'messages_count': len(g_messages),
+            })
         child_schedules.sort(key=lambda x: (x['day_of_week'], x['start_time']))
         ch.child_schedules = child_schedules
+        ch.child_groups_info = child_groups_info
 
         child_att = list(Attendance.objects.filter(student=ch).select_related('session__group__subject').order_by('-date'))
         ch.child_attendances = child_att
@@ -1339,6 +1349,87 @@ def group_delete_view(request, group_id):
         'cancel_url': '/activities/',
     }
     return render(request, 'portal/confirm_delete.html', context)
+
+
+@admin_required
+def group_messages_view(request, group_id):
+    """
+    Espace Messages et Annonces d'un Groupe (selon l'activité et le niveau) :
+    Permet à l'administrateur de consulter l'historique et de rédiger des messages
+    diffusés aux parents d'élèves de ce groupe.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    group = get_object_or_404(
+        Group.objects.select_related('subject', 'level').prefetch_related('students__parent__user'),
+        id=group_id
+    )
+
+    if request.method == 'POST':
+        form = GroupMessageForm(request.POST)
+        if form.is_valid():
+            msg_obj = form.save(commit=False)
+            msg_obj.group = group
+            msg_obj.author = request.user
+            msg_obj.save()
+
+            notify_parents = form.cleaned_data.get('notify_parents', False)
+            if notify_parents:
+                parent_users = set()
+                for st in group.students.filter(active=True):
+                    if st.parent and st.parent.user:
+                        parent_users.add(st.parent.user)
+
+                type_label = dict(GroupMessage.MESSAGE_TYPES).get(msg_obj.message_type, 'Annonce')
+                for p_user in parent_users:
+                    Notification.objects.create(
+                        recipient=p_user,
+                        title_fr=f"[{group.name_fr}] {msg_obj.title or type_label}",
+                        title_ar=f"[{group.name_ar}] {msg_obj.title or type_label}",
+                        message_fr=msg_obj.content,
+                        message_ar=msg_obj.content,
+                        notification_type=msg_obj.message_type
+                    )
+
+            messages.success(
+                request,
+                f"✓ Message publié avec succès dans le groupe « {group.name_fr} »."
+                if lang == 'fr' else
+                f"✓ تم نشر الإعلان بنجاح في مجموعة « {group.name_ar} »."
+            )
+            return redirect('portal:group_messages', group_id=group.id)
+    else:
+        form = GroupMessageForm()
+
+    group_messages = group.messages.select_related('author').order_by('-created_at')
+    enrolled_students = group.students.filter(active=True).select_related('parent').order_by('last_name_fr', 'first_name_fr')
+
+    context = {
+        'group': group,
+        'form': form,
+        'group_messages': group_messages,
+        'enrolled_students': enrolled_students,
+        'students_count': enrolled_students.count(),
+    }
+    return render(request, 'portal/group_messages.html', context)
+
+
+@admin_required
+@require_POST
+def group_message_delete_view(request, group_id, message_id):
+    """
+    Supprime une annonce / un message d'un groupe.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    group = get_object_or_404(Group, id=group_id)
+    msg_obj = get_object_or_404(GroupMessage, id=message_id, group=group)
+    msg_obj.delete()
+
+    messages.info(
+        request,
+        "✓ Message supprimé avec succès." if lang == 'fr' else "✓ تم حذف الرسالة بنجاح."
+    )
+    return redirect('portal:group_messages', group_id=group.id)
+
 
 
 # ==========================================

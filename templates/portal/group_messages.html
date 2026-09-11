@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}فضاء رسائل المجموعة — {{ group.name_ar }}{% else %}Espace Messages du Groupe — {{ group.name_fr }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- EN-TÊTE DE LA PAGE -->
+<div class="page-header" style="margin-bottom: 1.5rem;">
+    <div class="page-header-titles">
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+            <a href="{% url 'portal:activities_list' %}" class="btn btn-outline btn-sm" style="font-size: 0.8rem;">
+                ← {% if CURRENT_LANG == 'ar' %}العودة للأنشطة والمجموعات{% else %}Retour aux Activités{% endif %}
+            </a>
+            <span style="width: 14px; height: 14px; border-radius: 50%; background: {{ group.get_color }}; display: inline-block;"></span>
+            <h2 style="margin: 0; color: var(--primary-navy);">
+                💬 {% if CURRENT_LANG == 'ar' %}فضاء رسائل وإعلانات المجموعة{% else %}Espace Messages & Annonces du Groupe{% endif %}
+            </h2>
+        </div>
+        <p style="margin-top: 0.4rem; font-size: 0.95rem; color: var(--text-muted);">
+            <b>{{ group|trans_field:CURRENT_LANG }}</b> • 
+            ♟️ {% if CURRENT_LANG == 'ar' %}النشاط :{% else %}Activité :{% endif %} <b>{{ group.subject|trans_field:CURRENT_LANG }}</b> • 
+            📊 {% if CURRENT_LANG == 'ar' %}المستوى :{% else %}Niveau :{% endif %} <span class="badge" style="background: #F1F5F9; color: var(--text-dark);">{{ group.level|trans_field:CURRENT_LANG|default:"Tous niveaux" }}</span>
+        </p>
+    </div>
+
+    <div class="page-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+        <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 700; font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+            👥 {{ students_count }} {% if CURRENT_LANG == 'ar' %}تلميذ مسجل{% else %}élève(s) inscrit(s){% endif %}
+        </span>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 1.75rem; align-items: start;">
+    
+    <!-- COLONNE GAUCHE : FORMULAIRE DE RÉDACTION D'UN MESSAGE -->
+    <div class="card" style="border-top: 4px solid var(--primary-blue); padding: 1.5rem; box-shadow: var(--shadow-sm); position: sticky; top: 1rem;">
+        <h3 style="font-size: 1.15rem; color: var(--primary-navy); margin-top: 0; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
+            ✍️ {% if CURRENT_LANG == 'ar' %}نشر إعلان جديد لأولياء الأمور{% else %}Publier un Message aux Parents{% endif %}
+        </h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                سيظهر هذا الإعلان في فضاء أولياء أمور تلاميذ هذا الفوج (حسب النشاط والمستوى المحدد).
+            {% else %}
+                Ce message sera immédiatement visible dans l'Espace Parent des élèves inscrits dans ce groupe.
+            {% endif %}
+        </p>
+
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-dark);">
+                    🏷️ {% if CURRENT_LANG == 'ar' %}نوع الإعلان :{% else %}Type d'annonce :{% endif %}
+                </label>
+                {{ form.message_type }}
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-dark);">
+                    📌 {% if CURRENT_LANG == 'ar' %}عنوان الإعلان (اختياري) :{% else %}Titre / Objet (optionnel) :{% endif %}
+                </label>
+                {{ form.title }}
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-dark);">
+                    📝 {% if CURRENT_LANG == 'ar' %}نص الرسالة :{% else %}Contenu du message :{% endif %}
+                </label>
+                {{ form.content }}
+            </div>
+
+            <div style="margin-bottom: 1.25rem; background: #F8FAFC; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.6rem;">
+                {{ form.notify_parents }}
+                <label for="{{ form.notify_parents.id_for_label }}" style="font-size: 0.82rem; color: var(--text-dark); margin: 0; cursor: pointer; font-weight: 600;">
+                    🔔 {% if CURRENT_LANG == 'ar' %}إرسال إشعار مباشر لحساب كل ولي أمر{% else %}Créer aussi une notification dans le compte des parents{% endif %}
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; font-weight: 700; padding: 0.7rem;">
+                📤 {% if CURRENT_LANG == 'ar' %}نشر الرسالة الآن{% else %}Publier le message{% endif %}
+            </button>
+        </form>
+
+        <!-- Récapitulatif des élèves du groupe -->
+        <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary-navy); margin-bottom: 0.5rem;">
+                👥 {% if CURRENT_LANG == 'ar' %}أولياء أمور المجموعة المعنيون :{% else %}Parents destinataires ({{ students_count }}) :{% endif %}
+            </div>
+            <div style="max-height: 180px; overflow-y: auto; font-size: 0.8rem; color: var(--text-muted);">
+                {% for st in enrolled_students %}
+                <div style="padding: 0.25rem 0; border-bottom: 1px dashed #E2E8F0; display: flex; justify-content: space-between;">
+                    <span><b>{{ st.get_full_name }}</b></span>
+                    <span>👨‍👦 {{ st.parent|trans_field:CURRENT_LANG }}</span>
+                </div>
+                {% empty %}
+                <div style="padding: 0.5rem 0; font-style: italic;">
+                    {% if CURRENT_LANG == 'ar' %}لا يوجد تلاميذ مسجلون في هذا الفوج حالياً.{% else %}Aucun élève inscrit actuellement.{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- COLONNE DROITE : HISTORIQUE DES MESSAGES DU GROUPE -->
+    <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.2rem; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                📢 {% if CURRENT_LANG == 'ar' %}الإعلانات المنشورة في هذه المجموعة{% else %}Historique des Messages Publiés{% endif %}
+                <span class="badge" style="background: #E2E8F0; color: var(--text-dark); font-size: 0.8rem;">{{ group_messages.count }}</span>
+            </h3>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% for msg in group_messages %}
+            {% with badge=msg.get_type_badge %}
+            <div class="card" style="border-left: 4px solid {{ badge.color }}; padding: 1.25rem; box-shadow: var(--shadow-sm); background: white;">
+                
+                <!-- Haut du message : Type, Auteur, Date, Suppression -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <span class="badge" style="background: {{ badge.bg }}; color: {{ badge.color }}; font-weight: 700; font-size: 0.8rem;">
+                            {{ badge.icon }} {% if CURRENT_LANG == 'ar' %}{{ badge.label_ar }}{% else %}{{ badge.label_fr }}{% endif %}
+                        </span>
+                        {% if msg.title %}
+                            <b style="font-size: 1.05rem; color: var(--primary-navy);">{{ msg.title }}</b>
+                        {% endif %}
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">
+                            🕒 {{ msg.created_at|date:"d/m/Y H:i" }}
+                        </span>
+                        
+                        <!-- Formulaire de suppression -->
+                        <form method="POST" action="{% url 'portal:group_message_delete' group.id msg.id %}" onsubmit="return confirm('{% if CURRENT_LANG == 'ar' %}هل أنت متأكد من حذف هذه الرسالة ؟{% else %}Confirmer la suppression de ce message ?{% endif %}');" style="margin: 0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; padding: 0.2rem 0.5rem;" title="Supprimer ce message">
+                                🗑️
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Corps du message -->
+                <div style="font-size: 0.92rem; line-height: 1.6; color: var(--text-dark); white-space: pre-line; background: #F8FAFC; padding: 0.85rem 1.1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                    {{ msg.content }}
+                </div>
+
+                <!-- Bas du message : Auteur -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.6rem; font-size: 0.78rem; color: var(--text-muted);">
+                    <span>
+                        ✍️ {% if CURRENT_LANG == 'ar' %}المرسل :{% else %}Publié par :{% endif %} 
+                        <b>{{ msg.author.get_full_name|default:msg.author.username|default:"Administration GCA" }}</b>
+                    </span>
+                    <span>
+                        👥 {% if CURRENT_LANG == 'ar' %}مرئي لجميع أولياء أمور هذا الفوج{% else %}Diffusé aux parents du groupe{% endif %}
+                    </span>
+                </div>
+            </div>
+            {% endwith %}
+            {% empty %}
+            <div class="card" style="padding: 3rem 1.5rem; text-align: center; color: var(--text-muted); background: white;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💬</div>
+                <h4 style="margin: 0 0 0.35rem 0; color: var(--primary-navy);">
+                    {% if CURRENT_LANG == 'ar' %}لا توجد أي رسائل منشورة في هذا الفوج بعد{% else %}Aucun message publié dans ce groupe pour le moment{% endif %}
+                </h4>
+                <p style="margin: 0; font-size: 0.85rem;">
+                    {% if CURRENT_LANG == 'ar' %}استخدم النموذج أعلاه لكتابة ونشر أول إشعار لأولياء أمور هذه المجموعة.{% else %}Utilisez le formulaire à gauche pour rédiger et diffuser votre première annonce.{% endif %}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

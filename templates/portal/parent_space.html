@@ -236,6 +236,76 @@
                 </div>
             </div>
 
+            <!-- 3. Espace Annonces & Messages du Groupe (Activité & Niveau) -->
+            <div style="margin-top: 1.75rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+                <h5 style="font-size: 1.05rem; color: var(--primary-navy); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+                    💬 {% if CURRENT_LANG == 'ar' %}فضاء رسائل وإعلانات الأفواج (حسب النشاط والمستوى){% else %}Espace Messages & Annonces des Groupes (Activité & Niveau){% endif %}
+                </h5>
+
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    {% for g_info in ch.child_groups_info %}
+                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden; background: white; box-shadow: var(--shadow-xs);">
+                        
+                        <!-- En-tête du groupe (Activité & Niveau) -->
+                        <div style="background: #F8FAFC; padding: 0.75rem 1.1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="width: 12px; height: 12px; border-radius: 50%; background: {{ g_info.group.get_color }}; display: inline-block;"></span>
+                                <b style="color: var(--primary-navy); font-size: 0.95rem;">{{ g_info.group|trans_field:CURRENT_LANG }}</b>
+                                <span class="badge" style="background: #E2E8F0; color: var(--text-dark); font-size: 0.78rem;">
+                                    ♟️ {{ g_info.subject|trans_field:CURRENT_LANG }}
+                                </span>
+                                <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.78rem;">
+                                    📊 {{ g_info.level|trans_field:CURRENT_LANG|default:"Tous niveaux" }}
+                                </span>
+                            </div>
+
+                            <span style="font-size: 0.78rem; color: var(--text-muted);">
+                                📢 {{ g_info.messages_count }} {% if CURRENT_LANG == 'ar' %}إعلان{% else %}message(s){% endif %}
+                            </span>
+                        </div>
+
+                        <!-- Liste des messages de ce groupe -->
+                        <div style="padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                            {% for msg in g_info.messages %}
+                            {% with badge=msg.get_type_badge %}
+                            <div style="border-inline-start: 3px solid {{ badge.color }}; padding: 0.6rem 0.85rem; background: #F8FAFC; border-radius: var(--radius-xs);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.4rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                        <span class="badge" style="background: {{ badge.bg }}; color: {{ badge.color }}; font-weight: 700; font-size: 0.72rem; padding: 0.15rem 0.45rem;">
+                                            {{ badge.icon }} {% if CURRENT_LANG == 'ar' %}{{ badge.label_ar }}{% else %}{{ badge.label_fr }}{% endif %}
+                                        </span>
+                                        {% if msg.title %}
+                                            <b style="font-size: 0.88rem; color: var(--primary-navy);">{{ msg.title }}</b>
+                                        {% endif %}
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">
+                                        🕒 {{ msg.created_at|date:"d/m/Y H:i" }}
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.86rem; color: var(--text-dark); line-height: 1.5; white-space: pre-line;">
+                                    {{ msg.content }}
+                                </div>
+                                <div style="margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-muted); text-align: end;">
+                                    ✍️ {{ msg.author.get_full_name|default:msg.author.username|default:"Direction GCA" }}
+                                </div>
+                            </div>
+                            {% endwith %}
+                            {% empty %}
+                            <div style="font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 0.75rem; font-style: italic;">
+                                {% if CURRENT_LANG == 'ar' %}لا توجد إعلانات منشورة لهذا الفوج حالياً.{% else %}Aucune annonce publiée pour ce groupe pour le moment.{% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                    </div>
+                    {% empty %}
+                    <div style="font-size: 0.85rem; color: var(--text-muted); font-style: italic; padding: 0.5rem;">
+                        {% if CURRENT_LANG == 'ar' %}هذا التلميذ غير مسجل في أي فوج حالياً.{% else %}Cet élève n'est inscrit dans aucun groupe pour le moment.{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
         </div>
         {% empty %}
         <div class="card" style="text-align: center; padding: 2rem;">

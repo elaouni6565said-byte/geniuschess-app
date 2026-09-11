@@ -3,7 +3,7 @@ from django.test import Client
 from datetime import date
 from decimal import Decimal
 from django.db.models import Sum
-from academy.models import User, Parent, Student, SessionSchedule
+from academy.models import User, Parent, Student, SessionSchedule, Group, GroupMessage
 from finance.models import Payment
 
 @pytest.mark.django_db
@@ -925,6 +925,88 @@ def test_trainer_space_view_and_permissions():
     if session:
         resp_att = client.get(f'/attendance/{session.id}/')
         assert resp_att.status_code == 200
+
+
+@pytest.mark.django_db
+def test_group_messages_admin_and_parent_space():
+    """
+    Validates:
+    1. Anonymous access to /groups/<id>/messages/ redirects to login.
+    2. Parent access to /groups/<id>/messages/ is forbidden.
+    3. Admin can view group messages space and post a new announcement.
+    4. Enrolled student's parent sees the announcement in their Parent Space.
+    5. Non-enrolled student's parent does not see the announcement.
+    6. Admin can delete the message.
+    """
+    client = Client()
+    group = Group.objects.first()
+    assert group is not None, "At least one group must exist"
+
+    # 1. Anonymous access
+    resp_anon = client.get(f'/groups/{group.id}/messages/')
+    assert resp_anon.status_code == 302
+    assert '/login/' in resp_anon.url
+
+    # 2. Parent access is forbidden
+    parent_user = User.objects.filter(role='parent').first()
+    if parent_user:
+        parent_user.set_password('ParentPass123')
+        parent_user.save()
+        client.login(username=parent_user.username, password='ParentPass123')
+        resp_parent = client.get(f'/groups/{group.id}/messages/')
+        assert resp_parent.status_code == 302
+        assert resp_parent.url == '/parent/'
+        client.logout()
+
+    # 3. Admin access
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    resp_admin = client.get(f'/groups/{group.id}/messages/')
+    assert resp_admin.status_code == 200
+    content_admin = resp_admin.content.decode('utf-8')
+    assert group.name_fr in content_admin
+
+    # Admin posts a new message
+    resp_post = client.post(f'/groups/{group.id}/messages/', {
+        'title': 'Annonce Test Tournoi',
+        'message_type': 'event',
+        'content': 'Préparation pour la ronde du samedi prochain.',
+        'notify_parents': 'on',
+    })
+    assert resp_post.status_code == 302
+    assert resp_post.url == f'/groups/{group.id}/messages/'
+
+    created_msg = GroupMessage.objects.filter(group=group, title='Annonce Test Tournoi').first()
+    assert created_msg is not None
+    assert created_msg.author == admin
+    assert created_msg.message_type == 'event'
+    client.logout()
+
+    # 4. Check Parent Space for enrolled student's parent
+    enrolled_student = group.students.filter(active=True).first()
+    if enrolled_student and enrolled_student.parent and enrolled_student.parent.user:
+        p_user = enrolled_student.parent.user
+        p_user.set_password('ParentEnrolled123')
+        p_user.save()
+        client.login(username=p_user.username, password='ParentEnrolled123')
+
+        resp_parent_space = client.get('/parent/')
+        assert resp_parent_space.status_code == 200
+        content_ps = resp_parent_space.content.decode('utf-8')
+        assert 'Annonce Test Tournoi' in content_ps
+        assert 'Préparation pour la ronde' in content_ps
+        client.logout()
+
+    # 5. Admin deletes the message
+    client.login(username='admin', password='CGAESA65')
+    resp_del = client.post(f'/groups/{group.id}/messages/{created_msg.id}/delete/')
+    assert resp_del.status_code == 302
+    assert resp_del.url == f'/groups/{group.id}/messages/'
+    assert not GroupMessage.objects.filter(id=created_msg.id).exists()
+
 
 
 

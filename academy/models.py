@@ -274,3 +274,39 @@ class SessionCancellation(models.Model):
             return f"Journée entière annulée le {self.date}"
         return f"Séance {self.schedule} annulée le {self.date}"
 
+
+class GroupMessage(models.Model):
+    MESSAGE_TYPES = [
+        ('info', 'Information générale / إشعار عام'),
+        ('reminder', 'Rappel de séance / تذكير بالحصص'),
+        ('pedagogy', 'Pédagogie & Devoirs / محتوى تربوي وتمارين'),
+        ('event', 'Événement & Tournoi / حدث أو بطولة'),
+        ('urgent', 'Urgent / عاجل'),
+    ]
+
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="messages")
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="group_messages")
+    title = models.CharField(max_length=200, blank=True, verbose_name="Titre / Objet")
+    content = models.TextField(verbose_name="Message / Contenu")
+    message_type = models.CharField(max_length=20, choices=MESSAGE_TYPES, default='info')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Message de Groupe"
+        verbose_name_plural = "Messages de Groupe"
+
+    def get_type_badge(self):
+        badges = {
+            'info': {'color': '#0284C7', 'bg': '#E0F2FE', 'icon': '📢', 'label_fr': 'Info', 'label_ar': 'إشعار'},
+            'reminder': {'color': '#D97706', 'bg': '#FEF3C7', 'icon': '⏰', 'label_fr': 'Rappel', 'label_ar': 'تذكير'},
+            'pedagogy': {'color': '#7C3AED', 'bg': '#EDE9FE', 'icon': '📚', 'label_fr': 'Pédagogie', 'label_ar': 'تربوي'},
+            'event': {'color': '#059669', 'bg': '#D1FAE5', 'icon': '🏆', 'label_fr': 'Événement', 'label_ar': 'حدث'},
+            'urgent': {'color': '#DC2626', 'bg': '#FEE2E2', 'icon': '🚨', 'label_fr': 'Urgent', 'label_ar': 'عاجل'},
+        }
+        return badges.get(self.message_type, badges['info'])
+
+    def __str__(self):
+        return f"[{self.group.name_fr}] {self.title or self.content[:30]}"
+
+

@@ -50,6 +50,8 @@ urlpatterns = [
     path('groups/add/', views.group_create_view, name='group_add'),
     path('groups/<int:group_id>/edit/', views.group_edit_view, name='group_edit'),
     path('groups/<int:group_id>/delete/', views.group_delete_view, name='group_delete'),
+    path('groups/<int:group_id>/messages/', views.group_messages_view, name='group_messages'),
+    path('groups/<int:group_id>/messages/<int:message_id>/delete/', views.group_message_delete_view, name='group_message_delete'),
 
     # Planning CRUD
     path('planning/add/', views.session_create_view, name='session_add'),

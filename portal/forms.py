@@ -1,6 +1,6 @@
 import re
 from django import forms
-from academy.models import Student, Parent, Subject, Group, Room, Level, SessionSchedule, User
+from academy.models import Student, Parent, Subject, Group, Room, Level, SessionSchedule, User, GroupMessage
 
 class StudentForm(forms.ModelForm):
     registration_number = forms.CharField(
@@ -191,5 +191,31 @@ class PaymentForm(forms.ModelForm):
             'reference': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'N° Virement, Chèque ou Réf'}),
             'notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Remarques éventuelles'}),
         }
+
+
+class GroupMessageForm(forms.ModelForm):
+    notify_parents = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Créer aussi une notification directe dans l'espace de chaque parent",
+        widget=forms.CheckboxInput(attrs={'class': 'status-checkbox'})
+    )
+
+    class Meta:
+        model = GroupMessage
+        fields = ['title', 'message_type', 'content']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'search-input',
+                'placeholder': 'Titre ou objet (ex: Préparation tournoi, Consigne séance, Rappel...)'
+            }),
+            'message_type': forms.Select(attrs={'class': 'search-input'}),
+            'content': forms.Textarea(attrs={
+                'class': 'search-input',
+                'rows': 4,
+                'placeholder': 'Rédigez le message ou l\'annonce à destination des parents de ce groupe...'
+            }),
+        }
+
 
 
