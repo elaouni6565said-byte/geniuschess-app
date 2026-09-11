@@ -64,6 +64,9 @@
                 <a href="{% url 'portal:parent_space' %}" class="btn btn-outline btn-sm" style="font-size: 0.85rem; width: 100%;">
                     👨‍👩‍👧 {% trans "parent_space.title" %}
                 </a>
+                <a href="{% url 'portal:trainer_space' %}" class="btn btn-outline btn-sm" style="font-size: 0.85rem; width: 100%; border-color: #0284C7; color: #0369A1;">
+                    👨‍🏫 {% if CURRENT_LANG == 'ar' %}دخول فضاء المدربين{% else %}Espace Formateur & Encadrant{% endif %}
+                </a>
                 <a href="{% url 'portal:register' %}" class="btn btn-secondary btn-sm" style="font-size: 0.85rem; width: 100%; border: 1px dashed var(--primary-navy); background: #F8FAFC; color: var(--primary-navy); font-weight: 600;">
                     📝 {% if CURRENT_LANG == 'ar' %}تسجيل أسرة جديدة (استمارة التسجيل){% else %}Nouvelle Inscription Famille{% endif %}
                 </a>

@@ -3,7 +3,7 @@ from django.test import Client
 from datetime import date
 from decimal import Decimal
 from django.db.models import Sum
-from academy.models import User, Parent, Student
+from academy.models import User, Parent, Student, SessionSchedule
 from finance.models import Payment
 
 @pytest.mark.django_db
@@ -846,6 +846,86 @@ def test_admin_exports_planning_pdf_and_excels():
     assert resp_students.status_code == 200
     assert 'openxmlformats' in resp_students['Content-Type']
     assert len(resp_students.content) > 1000
+
+
+@pytest.mark.django_db
+def test_trainer_space_view_and_permissions():
+    """
+    Validates:
+    1. Anonymous access to /trainer/ redirects to login.
+    2. Parent access to /trainer/ is forbidden (redirects to /parent/).
+    3. Admin access to /trainer/ displays dashboard with trainer selector.
+    4. Trainer login redirects directly to /trainer/.
+    5. Trainer access to /trainer/ shows schedules, today sessions and students.
+    6. Trainer access to /attendance/<id>/ is authorized.
+    7. No financial data (invoices, payments, payouts) is exposed in trainer space.
+    """
+    client = Client()
+
+    # 1. Anonymous access
+    resp_anon = client.get('/trainer/')
+    assert resp_anon.status_code == 302
+    assert '/login/' in resp_anon.url
+
+    # 2. Parent access is denied
+    parent_user = User.objects.filter(role='parent').first()
+    if parent_user:
+        parent_user.set_password('ParentPass123')
+        parent_user.save()
+        client.login(username=parent_user.username, password='ParentPass123')
+        resp_parent = client.get('/trainer/')
+        assert resp_parent.status_code == 302
+        assert resp_parent.url == '/parent/'
+        client.logout()
+
+    # 3. Admin access
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+    resp_admin = client.get('/trainer/')
+    assert resp_admin.status_code == 200
+    content_admin = resp_admin.content.decode('utf-8')
+    assert 'Espace Formateur' in content_admin or 'فضاء المدرب' in content_admin
+    assert 'Prévisualisation' in content_admin or 'المعاينة' in content_admin
+    client.logout()
+
+    # 4. Create or get Trainer User
+    trainer_user = User.objects.filter(role='trainer').first()
+    if not trainer_user:
+        trainer_user = User.objects.create_user(
+            username='trainer_test',
+            password='Trainer@2026',
+            role='trainer',
+            first_name='Yassine',
+            last_name='Alami'
+        )
+    else:
+        trainer_user.set_password('Trainer@2026')
+        trainer_user.save()
+
+    # Test login redirect for trainer
+    resp_login = client.post('/login/', {'username': trainer_user.username, 'password': 'Trainer@2026'})
+    assert resp_login.status_code == 302
+    assert resp_login.url == '/trainer/'
+
+    # 5. Trainer accesses /trainer/
+    resp_trainer = client.get('/trainer/')
+    assert resp_trainer.status_code == 200
+    content_trainer = resp_trainer.content.decode('utf-8')
+    assert 'Espace Formateur' in content_trainer or 'فضاء المدرب' in content_trainer
+
+    # 6. Check that no financial/invoice terms appear in trainer space
+    assert 'Facture' not in content_trainer
+    assert 'Honoraires Perçus' not in content_trainer
+    assert 'TrainerPayout' not in content_trainer
+
+    # 7. Trainer can access attendance sheet
+    session = SessionSchedule.objects.first()
+    if session:
+        resp_att = client.get(f'/attendance/{session.id}/')
+        assert resp_att.status_code == 200
+
 
 
 

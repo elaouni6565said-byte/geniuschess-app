@@ -22,7 +22,7 @@ from finance.reminders import generate_monthly_reminders
 from portal.excel_export import export_students_to_excel, export_paid_payments_to_excel, export_unpaid_invoices_to_excel
 from portal.planning_pdf import generate_master_planning_pdf
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
-from portal.decorators import admin_required
+from portal.decorators import admin_required, trainer_or_admin_required
 
 
 def set_language(request, lang):
@@ -761,6 +761,162 @@ def parent_space_view(request):
     return render(request, 'portal/parent_space.html', context)
 
 
+def trainer_space_view(request):
+    """
+    Espace Formateur dédié :
+    - Consultation du planning hebdomadaire de cours
+    - Séances du jour avec bouton direct vers la feuille d'appel numérique
+    - Liste des groupes et élèves (coordonnées parents pour urgence pédagogique)
+    - Strictement aucun accès aux finances, factures ou salaires.
+    - Prévisualisation pour les administrateurs avec sélecteur de formateur.
+    """
+    from datetime import date
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    # 1. Vérification de l'authentification
+    if not request.user.is_authenticated:
+        return redirect('/login/?next=/trainer/')
+
+    # 2. Vérification des droits (Formateur ou Administrateur)
+    is_admin = request.user.is_admin_role() or request.user.is_superuser
+    if not (is_admin or request.user.is_trainer_role()):
+        msg = get_translation('errors.permission_denied', lang=lang)
+        messages.error(request, msg)
+        return redirect('portal:parent_space' if request.user.is_parent_role() else 'portal:login')
+
+    # 3. Liste de tous les formateurs enregistrés dans les plannings
+    trainers_qs = (
+        SessionSchedule.objects.values('trainer_name_fr', 'trainer_name_ar')
+        .distinct()
+        .order_by('trainer_name_fr')
+    )
+    all_trainers = list(trainers_qs)
+
+    # Si aucun formateur n'est encore configuré dans le planning
+    if not all_trainers:
+        all_trainers = [{'trainer_name_fr': 'Formateur GCA', 'trainer_name_ar': 'مدرب الأكاديمية'}]
+
+    selected_trainer = None
+
+    if is_admin:
+        trainer_req = request.GET.get('trainer')
+        if trainer_req:
+            for t in all_trainers:
+                if t['trainer_name_fr'] == trainer_req or t['trainer_name_ar'] == trainer_req:
+                    selected_trainer = t
+                    break
+        if not selected_trainer and all_trainers:
+            selected_trainer = all_trainers[0]
+    else:
+        # Formateur connecté : détection intelligente basée sur prénom, nom ou username
+        user_fn = (request.user.first_name or '').strip().lower()
+        user_ln = (request.user.last_name or '').strip().lower()
+        user_un = (request.user.username or '').replace('trainer_', '').replace('coach_', '').strip().lower()
+
+        for t in all_trainers:
+            t_fr = t['trainer_name_fr'].lower()
+            t_ar = t['trainer_name_ar'].lower()
+            if (user_fn and (user_fn in t_fr or user_fn in t_ar)) or \
+               (user_ln and (user_ln in t_fr or user_ln in t_ar)) or \
+               (user_un and (user_un in t_fr or user_un in t_ar)):
+                selected_trainer = t
+                break
+
+        if not selected_trainer and all_trainers:
+            selected_trainer = all_trainers[0]
+
+    current_trainer_fr = selected_trainer['trainer_name_fr']
+    current_trainer_ar = selected_trainer['trainer_name_ar']
+    current_trainer_display = current_trainer_ar if lang == 'ar' and current_trainer_ar else current_trainer_fr
+
+    # 4. Séances du formateur
+    schedules = (
+        SessionSchedule.objects.filter(
+            Q(trainer_name_fr=current_trainer_fr) | Q(trainer_name_ar=current_trainer_ar)
+        )
+        .select_related('group', 'group__subject', 'group__level', 'room')
+        .order_by('day_of_week', 'start_time')
+    )
+
+    # Attacher day_name pour chaque séance pour l'affichage template sans filtre supplémentaire
+    for s in schedules:
+        s.day_name = s.get_day_name(lang)
+
+    # 5. Séances du jour
+    today = date.today()
+    today_weekday = today.weekday()  # 0: Lundi, 6: Dimanche
+    today_sessions_info = []
+
+    for s in schedules:
+        if s.day_of_week == today_weekday:
+            att_qs = Attendance.objects.filter(session=s, date=today)
+            total_students_group = s.group.students.filter(active=True).count()
+            present_count = att_qs.filter(status='present').count()
+            absent_count = att_qs.filter(status='absent').count()
+            late_count = att_qs.filter(status='late').count()
+            justified_count = att_qs.filter(status='justified').count()
+            marked_count = att_qs.count()
+
+            today_sessions_info.append({
+                'schedule': s,
+                'total_students': total_students_group,
+                'marked_count': marked_count,
+                'present_count': present_count,
+                'absent_count': absent_count,
+                'late_count': late_count,
+                'justified_count': justified_count,
+                'is_completed': marked_count >= total_students_group and total_students_group > 0,
+            })
+
+    # 6. Groupes et élèves
+    group_ids = schedules.values_list('group_id', flat=True).distinct()
+    groups = Group.objects.filter(id__in=group_ids).select_related('subject', 'level')
+
+    students = (
+        Student.objects.filter(groups__in=groups, active=True)
+        .distinct()
+        .prefetch_related('groups')
+        .select_related('parent')
+        .order_by('last_name_fr', 'first_name_fr')
+    )
+
+    # 7. Données pour chaque groupe (avec ses élèves rattachés)
+    groups_data = []
+    for g in groups:
+        g_students = [st for st in students if g in st.groups.all()]
+        groups_data.append({
+            'group': g,
+            'students': g_students,
+            'students_count': len(g_students),
+        })
+
+    # Notifications pour le formateur
+    trainer_notifications = Notification.objects.filter(
+        recipient=request.user
+    ).order_by('-created_at')[:5]
+
+    context = {
+        'all_trainers': all_trainers,
+        'selected_trainer': selected_trainer,
+        'current_trainer_fr': current_trainer_fr,
+        'current_trainer_ar': current_trainer_ar,
+        'current_trainer_display': current_trainer_display,
+        'schedules': schedules,
+        'today_sessions_info': today_sessions_info,
+        'today_date': today,
+        'today_weekday': today_weekday,
+        'groups_data': groups_data,
+        'total_sessions_week': schedules.count(),
+        'total_sessions_today': len(today_sessions_info),
+        'total_students': students.count(),
+        'total_groups': groups.count(),
+        'notifications': trainer_notifications,
+        'is_admin': is_admin,
+    }
+    return render(request, 'portal/trainer_space.html', context)
+
+
+
 def login_view(request):
     import re
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
@@ -769,6 +925,8 @@ def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_parent_role():
             return redirect('portal:parent_space')
+        elif request.user.is_trainer_role():
+            return redirect('portal:trainer_space')
         elif request.user.is_admin_role() or request.user.is_superuser:
             return redirect(next_url if next_url != '/login/' else '/')
 
@@ -858,6 +1016,8 @@ def login_view(request):
                 request.session['gca_language'] = user.preferred_language
             if user.is_parent_role():
                 return redirect('portal:parent_space')
+            elif user.is_trainer_role():
+                return redirect('portal:trainer_space')
             return redirect(next_url if next_url != '/login/' else '/')
         else:
             error_msg = get_translation('auth.invalid_credentials', lang=lang)
@@ -1765,7 +1925,7 @@ def attendance_list_view(request):
     return render(request, 'portal/attendance_list.html', context)
 
 
-@admin_required
+@trainer_or_admin_required
 def attendance_sheet_view(request, session_id):
     """
     Feuille d'appel numérique pour une séance et date précises :
@@ -1882,7 +2042,7 @@ def attendance_sheet_view(request, session_id):
     return render(request, 'portal/attendance_sheet.html', context)
 
 
-@admin_required
+@trainer_or_admin_required
 @require_POST
 def attendance_scan_ajax_view(request, session_id):
     """
@@ -1970,7 +2130,7 @@ def attendance_scan_ajax_view(request, session_id):
     })
 
 
-@admin_required
+@trainer_or_admin_required
 @require_POST
 def attendance_notify_absents_view(request, session_id):
     """
@@ -2018,7 +2178,7 @@ def attendance_notify_absents_view(request, session_id):
     return redirect(f"/attendance/{session_id}/?date={target_date.strftime('%Y-%m-%d')}")
 
 
-@admin_required
+@trainer_or_admin_required
 @require_POST
 def attendance_notify_single_absent_view(request, session_id, student_id):
     """

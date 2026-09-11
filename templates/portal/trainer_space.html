@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}فضاء المدربين — {{ current_trainer_display }}{% else %}Espace Formateur — {{ current_trainer_display }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- EN-TÊTE DE LA PAGE FORMATEUR -->
+<div class="page-header" style="margin-bottom: 1.5rem;">
+    <div class="page-header-titles">
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+            <h2 style="margin: 0;">👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدرب{% else %}Espace Formateur{% endif %}</h2>
+            {% if is_admin %}
+                <span class="badge" style="background: #FEF3C7; color: #92400E; font-weight: 800; border: 1px solid #FDE68A; padding: 0.25rem 0.6rem;">
+                    👑 {% if CURRENT_LANG == 'ar' %}وضع المعاينة الإدارية{% else %}Prévisualisation Administrateur{% endif %}
+                </span>
+            {% endif %}
+        </div>
+        <p style="margin-top: 0.35rem; font-size: 0.95rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}
+                مرحباً بالمدرب : <b style="color: var(--primary-navy);">{{ current_trainer_display }}</b> • إدارة وتتبع الحصص، المناداة والأنشطة الأكاديمية.
+            {% else %}
+                Bienvenue, <b style="color: var(--primary-navy);">{{ current_trainer_display }}</b> • Suivi des cours, feuilles d'émargement et encadrement pédagogique.
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- ACTIONS & SÉLECTEUR ADMIN -->
+    <div class="page-actions" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        {% if is_admin and all_trainers|length > 1 %}
+        <form method="GET" action="" style="display: inline-flex; align-items: center; gap: 0.4rem; background: white; padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+            <label style="font-size: 0.8rem; font-weight: 700; color: var(--primary-navy);">
+                👁️ {% if CURRENT_LANG == 'ar' %}تغيير المدرب :{% else %}Changer de formateur :{% endif %}
+            </label>
+            <select name="trainer" onchange="this.form.submit()" class="search-input" style="padding: 0.25rem 0.6rem; font-size: 0.85rem; height: auto; border: 1px solid #CBD5E1;">
+                {% for tr in all_trainers %}
+                <option value="{{ tr.trainer_name_fr }}" {% if tr.trainer_name_fr == current_trainer_fr %}selected{% endif %}>
+                    {% if CURRENT_LANG == 'ar' %}{{ tr.trainer_name_ar }}{% else %}{{ tr.trainer_name_fr }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+
+        <a href="{% url 'portal:planning' %}" class="btn btn-outline" style="font-size: 0.85rem; font-weight: 600;">
+            🗓️ {% if CURRENT_LANG == 'ar' %}الجدول العام{% else %}Planning Général{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- CARTES KPI DU FORMATEUR -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+    <div class="card" style="border-left: 4px solid #001B57; padding: 1.2rem; box-shadow: var(--shadow-sm);">
+        <div style="font-size: 0.78rem; font-weight: 700; color: #64748B; text-transform: uppercase;">
+            {% if CURRENT_LANG == 'ar' %}الحصص الأسبوعية{% else %}Séances Hebdo{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #001B57; margin-top: 0.3rem;">
+            {{ total_sessions_week }} <span style="font-size: 0.85rem; font-weight: 600; color: #64748B;">{% if CURRENT_LANG == 'ar' %}حصص/أسبوع{% else %}cours/sem.{% endif %}</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem;">
+            {% if CURRENT_LANG == 'ar' %}موزعة على مدار الأسبوع{% else %}réparties sur la semaine{% endif %}
+        </div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid {% if total_sessions_today > 0 %}#16A34A{% else %}#94A3B8{% endif %}; padding: 1.2rem; box-shadow: var(--shadow-sm);">
+        <div style="font-size: 0.78rem; font-weight: 700; color: {% if total_sessions_today > 0 %}#15803D{% else %}#64748B{% endif %}; text-transform: uppercase;">
+            {% if CURRENT_LANG == 'ar' %}حصص اليوم{% else %}Séances Aujourd'hui{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: {% if total_sessions_today > 0 %}#16A34A{% else %}#475569{% endif %}; margin-top: 0.3rem;">
+            {{ total_sessions_today }} <span style="font-size: 0.85rem; font-weight: 600; color: #64748B;">{% if CURRENT_LANG == 'ar' %}برنامج اليوم{% else %}à animer{% endif %}</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem;">
+            {% local_date today_date %}
+        </div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid #0284C7; padding: 1.2rem; box-shadow: var(--shadow-sm);">
+        <div style="font-size: 0.78rem; font-weight: 700; color: #0284C7; text-transform: uppercase;">
+            {% if CURRENT_LANG == 'ar' %}المجموعات المؤطرة{% else %}Groupes Encadrés{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #0284C7; margin-top: 0.3rem;">
+            {{ total_groups }} <span style="font-size: 0.85rem; font-weight: 600; color: #64748B;">{% if CURRENT_LANG == 'ar' %}مجموعات{% else %}groupes{% endif %}</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem;">
+            {% if CURRENT_LANG == 'ar' %}مستويات مختلفة{% else %}différents niveaux{% endif %}
+        </div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid #7C3AED; padding: 1.2rem; box-shadow: var(--shadow-sm);">
+        <div style="font-size: 0.78rem; font-weight: 700; color: #7C3AED; text-transform: uppercase;">
+            {% if CURRENT_LANG == 'ar' %}إجمالي التلاميذ{% else %}Élèves Encadrés{% endif %}
+        </div>
+        <div style="font-size: 1.8rem; font-weight: 800; color: #7C3AED; margin-top: 0.3rem;">
+            {{ total_students }} <span style="font-size: 0.85rem; font-weight: 600; color: #64748B;">{% if CURRENT_LANG == 'ar' %}تلميذ نشط{% else %}élèves actifs{% endif %}</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem;">
+            {% if CURRENT_LANG == 'ar' %}في جميع أفواجك{% else %}dans l'ensemble de vos cours{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 1 : SÉANCES DU JOUR & POINTAGE DIRECT -->
+<div class="card" style="margin-bottom: 2rem; border-top: 4px solid #16A34A; padding: 1.5rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h3 style="margin: 0; color: #16A34A; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                ⚡ {% if CURRENT_LANG == 'ar' %}حصص اليوم المطلوب تسجيل حضورها{% else %}Séances d'Aujourd'hui & Pointage Direct{% endif %}
+            </h3>
+            <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                {% if CURRENT_LANG == 'ar' %}
+                    اضغط على زر «تسجيل الحضور» لتسجيل المناداة بالهاتف أو مسح بطاقات QR Code للتلاميذ.
+                {% else %}
+                    Accédez directement à la feuille d'appel numérique pour pointer les présences par clic ou via caméra QR Code.
+                {% endif %}
+            </p>
+        </div>
+        <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700; padding: 0.35rem 0.75rem;">
+            📍 {% local_date today_date %}
+        </span>
+    </div>
+
+    {% if today_sessions_info %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+            {% for item in today_sessions_info %}
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; background: white; box-shadow: var(--shadow-xs); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <!-- Badge Groupe & Horaires -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                        <span class="badge" style="background: {{ item.schedule.group.get_color }}; color: white; font-weight: 700; font-size: 0.85rem;">
+                            👥 {{ item.schedule.group|trans_field:CURRENT_LANG }}
+                        </span>
+                        <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 800; font-size: 0.85rem;">
+                            ⏰ {{ item.schedule.start_time|time:'H:i' }} - {{ item.schedule.end_time|time:'H:i' }}
+                        </span>
+                    </div>
+
+                    <!-- Activité et Salle -->
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                        <div>♟️ <b>{% if CURRENT_LANG == 'ar' %}النشاط :{% else %}Activité :{% endif %}</b> {{ item.schedule.group.subject|trans_field:CURRENT_LANG }}</div>
+                        <div>🏛️ <b>{% if CURRENT_LANG == 'ar' %}القاعة :{% else %}Salle :{% endif %}</b> {{ item.schedule.room|trans_field:CURRENT_LANG|default:"Salle principale" }}</div>
+                        <div>🎓 <b>{% if CURRENT_LANG == 'ar' %}المسجلون :{% else %}Inscrits :{% endif %}</b> {{ item.total_students }} élèves</div>
+                    </div>
+
+                    <!-- Statut du pointage aujourd'hui -->
+                    <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
+                            <span>{% if CURRENT_LANG == 'ar' %}حالة ورقة الحضور :{% else %}État de l'émargement :{% endif %}</span>
+                            {% if item.is_completed %}
+                                <span style="color: #16A34A;">✓ {% if CURRENT_LANG == 'ar' %}مكتمل بالكامل{% else %}Complet{% endif %}</span>
+                            {% elif item.marked_count > 0 %}
+                                <span style="color: #D97706;">⏳ {% if CURRENT_LANG == 'ar' %}جزئي ({{ item.marked_count }}/{{ item.total_students }}){% else %}En cours ({{ item.marked_count }}/{{ item.total_students }}){% endif %}</span>
+                            {% else %}
+                                <span style="color: #DC2626;">⚠️ {% if CURRENT_LANG == 'ar' %}لم يتم بعد{% else %}Non effectué{% endif %}</span>
+                            {% endif %}
+                        </div>
+
+                        {% if item.marked_count > 0 %}
+                        <div style="display: flex; gap: 0.4rem; margin-top: 0.4rem; font-size: 0.75rem; flex-wrap: wrap;">
+                            <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700;">
+                                🟢 {{ item.present_count }} {% if CURRENT_LANG == 'ar' %}حاضر{% else %}Présents{% endif %}
+                            </span>
+                            <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 700;">
+                                🔴 {{ item.absent_count }} {% if CURRENT_LANG == 'ar' %}غائب{% else %}Absents{% endif %}
+                            </span>
+                            {% if item.late_count %}
+                            <span class="badge" style="background: #FFEDD5; color: #9A3412; font-weight: 700;">
+                                🟠 {{ item.late_count }} {% if CURRENT_LANG == 'ar' %}متأخر{% else %}Retards{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Bouton d'action direct -->
+                <a href="{% url 'portal:attendance_sheet' item.schedule.id %}?date={{ today_date|date:'Y-m-d' }}" class="btn btn-primary" style="font-weight: 700; width: 100%; justify-content: center;">
+                    📋 {% if CURRENT_LANG == 'ar' %}فتح ورقة تسجيل الحضور{% else %}Faire l'Appel (Émargement){% endif %}
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div style="background: #F8FAFC; border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 2rem 1.5rem; text-align: center; color: var(--text-muted);">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎉</div>
+            <h4 style="margin: 0 0 0.4rem 0; color: var(--primary-navy); font-size: 1.05rem;">
+                {% if CURRENT_LANG == 'ar' %}لا توجد أي حصة مسندة إليك مبرمجة لليوم !{% else %}Aucun cours programmé aujourd'hui pour votre compte !{% endif %}
+            </h4>
+            <p style="margin: 0; font-size: 0.85rem;">
+                {% if CURRENT_LANG == 'ar' %}استمتع بيومك، أو اطلع على جدولك الأسبوعي الكامل أدناه.{% else %}Consultez votre planning hebdomadaire ci-dessous pour voir vos prochaines séances.{% endif %}
+            </p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- SECTION 2 : EMPLOI DU TEMPS HEBDOMADAIRE DU FORMATEUR -->
+<div class="card" style="margin-bottom: 2rem; border-top: 4px solid var(--primary-navy); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h3 style="margin: 0; color: var(--primary-navy); font-size: 1.25rem;">
+                📅 {% if CURRENT_LANG == 'ar' %}جدول الحصص الأسبوعي الكامل{% else %}Mon Emploi du Temps Hebdomadaire{% endif %}
+            </h3>
+            <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                {% if CURRENT_LANG == 'ar' %}جميع الحصص المبرمجة أسبوعياً مع إمكانية فتح ورقة الحضور لأي تاريخ.{% else %}Toutes vos séances hebdomadaires avec accès direct aux feuilles d'appel.{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th style="width: 140px;">{% if CURRENT_LANG == 'ar' %}اليوم{% else %}Jour{% endif %}</th>
+                    <th style="width: 150px;">{% if CURRENT_LANG == 'ar' %}التوقيت{% else %}Horaire{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}المجموعة والنشاط{% else %}Groupe & Activité{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}القاعة{% else %}Salle{% endif %}</th>
+                    <th style="text-align: center; width: 130px;">{% if CURRENT_LANG == 'ar' %}التلاميذ{% else %}Élèves{% endif %}</th>
+                    <th style="text-align: center; width: 220px;">{% if CURRENT_LANG == 'ar' %}تسجيل الحضور{% else %}Action / Pointage{% endif %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sch in schedules %}
+                <tr {% if sch.day_of_week == today_weekday %}style="background: #F0FDF4;"{% endif %}>
+                    <td style="font-weight: 700;">
+                        {{ sch.day_name }}
+                        {% if sch.day_of_week == today_weekday %}
+                            <span class="badge" style="background: #DCFCE7; color: #166534; font-size: 0.7rem; margin-inline-start: 0.3rem;">
+                                {% if CURRENT_LANG == 'ar' %}اليوم{% else %}Aujourd'hui{% endif %}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="font-family: monospace; font-weight: 700; color: var(--primary-navy);">
+                        ⏰ {{ sch.start_time|time:"H:i" }} - {{ sch.end_time|time:"H:i" }}
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="width: 12px; height: 12px; border-radius: 50%; background: {{ sch.group.get_color }}; display: inline-block;"></span>
+                            <b>{{ sch.group|trans_field:CURRENT_LANG }}</b>
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem;">
+                            ♟️ {{ sch.group.subject|trans_field:CURRENT_LANG }}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge" style="background: #F1F5F9; color: var(--text-dark);">
+                            🏛️ {{ sch.room|trans_field:CURRENT_LANG|default:"Salle principale" }}
+                        </span>
+                    </td>
+                    <td style="text-align: center; font-weight: 700; color: var(--primary-navy);">
+                        👥 {{ sch.group.students.count }}
+                    </td>
+                    <td style="text-align: center;">
+                        <a href="{% url 'portal:attendance_sheet' sch.id %}" class="btn btn-sm btn-primary" style="font-weight: 600; width: 100%; justify-content: center;">
+                            📋 {% if CURRENT_LANG == 'ar' %}ورقة الحضور{% else %}Feuille d'Appel{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                        ℹ️ {% if CURRENT_LANG == 'ar' %}لا توجد أي حصص مبرمجة مسندة لهذا المدرب حالياً.{% else %}Aucune séance planifiée assignée à ce formateur actuellement.{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECTION 3 : MES GROUPES & LISTE DES ÉLÈVES (STRICTEMENT SANS DONNÉES FINANCIÈRES) -->
+<div class="card" style="border-top: 4px solid #7C3AED; padding: 1.5rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h3 style="margin: 0; color: #7C3AED; font-size: 1.25rem;">
+                👥 {% if CURRENT_LANG == 'ar' %}أفواجي وقوائم التلاميذ المسجلين{% else %}Mes Groupes & Listes des Élèves{% endif %}
+            </h3>
+            <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                {% if CURRENT_LANG == 'ar' %}
+                    قائمة التلاميذ المنتسبين إلى أفواجك مع أرقام التسجيل للتواصل التربوي السريع.
+                {% else %}
+                    Consultez les effectifs de vos groupes, matricules et contacts parents d'urgence.
+                {% endif %}
+            </p>
+        </div>
+
+        <input type="text" id="trainerStudentFilter" placeholder="🔍 {% if CURRENT_LANG == 'ar' %}بحث عن تلميذ في أفواجك...{% else %}Filtrer un élève...{% endif %}" class="search-input" style="max-width: 260px; font-size: 0.85rem;">
+    </div>
+
+    {% for g_data in groups_data %}
+    <div class="card" style="margin-bottom: 1.5rem; border: 1px solid var(--border-color); background: white;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span style="width: 14px; height: 14px; border-radius: 50%; background: {{ g_data.group.get_color }}; display: inline-block;"></span>
+                <b style="font-size: 1.05rem; color: var(--primary-navy);">{{ g_data.group|trans_field:CURRENT_LANG }}</b>
+                <span class="badge" style="background: #E2E8F0; color: var(--text-dark); font-size: 0.78rem;">
+                    ♟️ {{ g_data.group.subject|trans_field:CURRENT_LANG }}
+                </span>
+            </div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary-navy);">
+                👥 {{ g_data.students_count }} {% if CURRENT_LANG == 'ar' %}تلميذ مسجل{% else %}élèves inscrits{% endif %}
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="gca-table trainer-students-table">
+                <thead>
+                    <tr>
+                        <th style="width: 110px;">{% if CURRENT_LANG == 'ar' %}رقم التسجيل{% else %}Matricule{% endif %}</th>
+                        <th>{% if CURRENT_LANG == 'ar' %}اسم التلميذ{% else %}Nom de l'Élève{% endif %}</th>
+                        <th>{% if CURRENT_LANG == 'ar' %}المدرسة / المستوى{% else %}Scolarité{% endif %}</th>
+                        <th>{% if CURRENT_LANG == 'ar' %}ولي الأمر للتواصل{% else %}Parent Référent{% endif %}</th>
+                        <th style="width: 150px; text-align: center;">{% if CURRENT_LANG == 'ar' %}اتصال الطوارئ{% else %}Contact Urgence{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for st in g_data.students %}
+                    <tr class="trainer-student-row">
+                        <td style="font-family: monospace; font-weight: 700; color: var(--primary-navy);">
+                            {{ st.registration_number }}
+                        </td>
+                        <td style="font-weight: 600;">
+                            {{ st.get_bilingual_full_name }}
+                        </td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">
+                            {{ st.school|default:"—" }} {% if st.grade_level %}({{ st.grade_level }}){% endif %}
+                        </td>
+                        <td style="font-size: 0.85rem;">
+                            👨‍👦 {{ st.parent|trans_field:CURRENT_LANG }}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if st.parent.phone %}
+                                <a href="tel:{{ st.parent.phone }}" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.2rem 0.5rem; font-weight: 600;" title="Appeler le parent">
+                                    📞 {{ st.parent.phone }}
+                                </a>
+                            {% else %}
+                                <span class="badge" style="background: #FEE2E2; color: #991B1B; font-size: 0.72rem;">⚠️ Sans tél.</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                            ℹ️ {% if CURRENT_LANG == 'ar' %}لا يوجد أي تلميذ مسجل في هذا الفوج حالياً.{% else %}Aucun élève inscrit dans ce groupe pour le moment.{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        ℹ️ {% if CURRENT_LANG == 'ar' %}لا توجد مجموعات مسندة لهذا المدرب.{% else %}Aucun groupe assigné à ce formateur.{% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- SCRIPT DE FILTRE RAPIDE DES ÉLÈVES -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterInput = document.getElementById('trainerStudentFilter');
+    if (!filterInput) return;
+
+    filterInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.trainer-student-row');
+        rows.forEach(function(row) {
+            const text = row.textContent.toLowerCase();
+            if (text.includes(query)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
