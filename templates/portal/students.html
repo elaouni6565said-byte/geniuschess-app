@@ -114,8 +114,8 @@
                     </td>
                     <td style="text-align: center;">
                         <div style="display: inline-flex; gap: 0.35rem; align-items: center;">
-                            <a href="{% url 'portal:student_card_pdf' st.id %}" target="_blank" class="btn btn-outline btn-sm" style="font-weight: 600;" title="Télécharger la Carte de Membre (PDF)">
-                                🪪 {% if CURRENT_LANG == 'ar' %}بطاقة{% else %}Badge{% endif %}
+                            <a href="{% url 'portal:student_card_pdf' st.id %}" target="_blank" class="btn btn-outline btn-sm" style="font-weight: 600;" title="{% if CURRENT_LANG == 'ar' %}تحميل بطاقة الطالب(ة) (PDF){% else %}Télécharger la Carte d'Étudiant(e) (PDF){% endif %}">
+                                🪪 {% if CURRENT_LANG == 'ar' %}بطاقة الطالب(ة){% else %}Carte Étudiant(e){% endif %}
                             </a>
                             <a href="{% url 'portal:timetable_pdf' st.id %}?lang={{ CURRENT_LANG }}" target="_blank" class="btn btn-outline btn-sm" title="Télécharger l'Emploi du Temps (PDF)">
                                 📅 PDF

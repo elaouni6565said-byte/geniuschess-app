@@ -2318,7 +2318,7 @@ def student_card_pdf_view(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     pdf_bytes = generate_single_student_card_pdf(student)
 
-    filename = f"Carte_Membre_{student.registration_number}.pdf"
+    filename = f"Carte_Etudiant_{student.registration_number}.pdf"
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response

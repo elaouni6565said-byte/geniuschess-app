@@ -152,8 +152,8 @@ def draw_single_card(c, x, y, student, lang="bilingual"):
 
     c.setFillColor(WHITE)
     c.setFont("Helvetica", 5.2)
-    c.drawString(x + 3.5 * mm, y + 1.2 * mm, "CARTE DE MEMBRE OFFICIELLE")
-    ar_foot = prepare_arabic_text_for_pdf("بطاقة العضوية الرسمية")
+    c.drawString(x + 3.5 * mm, y + 1.2 * mm, "CARTE D'ETUDIANT (E)")
+    ar_foot = prepare_arabic_text_for_pdf("بطاقة الطالب (ة)")
     c.setFont(get_card_font(True), 5.2)
     c.drawRightString(x + CARD_WIDTH - 3.5 * mm, y + 1.2 * mm, ar_foot)
 
@@ -247,7 +247,7 @@ def draw_single_card(c, x, y, student, lang="bilingual"):
     # Academic Year
     c.setFillColor(TEXT_MUTED)
     c.setFont("Helvetica", 5.5)
-    c.drawString(left_x, mat_y - 7.5 * mm, "Saison: 2025 / 2026")
+    c.drawString(left_x, mat_y - 7.5 * mm, "Saison: 2026 / 2027")
 
     c.restoreState()
 
@@ -258,7 +258,7 @@ def generate_single_student_card_pdf(student, lang="bilingual"):
     """
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=(CARD_WIDTH, CARD_HEIGHT))
-    c.setTitle(f"Carte_Membre_{student.registration_number}")
+    c.setTitle(f"Carte_Etudiant_{student.registration_number}")
     draw_single_card(c, 0, 0, student, lang=lang)
     c.showPage()
     c.save()
@@ -272,7 +272,7 @@ def generate_student_cards_sheet_pdf(students, lang="bilingual"):
     """
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
-    c.setTitle("Planche_Cartes_Membres_GCA")
+    c.setTitle("Planche_Cartes_Etudiants_GCA")
 
     page_w, page_h = A4
     cols = 2
