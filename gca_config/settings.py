@@ -109,9 +109,10 @@ CSRF_FAILURE_VIEW = 'portal.views.csrf_failure_view'
 # Code de sécurité financier pour autoriser la modification des paiements
 ADMIN_FINANCIAL_SECURITY_CODE = '6565'
 
-# Configuration Mode WhatsApp (Mode Direct / Manuel par l'administration)
+# Configuration Mode WhatsApp Automatique (Passerelle UltraMsg)
 WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', '')
-WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '')
+WHATSAPP_INSTANCE_ID = os.getenv('WHATSAPP_INSTANCE_ID', 'instance191589')
+WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', 'jesy27l6t261hkoa')
 WHATSAPP_SESSION_NAME = os.getenv('WHATSAPP_SESSION_NAME', 'default')
 
 
