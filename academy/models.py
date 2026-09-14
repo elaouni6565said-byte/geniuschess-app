@@ -126,6 +126,22 @@ class Parent(models.Model):
     def get_visit_count(self):
         return self.visit_logs.count()
 
+    def save(self, *args, **kwargs):
+        if self.phone:
+            import re
+            cleaned = re.sub(r'[^\d]', '', str(self.phone).strip())
+            if cleaned.startswith('00212'):
+                cleaned = cleaned[2:]
+            elif cleaned.startswith('2120') and len(cleaned) >= 12:
+                cleaned = '212' + cleaned[4:]
+            elif cleaned.startswith('0'):
+                cleaned = '212' + cleaned[1:]
+            elif not cleaned.startswith('212') and len(cleaned) == 9:
+                cleaned = '212' + cleaned
+            if cleaned:
+                self.phone = cleaned
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.full_name_fr} / {self.full_name_ar} ({self.phone})"
 
