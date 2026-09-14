@@ -111,7 +111,7 @@ ADMIN_FINANCIAL_SECURITY_CODE = '6565'
 
 # Configuration Mode WhatsApp Automatique (Passerelle WAHA - WhatsApp HTTP API)
 WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', 'http://127.0.0.1:3000/api/sendText')
-WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '')
+WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', 'edff40183779418cbfd267b471253777')
 WHATSAPP_SESSION_NAME = os.getenv('WHATSAPP_SESSION_NAME', 'default')
 
 
