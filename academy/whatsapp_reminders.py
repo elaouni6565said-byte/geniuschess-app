@@ -272,7 +272,7 @@ def send_whatsapp_via_gateway(phone, message):
             if token:
                 headers['X-Api-Key'] = token
             req = urllib.request.Request(url, data=payload, headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=3) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 return {'success': True, 'response': res_data, 'sent_to': wa_phone}
 
@@ -285,7 +285,7 @@ def send_whatsapp_via_gateway(phone, message):
                 'body': message,
             }).encode('utf-8')
             req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/x-www-form-urlencoded'})
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=3) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 return {'success': True, 'response': res_data, 'sent_to': wa_phone}
 
@@ -293,8 +293,10 @@ def send_whatsapp_via_gateway(phone, message):
         else:
             payload = json.dumps({'phone': wa_phone, 'message': message, 'token': token}).encode('utf-8')
             req = urllib.request.Request(gateway_url, data=payload, headers={'Content-Type': 'application/json'})
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=3) as resp:
                 return {'success': True, 'sent_to': wa_phone}
+    except (urllib.error.URLError, TimeoutError) as e:
+        return {'success': False, 'error': f'Gateway unreachable or timeout (3s): {e}'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
