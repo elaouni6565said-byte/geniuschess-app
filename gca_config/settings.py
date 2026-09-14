@@ -92,6 +92,8 @@ LOGIN_REDIRECT_URL = 'portal:dashboard'
 LOGOUT_REDIRECT_URL = 'portal:login'
 
 CSRF_TRUSTED_ORIGINS = [
+    'https://app.geniuschessacademy.ma',
+    'http://app.geniuschessacademy.ma',
     'https://geniuschess.ma',
     'https://www.geniuschess.ma',
     'http://geniuschess.ma',

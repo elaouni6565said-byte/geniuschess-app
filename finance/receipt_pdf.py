@@ -93,15 +93,15 @@ def generate_receipt_pdf(payment, lang="fr"):
     if lang == "ar":
         title_text = prepare_arabic_text_for_pdf("وصل الأداء")
         academy_sub = prepare_arabic_text_for_pdf("شطرنج • روبوتيك • حساب ذهني")
-        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: geniuschess.ma • هاتف: 06 060424142")
+        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: app.geniuschessacademy.ma • هاتف: 06 060424142")
     elif lang == "bilingual":
         title_text = f"REÇU DE PAIEMENT / {prepare_arabic_text_for_pdf('وصل الأداء')}"
         academy_sub = f"Échecs • Robotique • Calcul Mental / {prepare_arabic_text_for_pdf('شطرنج • روبوتيك • حساب ذهني')}"
-        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+        contact_text = "Sidi Kacem • app.geniuschessacademy.ma • Tél: 06 060424142"
     else: # fr
         title_text = "REÇU DE PAIEMENT"
         academy_sub = "Échecs • Robotique • Calcul Mental"
-        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+        contact_text = "Sidi Kacem • app.geniuschessacademy.ma • Tél: 06 060424142"
 
     # Header banner Table with official logo
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

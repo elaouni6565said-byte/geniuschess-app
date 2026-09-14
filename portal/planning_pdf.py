@@ -87,15 +87,15 @@ def generate_master_planning_pdf(schedules, lang="fr", room=None):
 
     if lang == "ar":
         academy_sub = prepare_arabic_text_for_pdf("البرنامج العام الأسبوعي للحصص والتداريب • الموسم 2026")
-        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: geniuschess.ma • هاتف: 06 060424142")
+        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: app.geniuschessacademy.ma • هاتف: 06 060424142")
         doc_title = prepare_arabic_text_for_pdf("البرنامج الأسبوعي العام")
     elif lang == "bilingual":
         academy_sub = f"PLANNING OFFICIEL HEBDOMADAIRE / {prepare_arabic_text_for_pdf('البرنامج الأسبوعي العام')} • 2026"
-        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+        contact_text = "Sidi Kacem • app.geniuschessacademy.ma • Tél: 06 060424142"
         doc_title = f"PLANNING OFFICIEL / {prepare_arabic_text_for_pdf('برنامج الحصص')}"
     else:
         academy_sub = "PLANNING OFFICIEL HEBDOMADAIRE DES COURS • SAISON 2026"
-        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+        contact_text = "Sidi Kacem • app.geniuschessacademy.ma • Tél: 06 060424142"
         doc_title = "PLANNING GÉNÉRAL DES COURS"
 
     # Logo & Header Banner

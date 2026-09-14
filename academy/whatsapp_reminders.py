@@ -65,7 +65,7 @@ def build_whatsapp_reminder_text(schedule, student, lang="fr", target_date=None)
             f"🏛️ القاعة : {room_ar}\n"
             f"👨‍🏫 المؤطر(ة) : {coach_ar}\n\n"
             f"يرجى الحرص على الحضور 5 دقائق قبل الموعد. نتمنى لأبنائنا حصة ممتعة ومفيدة ! 🌟\n"
-            f"📍 سيدي قاسم / الرباط • الموقع: https://geniuschess.ma\n\n"
+            f"📍 سيدي قاسم / الرباط • الموقع: https://app.geniuschessacademy.ma\n\n"
             f"🤖 _تم إنشاء هذه الرسالة تلقائياً بواسطة منصة أكاديمية جينيوس للشطرنج._"
         )
     else:
@@ -79,7 +79,7 @@ def build_whatsapp_reminder_text(schedule, student, lang="fr", target_date=None)
             f"🏛️ Salle : {room_fr}\n"
             f"👨‍🏫 Formateur : {coach_fr}\n\n"
             f"Merci de veiller à la ponctualité de votre enfant (5 min avant le cours). Excellente séance ! 🌟\n"
-            f"📍 Sidi Kacem / Rabat • Site Web: https://geniuschess.ma\n\n"
+            f"📍 Sidi Kacem / Rabat • Site Web: https://app.geniuschessacademy.ma\n\n"
             f"🤖 _Ce message a été généré automatiquement par la plateforme Genius Chess Academy._"
         )
     return message
@@ -159,7 +159,7 @@ def build_whatsapp_cancellation_text(schedule, student, lang="fr", reason=""):
             f"🕒 التوقيت : *{time_str}*\n"
             f"{reason_ar}\n"
             f"نحيطكم علماً بأن هذه الحصة قد تم *إلغاؤها استثنائياً* اليوم. نعتذر عن هذا التغيير ونشكركم على حسن تفهمكم. 🙏\n"
-            f"📍 سيدي قاسم / الرباط • الموقع: https://geniuschess.ma"
+            f"📍 سيدي قاسم / الرباط • الموقع: https://app.geniuschessacademy.ma"
         )
     else:
         message = (
@@ -170,7 +170,7 @@ def build_whatsapp_cancellation_text(schedule, student, lang="fr", reason=""):
             f"🕒 Horaire initial : *{time_str}*\n"
             f"{reason_fr}\n"
             f"Nous vous informons que cette séance est *exceptionnellement annulée* aujourd'hui. Nous vous prions de nous excuser pour ce désagrément et vous remercions de votre compréhension. 🙏\n"
-            f"📍 Sidi Kacem / Rabat • Site Web: https://geniuschess.ma"
+            f"📍 Sidi Kacem / Rabat • Site Web: https://app.geniuschessacademy.ma"
         )
     return message
 

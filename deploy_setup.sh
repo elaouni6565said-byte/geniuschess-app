@@ -1,15 +1,15 @@
-﻿#!/bin/bash
+#!/bin/bash
 # ==============================================================================
 # Script de Déploiement Automatique Clé en Main - Genius Chess Academy (GCA 2026)
-# Domaine cible : geniuschess.ma
+# Domaine cible : app.geniuschessacademy.ma
 # ==============================================================================
 set -e
 
 echo "=========================================================="
-echo "♟️ DÉPLOIEMENT GENIUS CHESS ACADEMY (https://geniuschess.ma)"
+echo "♟️ DÉPLOIEMENT GENIUS CHESS ACADEMY (https://app.geniuschessacademy.ma)"
 echo "=========================================================="
 
-DOMAIN="geniuschess.ma"
+DOMAIN="app.geniuschessacademy.ma"
 PROJECT_DIR="/var/www/geniuschess"
 VENV_DIR="$PROJECT_DIR/venv"
 

@@ -100,15 +100,15 @@ def generate_timetable_pdf(student, lang="fr"):
     if lang == "ar":
         title_text = prepare_arabic_text_for_pdf("جدول الحصص والتوقيت الأسبوعي")
         academy_sub = prepare_arabic_text_for_pdf("الموسم الدراسي 2026 • شطرنج • روبوتيك • حساب ذهني")
-        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: geniuschess.ma • هاتف: 06 060424142")
+        contact_text = prepare_arabic_text_for_pdf("سيدي قاسم • الموقع: app.geniuschessacademy.ma • هاتف: 06 060424142")
     elif lang == "bilingual":
         title_text = f"EMPLOI DU TEMPS / {prepare_arabic_text_for_pdf('جدول الحصص الأسبوعي')}"
         academy_sub = f"Saison 2026 • Échecs • Robotique • Calcul Mental"
-        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+        contact_text = "Sidi Kacem • app.geniuschessacademy.ma • Tél: 06 060424142"
     else:
         title_text = "EMPLOI DU TEMPS HEBDOMADAIRE"
         academy_sub = "Saison Académique 2026 • Échecs • Robotique • Calcul Mental"
-        contact_text = "Sidi Kacem • www.geniuschess.ma • Tél: 06 060424142"
+        contact_text = "Sidi Kacem • app.geniuschessacademy.ma • Tél: 06 060424142"
 
     # Logo Header
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
