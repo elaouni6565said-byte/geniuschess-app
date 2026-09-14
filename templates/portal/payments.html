@@ -98,9 +98,9 @@
                 <tr>
                     <th>{% trans "payments.receipt_no" %}</th>
                     <th>{% trans "payments.student" %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}الأنشطة المستفاد منها{% else %}Activités bénéficiées{% endif %}</th>
                     <th>{% trans "payments.amount" %}</th>
                     <th>{% trans "payments.payment_date" %}</th>
-                    <th>{% trans "payments.method" %}</th>
                     <th style="text-align: center;">Reçu PDF</th>
                     <th style="text-align: center;">{% trans "crud.actions" %}</th>
                 </tr>
@@ -109,10 +109,31 @@
                 {% for p in payments %}
                 <tr>
                     <td><b>#{{ p.receipt_number }}</b></td>
-                    <td>{{ p.student|trans_field:CURRENT_LANG }}</td>
-                    <td style="font-weight: bold; color: var(--primary-blue);">{% money p.amount %}</td>
+                    <td>
+                        <div style="font-weight: 700;">{{ p.student|trans_field:CURRENT_LANG }}</div>
+                        <div style="font-size: 0.75rem; font-family: monospace; color: var(--text-muted);">
+                            {{ p.student.registration_number }}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                            {% for g in p.student.groups.all %}
+                                <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.78rem; font-weight: 600;">
+                                    {{ g.subject|trans_field:CURRENT_LANG }}
+                                </span>
+                            {% empty %}
+                                {% if p.invoice and p.invoice.group and p.invoice.group.subject %}
+                                    <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.78rem; font-weight: 600;">
+                                        {{ p.invoice.group.subject|trans_field:CURRENT_LANG }}
+                                    </span>
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">—</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td style="font-weight: bold; color: var(--primary-blue); font-size: 1rem;">{% money p.amount %}</td>
                     <td>{% local_date p.payment_date %}</td>
-                    <td>{{ p|trans_field:CURRENT_LANG }}</td>
                     <td style="text-align: center;">
                         <div style="display: inline-flex; gap: 0.35rem;">
                             <!-- PDF Français -->

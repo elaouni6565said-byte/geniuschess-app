@@ -153,7 +153,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - قائمة المقبوضات والأداءات المؤداة 2026"
         headers = [
             "رقم الإيصال", "تاريخ الأداء", "رقم التسجيل", "اسم التلميذ (بالعربية)", "اسم التلميذ (بالفرنسية)",
-            "المادة / النشاط", "المجموعة", "ولي الأمر", "الهاتف", "طريقة الأداء", "المبلغ المؤدى (درهم)"
+            "الأنشطة المستفاد منها", "المبلغ المؤدى (درهم)"
         ]
     elif lang == "bilingual":
         ws.title = "Paiements Réglés"
@@ -162,7 +162,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Réglés / قائمة المقبوضات 2026"
         headers = [
             "N° Reçu", "Date Paiement", "Matricule", "Élève (FR)", "الاسم (AR)",
-            "Activité / النشاط", "Groupe", "Parent / ولي الأمر", "Téléphone", "Mode Règlement", "Montant (DH)"
+            "Activités Bénéficiées / الأنشطة", "Montant (DH)"
         ]
     else: # fr
         ws.title = "Liste des Paiements"
@@ -171,7 +171,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Encaissés (Payants) 2026"
         headers = [
             "N° Reçu", "Date Paiement", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
-            "Activité", "Groupe", "Parent / Tuteur", "Téléphone", "Mode Règlement", "Montant Réglé (DH)"
+            "Activités Bénéficiées", "Montant Réglé (DH)"
         ]
 
     # Title row
@@ -200,20 +200,18 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
     for p in payments_queryset:
         ws.row_dimensions[row_idx].height = 22
         st = p.student
-        group = p.invoice.group if (p.invoice and p.invoice.group) else (st.groups.first() if st else None)
-        subject_str = group.subject.get_name(lang) if (group and group.subject) else "-"
-        group_str = group.get_name(lang) if group else "-"
-        parent_str = st.parent.get_name(lang) if (st and st.parent) else "-"
-        phone_str = st.parent.phone if (st and st.parent) else "-"
+        # Récupération de toutes les activités dont bénéficie l'élève
+        if st:
+            subject_names = [g.subject.get_name(lang) for g in st.groups.all() if g.subject]
+            # Déduplication tout en conservant l'ordre
+            subject_names = list(dict.fromkeys(subject_names))
+            if not subject_names and p.invoice and p.invoice.group and p.invoice.group.subject:
+                subject_names = [p.invoice.group.subject.get_name(lang)]
+            separator = " ، " if lang == "ar" else ", "
+            activities_str = separator.join(subject_names) if subject_names else "-"
+        else:
+            activities_str = "-"
         
-        # Payment method localized
-        method_labels = {
-            'cash': 'Espèces / نقداً',
-            'bank_transfer': 'Virement bancaire / تحويل بنكي',
-            'check': 'Chèque / شيك',
-            'online': 'En ligne / أداء إلكتروني',
-        }
-        method_str = method_labels.get(p.payment_method, p.payment_method or "Espèces")
         amt = float(p.amount)
         total_amount += amt
 
@@ -223,11 +221,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
             st.registration_number if st else "-",
             f"{st.first_name_fr} {st.last_name_fr}".strip() if st else "-",
             f"{st.first_name_ar} {st.last_name_ar}".strip() if st else "-",
-            subject_str,
-            group_str,
-            parent_str,
-            phone_str,
-            method_str,
+            activities_str,
             amt,
         ]
         if lang == "ar":

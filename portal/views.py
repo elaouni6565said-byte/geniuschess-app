@@ -190,7 +190,7 @@ def download_planning_pdf_view(request):
 def export_paid_payments_excel_view(request):
     """Export the list of paid payments / encaissements to an official Excel workbook."""
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    payments = Payment.objects.select_related('student', 'student__parent', 'invoice', 'invoice__group', 'invoice__group__subject').order_by('-payment_date', '-id')
+    payments = Payment.objects.select_related('student', 'student__parent', 'invoice', 'invoice__group', 'invoice__group__subject').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
     excel_data = export_paid_payments_to_excel(payments, lang=lang)
 
     filename = f"GCA_Liste_Payants_{lang}.xlsx"
@@ -387,7 +387,7 @@ def planning_view(request):
 def payments_list_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     reconcile_orphan_payments()
-    payments = Payment.objects.select_related('student', 'invoice', 'invoice__group').order_by('-payment_date', '-id')
+    payments = Payment.objects.select_related('student', 'invoice', 'invoice__group').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
     unpaid_invoices = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')
     
     context = {
