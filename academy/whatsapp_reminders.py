@@ -284,8 +284,12 @@ def send_whatsapp_via_gateway(phone, message):
                 'to': f"+{wa_phone}",
                 'body': message,
             }).encode('utf-8')
-            req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/x-www-form-urlencoded'})
-            with urllib.request.urlopen(req, timeout=3) as resp:
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+            }
+            req = urllib.request.Request(url, data=payload, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 return {'success': True, 'response': res_data, 'sent_to': wa_phone}
 
