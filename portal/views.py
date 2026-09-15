@@ -60,10 +60,56 @@ def set_device_mode(request, mode):
     return response
 
 
-def reconcile_orphan_payments():
-    orphans = Payment.objects.filter(invoice__isnull=True).select_related('student')
-    for p in orphans:
+def sync_invoices_with_actual_attendances():
+    """
+    Garantit une synchronisation 100% automatique et continue entre les présences et les impayés :
+    1. Si un élève a au moins une présence 'present' ce mois-ci et n'a pas encore de facture, elle est créée automatiquement.
+    2. Si un élève sans aucun paiement n'a plus aucune présence 'present', sa facture impayée est automatiquement retirée.
+    3. Les paiements orphelins sont automatiquement rattachés.
+    """
+    import datetime
+    from decimal import Decimal
+    today = datetime.date.today()
+    month = today.month
+    year = today.year
+    due_date = datetime.date(year, month, 15)
+
+    # 1. Rattachement des paiements orphelins
+    for p in Payment.objects.filter(invoice__isnull=True).select_related('student'):
         p.save()
+
+    # 2. Pour les élèves ayant assisté à au moins une séance, créer la facture si manquante
+    attended_students = Student.objects.filter(
+        active=True,
+        attendances__status='present',
+        attendances__date__year=year,
+        attendances__date__month=month
+    ).distinct()
+
+    for st in attended_students:
+        if not Invoice.objects.filter(student=st, period_month=month, period_year=year).exists():
+            groups = st.groups.all()
+            if groups.exists():
+                fee = sum(g.monthly_fee for g in groups if g.monthly_fee > 0) or Decimal('150.00')
+                first_grp = groups.first()
+                inv = Invoice.objects.create(
+                    student=st,
+                    group=first_grp,
+                    period_month=month,
+                    period_year=year,
+                    amount_due=fee,
+                    amount_paid=Decimal('0.00'),
+                    status='unpaid',
+                    due_date=due_date
+                )
+                # Vérifier si un paiement existait déjà
+                inv.update_totals()
+
+    # 3. Supprimer les factures impayées (sans aucun paiement versé) des élèves n'ayant AUCUNE présence
+    for inv in Invoice.objects.filter(status='unpaid', period_month=month, period_year=year, amount_paid=Decimal('0.00')):
+        has_pres = Attendance.objects.filter(student=inv.student, status='present').exists()
+        if not has_pres:
+            inv.delete()
 
 
 def get_billable_unpaid_invoices_qs():
@@ -72,6 +118,7 @@ def get_billable_unpaid_invoices_qs():
     effectivement assisté à au moins une séance de cours (status='present').
     Exclut les élèves inscrits mais qui n'ont pas encore commencé.
     """
+    sync_invoices_with_actual_attendances()
     return Invoice.objects.filter(
         status__in=['unpaid', 'partial'],
         student__attendances__status='present'
@@ -80,7 +127,7 @@ def get_billable_unpaid_invoices_qs():
 @admin_required
 def dashboard_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    reconcile_orphan_payments()
+    sync_invoices_with_actual_attendances()
     total_students = Student.objects.filter(active=True).count()
     active_groups = Group.objects.count()
     
@@ -398,7 +445,7 @@ def planning_view(request):
 @admin_required
 def payments_list_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    reconcile_orphan_payments()
+    sync_invoices_with_actual_attendances()
     payments = Payment.objects.select_related('student', 'invoice', 'invoice__group').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
     unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'group')
     
