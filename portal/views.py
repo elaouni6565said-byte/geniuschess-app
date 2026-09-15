@@ -65,6 +65,18 @@ def reconcile_orphan_payments():
     for p in orphans:
         p.save()
 
+
+def get_billable_unpaid_invoices_qs():
+    """
+    Retourne uniquement les factures impayées ou partielles des élèves ayant
+    effectivement assisté à au moins une séance de cours (status='present').
+    Exclut les élèves inscrits mais qui n'ont pas encore commencé.
+    """
+    return Invoice.objects.filter(
+        status__in=['unpaid', 'partial'],
+        student__attendances__status='present'
+    ).distinct()
+
 @admin_required
 def dashboard_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
@@ -74,7 +86,7 @@ def dashboard_view(request):
     
     # Financial KPIs
     total_revenue = Payment.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    invoices = Invoice.objects.filter(status__in=['unpaid', 'partial'])
+    invoices = get_billable_unpaid_invoices_qs()
     total_unpaid = sum((inv.get_balance() for inv in invoices), Decimal('0.00'))
     
     # Attendance Rate
@@ -206,7 +218,7 @@ def export_paid_payments_excel_view(request):
 def export_unpaid_invoices_excel_view(request):
     """Export the list of unpaid/partially paid students (Impayés) to an official Excel workbook."""
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    unpaid_invoices = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'student__parent', 'group', 'group__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
+    unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'student__parent', 'group', 'group__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
     excel_data = export_unpaid_invoices_to_excel(unpaid_invoices, lang=lang)
 
     filename = f"GCA_Liste_Impayes_{lang}.xlsx"
@@ -388,7 +400,7 @@ def payments_list_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     reconcile_orphan_payments()
     payments = Payment.objects.select_related('student', 'invoice', 'invoice__group').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
-    unpaid_invoices = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')
+    unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'group')
     
     context = {
         'payments': payments,
@@ -498,9 +510,7 @@ def unpaid_reminders_console_view(request):
     filter_all_periods = request.GET.get('all_periods') == '1'
     q = request.GET.get('q', '').strip()
 
-    qs = Invoice.objects.filter(
-        status__in=['unpaid', 'partial']
-    ).select_related(
+    qs = get_billable_unpaid_invoices_qs().select_related(
         'student',
         'student__parent',
         'student__parent__user',

@@ -1,4 +1,4 @@
-﻿from decimal import Decimal
+from decimal import Decimal
 from datetime import date, datetime
 from django.db.models import Sum, Count, Q
 from academy.models import Student, Group, Subject
@@ -20,11 +20,13 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
     month = int(month)
     year = int(year)
 
-    # 1. Factures du mois selectionne
+    # 1. Factures du mois selectionne : réglées OU élèves ayant commencé (présence >= 1)
     invoices = Invoice.objects.filter(
         period_month=month,
         period_year=year
-    ).select_related("student", "student__parent", "group", "group__subject")
+    ).filter(
+        Q(status='paid') | Q(student__attendances__status='present')
+    ).distinct().select_related("student", "student__parent", "group", "group__subject")
 
     total_expected = invoices.aggregate(total=Sum("amount_due"))["total"] or Decimal("0.00")
     total_invoiced_count = invoices.count()
