@@ -272,7 +272,7 @@ def send_whatsapp_via_gateway(phone, message):
             if token:
                 headers['X-Api-Key'] = token
             req = urllib.request.Request(url, data=payload, headers=headers)
-            with urllib.request.urlopen(req, timeout=3) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 return {'success': True, 'response': res_data, 'sent_to': wa_phone}
 
