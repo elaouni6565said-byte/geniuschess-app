@@ -167,3 +167,72 @@ def send_bulk_absence_alerts_for_session(schedule, target_date=None):
         'skipped_count': skipped_count,
         'errors': errors
     }
+
+
+def send_presence_notification_to_parent(attendance):
+    """
+    Envoie une notification WhatsApp automatique et bienveillante au parent dès
+    que l'élève est pointé / scanné 'Présent' en classe.
+    """
+    student = attendance.student
+    parent = student.parent
+    if not parent or not parent.phone:
+        return {'success': False, 'error': "Numéro de parent manquant."}
+
+    wa_phone = format_phone_for_whatsapp(parent.phone)
+    if not wa_phone:
+        return {'success': False, 'error': "Numéro de téléphone invalide."}
+
+    lang = getattr(parent, 'preferred_language', 'fr') or 'fr'
+    schedule = attendance.session
+    p_name_fr = parent.full_name_fr if parent else "Parent"
+    p_name_ar = parent.full_name_ar if parent else "ولي الأمر"
+    st_name_fr = student.get_full_name("fr")
+    st_name_ar = student.get_full_name("ar")
+
+    grp_fr = schedule.group.name_fr if schedule and schedule.group else "Groupe"
+    grp_ar = schedule.group.name_ar if schedule and schedule.group else "الفوج"
+    subj_fr = schedule.group.subject.name_fr if schedule and schedule.group and schedule.group.subject else "Séance"
+    subj_ar = schedule.group.subject.name_ar if schedule and schedule.group and schedule.group.subject else "الحصة"
+
+    now_time = datetime.now().strftime("%H:%M")
+    date_str = attendance.date.strftime("%d/%m/%Y")
+
+    if lang == "ar":
+        message = (
+            f"السلام عليكم ورحمة الله السيد(ة) {p_name_ar}،\n\n"
+            f"✅ *تأكيد حضور التلميذ(ة) — أكاديمية جينيوس للشطرنج* :\n"
+            f"نحيطكم علماً بأن التلميذ(ة) *{st_name_ar}* قد التحق(ت) بحصته اليوم ({date_str}) في مادة *{subj_ar}* ({grp_ar})، وتم تسجيل حضوره(ا) على الساعة *{now_time}*.\n\n"
+            f"نتمنى له(ا) حصة مفيدة وممتعة ! 🌟\n"
+            f"📍 سيدي قاسم / الرباط • الموقع: https://app.geniuschessacademy.ma\n\n"
+            f"🤖 _رسالة تلقائية لتأكيد الحضور — منصة أكاديمية جينيوس._"
+        )
+    else:
+        message = (
+            f"Bonjour M./Mme {p_name_fr},\n\n"
+            f"✅ *Confirmation de Présence — Genius Chess Academy* :\n"
+            f"Nous vous confirmons que votre enfant *{st_name_fr}* est bien arrivé(e) et a été enregistré(e) présent(e) aujourd'hui ({date_str}) à sa séance de *{subj_fr}* ({grp_fr}) à *{now_time}*.\n\n"
+            f"Nous lui souhaitons une excellente séance ! 🌟\n"
+            f"📍 Sidi Kacem / Rabat • Site Web: https://app.geniuschessacademy.ma\n\n"
+            f"🤖 _Message automatique de pointage — Genius Chess Academy._"
+        )
+
+    # 1. Envoi via passerelle WhatsApp (WAHA)
+    gateway_res = send_whatsapp_via_gateway(wa_phone, message)
+
+    # 2. Notification interne pour l'espace parent
+    if parent.user:
+        Notification.objects.create(
+            recipient=parent.user,
+            title_fr="Pointage de présence validé",
+            title_ar="تأكيد الحضور في الحصة",
+            message_fr=f"Votre enfant {st_name_fr} a été enregistré(e) présent(e) à {now_time}.",
+            message_ar=f"تم تسجيل حضور التلميذ(ة) {st_name_ar} في تمام {now_time}.",
+            notification_type="presence"
+        )
+
+    return {
+        'success': gateway_res.get('success', False),
+        'gateway_res': gateway_res,
+        'sent_to': wa_phone
+    }

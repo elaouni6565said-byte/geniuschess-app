@@ -2212,6 +2212,11 @@ def attendance_scan_ajax_view(request, session_id):
     now_time = datetime.now().strftime('%H:%M')
     status_label = att.get_status_label(lang)
 
+    # Déclencher automatiquement la notification WhatsApp de présence au parent
+    if status == 'present':
+        from academy.whatsapp_absence import send_presence_notification_to_parent
+        send_presence_notification_to_parent(att)
+
     msg = (
         f"✓ {student.get_full_name('fr')} pointé : {status_label} à {now_time}"
         if lang == 'fr' else
