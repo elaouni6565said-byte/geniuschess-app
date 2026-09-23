@@ -333,11 +333,8 @@ def dispatch_daily_whatsapp_reminders(target_date=None):
         if item.get('is_cancelled'):
             continue
 
-        parent = item['parent']
+        parent = item.get('parent')
         user = parent.user if parent else None
-        if not user:
-            continue
-
         sch = item['schedule']
         st = item['student']
         time_str = item['time_str']
@@ -346,30 +343,34 @@ def dispatch_daily_whatsapp_reminders(target_date=None):
         title_ar = f"🕒 تذكير بحصة اليوم ({time_str})"
         
         # Check if notification already created today for this session
-        existing = Notification.objects.filter(
-            recipient=user,
-            notification_type='session_reminder',
-            created_at__date=target_date,
-            message_fr__contains=st.get_full_name('fr')
-        ).exists()
+        existing = False
+        if user:
+            existing = Notification.objects.filter(
+                recipient=user,
+                notification_type='session_reminder',
+                created_at__date=target_date,
+                message_fr__contains=st.get_full_name('fr')
+            ).exists()
 
         if not existing:
-            msg_fr = build_whatsapp_reminder_text(sch, st, lang='fr')
-            msg_ar = build_whatsapp_reminder_text(sch, st, lang='ar')
-            Notification.objects.create(
-                recipient=user,
-                title_fr=title_fr,
-                title_ar=title_ar,
-                message_fr=msg_fr,
-                message_ar=msg_ar,
-                notification_type='session_reminder'
-            )
-            created_notifs += 1
+            if user:
+                msg_fr = build_whatsapp_reminder_text(sch, st, lang='fr')
+                msg_ar = build_whatsapp_reminder_text(sch, st, lang='ar')
+                Notification.objects.create(
+                    recipient=user,
+                    title_fr=title_fr,
+                    title_ar=title_ar,
+                    message_fr=msg_fr,
+                    message_ar=msg_ar,
+                    notification_type='session_reminder'
+                )
+                created_notifs += 1
 
-            # Dispatch via Gateway if configured
-            res_gateway = send_whatsapp_via_gateway(item['whatsapp_phone'], item['message_text'])
-            if res_gateway.get('success'):
-                wa_sent_via_api += 1
+            # Dispatch via Gateway if configured and phone is available
+            if item.get('whatsapp_phone'):
+                res_gateway = send_whatsapp_via_gateway(item['whatsapp_phone'], item['message_text'])
+                if res_gateway.get('success'):
+                    wa_sent_via_api += 1
 
     active_items = [i for i in items if not i.get('is_cancelled')]
     return {
