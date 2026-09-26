@@ -272,7 +272,7 @@ def send_whatsapp_via_gateway(phone, message):
             if token:
                 headers['X-Api-Key'] = token
             req = urllib.request.Request(url, data=payload, headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=25) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 return {'success': True, 'response': res_data, 'sent_to': wa_phone}
 
@@ -300,7 +300,7 @@ def send_whatsapp_via_gateway(phone, message):
             with urllib.request.urlopen(req, timeout=3) as resp:
                 return {'success': True, 'sent_to': wa_phone}
     except (urllib.error.URLError, TimeoutError) as e:
-        return {'success': False, 'error': f'Gateway unreachable or timeout (3s): {e}'}
+        return {'success': False, 'error': f'Gateway unreachable or timeout (25s): {e}'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
@@ -368,9 +368,11 @@ def dispatch_daily_whatsapp_reminders(target_date=None):
 
             # Dispatch via Gateway if configured and phone is available
             if item.get('whatsapp_phone'):
+                import time
                 res_gateway = send_whatsapp_via_gateway(item['whatsapp_phone'], item['message_text'])
                 if res_gateway.get('success'):
                     wa_sent_via_api += 1
+                time.sleep(1)
 
     active_items = [i for i in items if not i.get('is_cancelled')]
     return {
