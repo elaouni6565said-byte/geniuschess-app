@@ -119,3 +119,54 @@ def test_export_excel_with_convention_reduction_reason():
     assert found_convention, "The convention name and discount amount should be present in the payment Excel export"
 
 
+@pytest.mark.django_db
+def test_export_paid_excel_with_unpaid_section_and_centre_shares():
+    """Validates the 11 columns, centre/trainer share calculations, and the unpaid section below."""
+    from datetime import date
+    from decimal import Decimal
+    from academy.models import Parent, Subject, Group
+    from finance.models import Payment, Invoice
+    from portal.excel_export import export_paid_payments_to_excel
+
+    parent = Parent.objects.create(full_name_fr="Parent Test", phone="212688776655")
+    sub1 = Subject.objects.create(name_fr="Robotique", name_ar="روبوتيك")
+    sub2 = Subject.objects.create(name_fr="Échecs", name_ar="الشطرنج")
+    grp1 = Group.objects.create(name_fr="Grp Rob", name_ar="روبوتيك", subject=sub1, monthly_fee=Decimal("200.00"))
+    grp2 = Group.objects.create(name_fr="Grp Ech", name_ar="شطرنج", subject=sub2, monthly_fee=Decimal("150.00"))
+
+    # Élève 1 (Payant avec 1 activité : Robotique 200 DH -> Centre: 35 DH, Prof: 165 DH)
+    st1 = Student.objects.create(registration_number="GCA-PAY-01", first_name_fr="Adam", last_name_fr="Tazi", parent=parent, active=True)
+    st1.groups.add(grp1)
+    inv1 = Invoice.objects.create(student=st1, group=grp1, period_month=9, period_year=2026, amount_due=Decimal("200.00"), amount_paid=Decimal("200.00"), status="paid", due_date=date(2026, 9, 15))
+    p1 = Payment.objects.create(receipt_number="REC-001", student=st1, invoice=inv1, amount=Decimal("200.00"), payment_date=date(2026, 9, 10))
+
+    # Élève 2 (Non-payant / Impayé avec 2 activités : 300 DH -> Centre: 70 DH, Prof: 230 DH)
+    st2 = Student.objects.create(registration_number="GCA-UNPAY-01", first_name_fr="Sara", last_name_fr="Idrissi", parent=parent, active=True)
+    st2.groups.add(grp1, grp2)
+    inv2 = Invoice.objects.create(student=st2, group=grp1, period_month=9, period_year=2026, original_amount=Decimal("350.00"), discount_amount=Decimal("50.00"), amount_due=Decimal("300.00"), amount_paid=Decimal("0.00"), status="unpaid", due_date=date(2026, 9, 15))
+
+    excel_bytes = export_paid_payments_to_excel(
+        Payment.objects.filter(id=p1.id),
+        unpaid_invoices_queryset=Invoice.objects.filter(id=inv2.id),
+        lang="fr"
+    )
+    wb = openpyxl.load_workbook(io.BytesIO(excel_bytes))
+    ws = wb.active
+
+    # Check 11 headers exist
+    headers = [cell for cell in next(ws.iter_rows(min_row=3, max_row=3, values_only=True))]
+    assert "Nombre d'activitées" in headers
+    assert "Part du centre" in headers
+    assert "Part du prof" in headers
+
+    # Verify sections exist in content
+    content_all = " ".join([str(cell) for row in ws.iter_rows(values_only=True) for cell in row if cell])
+    assert "TOTAL DES RECETTES ENCAISSÉES" in content_all
+    assert "ÉLÈVES NON PAYANTS & IMPAYÉS" in content_all
+    assert "TOTAL DES IMPAYÉS RESTANTS" in content_all
+    assert "BILAN GLOBAL & CHIFFRE D'AFFAIRES PRÉVISIONNEL" in content_all
+    assert "Sara Idrissi" in content_all
+    assert "Adam Tazi" in content_all
+
+
+

@@ -295,12 +295,13 @@ def download_planning_pdf_view(request):
 
 @admin_required
 def export_paid_payments_excel_view(request):
-    """Export the list of paid payments / encaissements to an official Excel workbook."""
+    """Export the consolidated payments & unpaid statement to an official Excel workbook."""
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     payments = Payment.objects.select_related('student', 'student__parent', 'invoice', 'invoice__group', 'invoice__group__subject').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
-    excel_data = export_paid_payments_to_excel(payments, lang=lang)
+    unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'student__parent', 'group', 'group__subject').prefetch_related('student__groups__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
+    excel_data = export_paid_payments_to_excel(payments, unpaid_invoices_queryset=unpaid_invoices, lang=lang)
 
-    filename = f"GCA_Liste_Payants_{lang}.xlsx"
+    filename = f"GCA_Etat_Paiements_Consolide_{lang}.xlsx"
     response = HttpResponse(
         excel_data,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
