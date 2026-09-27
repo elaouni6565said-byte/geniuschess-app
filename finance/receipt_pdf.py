@@ -219,6 +219,13 @@ def generate_receipt_pdf(payment, lang="fr"):
             [Paragraph(f"<b>{bal_str}</b>", cell_bold), Paragraph(lbl_bal, cell_style),
              Paragraph(f"<b>{amt_str}</b>", amt_style), Paragraph(lbl_amt, cell_style)],
         ]
+        if student.has_convention:
+            conv_lbl = prepare_arabic_text_for_pdf("اتفاقية الشراكة :")
+            conv_val = prepare_arabic_text_for_pdf(student.convention_name or "اتفاقية خاصة")
+            details_data.append([
+                Paragraph("", cell_style), Paragraph("", cell_style),
+                Paragraph(f"<b>{conv_val}</b>", cell_bold), Paragraph(conv_lbl, cell_style),
+            ])
         col_w = [45 * mm, 30 * mm, 80 * mm, 35 * mm]
     else:
         details_data = [
@@ -231,6 +238,16 @@ def generate_receipt_pdf(payment, lang="fr"):
             [Paragraph(lbl_amt, cell_style), Paragraph(f"<b>{amt_str}</b>", amt_style),
              Paragraph(lbl_bal, cell_style), Paragraph(f"<b>{bal_str}</b>", cell_bold)],
         ]
+        if student.has_convention:
+            conv_lbl = "Convention :" if lang != "bilingual" else f"Convention / {prepare_arabic_text_for_pdf('اتفاقية')} :"
+            conv_name = student.convention_name or "Convention Partenaire"
+            discount_note = f" (Tarif conventionné)"
+            if invoice and invoice.discount_amount > 0:
+                discount_note = f" (-{invoice.discount_amount} DH)"
+            details_data.append([
+                Paragraph(conv_lbl, cell_style), Paragraph(f"<b>{conv_name}</b>{discount_note}", cell_bold),
+                Paragraph("", cell_style), Paragraph("", cell_style),
+            ])
         col_w = [35 * mm, 80 * mm, 30 * mm, 45 * mm]
 
     details_table = Table(details_data, colWidths=col_w)

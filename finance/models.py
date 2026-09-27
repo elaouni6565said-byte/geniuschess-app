@@ -3,29 +3,64 @@ from decimal import Decimal
 from academy.models import Student, Group, User
 from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
 
+class PaymentExemption(models.Model):
+    """
+    Exonération de paiement mensuel accordée à un élève pour un mois/année spécifique.
+    (Ex: Bourse d'excellence, convention 100%, mois offert, situation sociale).
+    """
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='payment_exemptions')
+    period_month = models.PositiveIntegerField(verbose_name="Mois (1-12)")
+    period_year = models.PositiveIntegerField(default=2026, verbose_name="Année")
+    reason = models.CharField(max_length=255, blank=True, default="Exonération accordée", verbose_name="Motif / Cause")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('student', 'period_month', 'period_year')
+        ordering = ['-period_year', '-period_month']
+        verbose_name = "Exonération de paiement"
+        verbose_name_plural = "Exonérations de paiement"
+
+    def __str__(self):
+        return f"Exonération {self.student.registration_number} - {self.period_month}/{self.period_year} ({self.reason})"
+
+
 class Invoice(models.Model):
     STATUS_CHOICES = [
         ('paid', 'Réglé / مؤدى'),
         ('partial', 'Partiel / أداء جزئي'),
         ('unpaid', 'Non réglé / غير مؤدى'),
+        ('exempt', 'Exonéré / معفى من الأداء'),
     ]
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='invoices')
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
     period_month = models.PositiveIntegerField()
     period_year = models.PositiveIntegerField(default=2026)
+    original_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Montant de base")
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Réduction convention")
     amount_due = models.DecimalField(max_digits=10, decimal_places=2)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unpaid')
+    is_exempt = models.BooleanField(default=False, verbose_name="Exonéré de paiement")
+    exemption_reason = models.CharField(max_length=255, blank=True, default='', verbose_name="Motif de l'exonération")
     due_date = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def get_balance(self):
+        if self.is_exempt or self.status == 'exempt':
+            return Decimal('0.00')
         return max(Decimal('0.00'), self.amount_due - self.amount_paid)
 
     def is_overdue(self):
+        if self.is_exempt or self.status == 'exempt':
+            return False
         return self.get_balance() > Decimal('0.00')
 
     def update_totals(self):
+        if self.is_exempt:
+            self.amount_due = Decimal('0.00')
+            self.status = 'exempt'
+            self.save(update_fields=['amount_due', 'amount_paid', 'status', 'is_exempt'])
+            return self.status
         total_paid = self.payments.aggregate(total=models.Sum('amount'))['total'] or Decimal('0.00')
         self.amount_paid = total_paid
         if total_paid >= self.amount_due:
@@ -34,7 +69,7 @@ class Invoice(models.Model):
             self.status = 'partial'
         else:
             self.status = 'unpaid'
-        self.save(update_fields=['amount_paid', 'status'])
+        self.save(update_fields=['amount_due', 'amount_paid', 'status', 'is_exempt'])
         return self.status
 
     def get_period_label(self, lang='fr'):
@@ -57,6 +92,7 @@ class Invoice(models.Model):
             'paid': {'fr': 'Réglé', 'ar': 'مؤدى بالكامل'},
             'partial': {'fr': 'Partiel', 'ar': 'أداء جزئي'},
             'unpaid': {'fr': 'Non réglé', 'ar': 'غير مؤدى'},
+            'exempt': {'fr': 'Exonéré', 'ar': 'معفى من الأداء'},
         }
         return labels.get(self.status, {}).get(lang, self.status)
 

@@ -138,6 +138,9 @@
     "paid": "Réglé",
     "partial": "Partiel",
     "unpaid": "Non réglé",
+    "exempt": "Exonéré",
+    "convention": "Convention",
+    "exemption": "Exonération",
     "add_payment": "Enregistrer un Paiement"
   },
   "receipt": {

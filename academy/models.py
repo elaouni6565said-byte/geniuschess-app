@@ -160,6 +160,66 @@ class Student(models.Model):
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # 5. Champs Convention & Réduction de prix
+    DISCOUNT_TYPE_CHOICES = [
+        ('custom_fee', 'Tarif mensuel forfaitaire (DH) / سومة اتفاقية محددة'),
+        ('fixed_discount', 'Réduction fixe en DH / تخفيض بقيمة محددة'),
+        ('percentage', 'Pourcentage de réduction (%) / نسبة تخفيض مئوية'),
+    ]
+    has_convention = models.BooleanField(default=False, verbose_name="Bénéficie d'une convention / يستفيد من اتفاقية")
+    convention_name = models.CharField(max_length=150, blank=True, default='', verbose_name="Nom de la convention / Organisme partenaire")
+    discount_type = models.CharField(max_length=20, choices=DISCOUNT_TYPE_CHOICES, default='custom_fee', verbose_name="Type de réduction")
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valeur de la réduction ou Tarif (DH ou %)")
+
+    def calculate_monthly_fee(self):
+        """
+        Calcule le montant de base, le montant de la réduction convention (le cas échéant)
+        et le tarif final net mensuel pour l'élève.
+        Retourne : (base_fee, discount_amount, final_fee)
+        """
+        base_fee = sum(g.monthly_fee for g in self.groups.all() if g.monthly_fee > 0) or Decimal('0.00')
+        if base_fee == Decimal('0.00') and self.groups.exists():
+            base_fee = Decimal('150.00')
+
+        if not self.has_convention or self.discount_value <= Decimal('0.00'):
+            return base_fee, Decimal('0.00'), base_fee
+
+        if self.discount_type == 'custom_fee':
+            final_fee = max(Decimal('0.00'), self.discount_value)
+            discount_amount = max(Decimal('0.00'), base_fee - final_fee)
+        elif self.discount_type == 'percentage':
+            pct = min(Decimal('100.00'), max(Decimal('0.00'), self.discount_value))
+            discount_amount = (base_fee * pct) / Decimal('100.00')
+            final_fee = max(Decimal('0.00'), base_fee - discount_amount)
+        elif self.discount_type == 'fixed_discount':
+            discount_amount = min(base_fee, max(Decimal('0.00'), self.discount_value))
+            final_fee = max(Decimal('0.00'), base_fee - discount_amount)
+        else:
+            discount_amount = Decimal('0.00')
+            final_fee = base_fee
+
+        return base_fee, round(discount_amount, 2), round(final_fee, 2)
+
+    def is_exempt_for_period(self, month, year=2026):
+        """Vérifie si l'élève est expressément exonéré de paiement pour ce mois/année."""
+        ex = self.payment_exemptions.filter(period_month=month, period_year=year).first()
+        if ex:
+            return True, ex.reason
+        return False, ""
+
+    def get_exempted_months_display(self, year=2026, lang="fr"):
+        """Retourne la liste lisible des mois exonérés pour l'année donnée."""
+        from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
+        exemptions = self.payment_exemptions.filter(period_year=year).order_by('period_month')
+        if not exemptions.exists():
+            return ""
+        labels = []
+        month_dict = ARABIC_MONTHS if lang == "ar" else FRENCH_MONTHS
+        for ex in exemptions:
+            m_name = month_dict.get(ex.period_month, str(ex.period_month))
+            labels.append(m_name.capitalize())
+        return ", ".join(labels)
+
     def get_full_name(self, lang="fr"):
         if lang == "ar" and (self.first_name_ar or self.last_name_ar):
             return f"{self.first_name_ar} {self.last_name_ar}".strip()

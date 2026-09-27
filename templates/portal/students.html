@@ -69,7 +69,23 @@
                 {% for st in students %}
                 <tr>
                     <td><b>{{ st.registration_number }}</b></td>
-                    <td>{{ st.first_name_fr }} {{ st.last_name_fr }}</td>
+                    <td>
+                        <div>{{ st.first_name_fr }} {{ st.last_name_fr }}</div>
+                        <div style="display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 2px;">
+                            {% if st.has_convention %}
+                                <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; font-size: 0.70rem;">
+                                    🏷️ {{ st.convention_name|default:"Convention" }}
+                                </span>
+                            {% endif %}
+                            {% with ex_count=st.payment_exemptions.count %}
+                                {% if ex_count > 0 %}
+                                    <span class="badge" style="background: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; font-size: 0.70rem;" title="Mois exonérés : {{ st.get_exempted_months_display }}">
+                                        🌟 {{ ex_count }} mois exonéré{{ ex_count|pluralize }}
+                                    </span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </td>
                     <td style="font-weight: 600; color: var(--primary-navy);">{{ st.first_name_ar }} {{ st.last_name_ar }}</td>
                     <td>
                         <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">

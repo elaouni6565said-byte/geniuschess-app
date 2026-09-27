@@ -2,6 +2,9 @@ import re
 from django import forms
 from academy.models import Student, Parent, Subject, Group, Room, Level, SessionSchedule, User, GroupMessage
 
+from decimal import Decimal
+from finance.models import PaymentExemption, Invoice
+
 class StudentForm(forms.ModelForm):
     registration_number = forms.CharField(
         required=False,
@@ -11,6 +14,30 @@ class StudentForm(forms.ModelForm):
         queryset=Group.objects.select_related('subject', 'level').all(),
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'group-checkbox'}),
         required=False
+    )
+    exempted_months = forms.MultipleChoiceField(
+        choices=[
+            ('1', '01 - Janvier / يناير'),
+            ('2', '02 - Février / فبراير'),
+            ('3', '03 - Mars / مارس'),
+            ('4', '04 - Avril / أبريل'),
+            ('5', '05 - Mai / ماي'),
+            ('6', '06 - Juin / يونيو'),
+            ('7', '07 - Juillet / يوليوز'),
+            ('8', '08 - Août / غشت'),
+            ('9', '09 - Septembre / شتنبر'),
+            ('10', '10 - Octobre / أكتوبر'),
+            ('11', '11 - Novembre / نونبر'),
+            ('12', '12 - Décembre / دجنبر'),
+        ],
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'month-checkbox'}),
+        label="Mois exonérés de paiement"
+    )
+    exemption_reason = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Bourse d\'excellence, convention 100%, cas social...'}),
+        label="Motif de l'exonération"
     )
 
     class Meta:
@@ -22,7 +49,11 @@ class StudentForm(forms.ModelForm):
             'birth_date',
             'parent',
             'groups',
-            'active'
+            'active',
+            'has_convention',
+            'convention_name',
+            'discount_type',
+            'discount_value'
         ]
         widgets = {
             'first_name_fr': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Mohamed'}),
@@ -32,7 +63,40 @@ class StudentForm(forms.ModelForm):
             'birth_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date'}),
             'parent': forms.Select(attrs={'class': 'search-input'}),
             'active': forms.CheckboxInput(attrs={'class': 'status-checkbox'}),
+            'has_convention': forms.CheckboxInput(attrs={'class': 'status-checkbox', 'id': 'id_has_convention'}),
+            'convention_name': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Convention OCP, Club Éducation, Fratrie...'}),
+            'discount_type': forms.Select(attrs={'class': 'search-input'}),
+            'discount_value': forms.NumberInput(attrs={'class': 'search-input', 'step': '5', 'placeholder': 'Ex: 200 (Tarif) ou 50 (DH) ou 20 (%)'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['discount_type'].required = False
+        self.fields['discount_value'].required = False
+        if not self.initial.get('discount_type'):
+            self.initial['discount_type'] = 'custom_fee'
+        if self.initial.get('discount_value') is None:
+            self.initial['discount_value'] = Decimal('0.00')
+
+        if self.instance and self.instance.pk:
+            exemptions = self.instance.payment_exemptions.filter(period_year=2026)
+            self.fields['exempted_months'].initial = [str(e.period_month) for e in exemptions]
+            first_ex = exemptions.first()
+            if first_ex:
+                self.fields['exemption_reason'].initial = first_ex.reason
+
+    def clean(self):
+        cleaned_data = super().clean()
+        has_conv = cleaned_data.get('has_convention')
+        if not has_conv:
+            if not cleaned_data.get('discount_type'):
+                cleaned_data['discount_type'] = 'custom_fee'
+            if cleaned_data.get('discount_value') is None:
+                cleaned_data['discount_value'] = Decimal('0.00')
+        else:
+            if cleaned_data.get('discount_value') is None:
+                cleaned_data['discount_value'] = Decimal('0.00')
+        return cleaned_data
 
     def clean_first_name_fr(self):
         val = self.cleaned_data.get('first_name_fr', '')
@@ -62,6 +126,52 @@ class StudentForm(forms.ModelForm):
                 count += 1
                 reg = f"GCA-2026-{count:03d}"
         return reg.strip()
+
+    def save(self, commit=True):
+        student = super().save(commit=commit)
+        if commit:
+            selected_months = [int(m) for m in self.cleaned_data.get('exempted_months', [])]
+            reason = self.cleaned_data.get('exemption_reason', '').strip() or "Exonération accordée"
+            
+            # Supprimer les mois qui ont été décochés
+            PaymentExemption.objects.filter(student=student, period_year=2026).exclude(period_month__in=selected_months).delete()
+            
+            # Ajouter/Mettre à jour les mois cochés
+            for m in selected_months:
+                PaymentExemption.objects.update_or_create(
+                    student=student,
+                    period_month=m,
+                    period_year=2026,
+                    defaults={'reason': reason}
+                )
+
+            # Mettre à jour les factures existantes de l'élève pour l'année 2026
+            base_fee, discount, final_fee = student.calculate_monthly_fee()
+            for inv in Invoice.objects.filter(student=student, period_year=2026):
+                if inv.period_month in selected_months:
+                    inv.is_exempt = True
+                    inv.status = 'exempt'
+                    inv.amount_due = Decimal('0.00')
+                    inv.original_amount = base_fee
+                    inv.discount_amount = base_fee
+                    inv.exemption_reason = reason
+                    inv.save()
+                elif inv.is_exempt and inv.period_month not in selected_months:
+                    inv.is_exempt = False
+                    inv.original_amount = base_fee
+                    inv.discount_amount = discount
+                    inv.amount_due = final_fee
+                    inv.exemption_reason = ''
+                    inv.update_totals()
+                elif not inv.is_exempt and inv.status == 'unpaid' and inv.amount_paid == Decimal('0.00'):
+                    # Recalculer le tarif selon la convention
+                    inv.original_amount = base_fee
+                    inv.discount_amount = discount
+                    inv.amount_due = final_fee
+                    inv.save()
+
+        return student
+
 
 
 class ParentForm(forms.ModelForm):
@@ -170,6 +280,35 @@ class PaymentForm(forms.ModelForm):
         label="Code Spécial d'Autorisation"
     )
 
+    # Nouveaux champs direct de Convention et Exonération lors du paiement
+    is_exemption = forms.BooleanField(
+        required=False,
+        label="Exonérer l'élève pour ce mois (0 DH / معفى من الأداء)",
+        widget=forms.CheckboxInput(attrs={'class': 'status-checkbox', 'id': 'id_is_exemption'})
+    )
+    exemption_reason = forms.CharField(
+        required=False,
+        label="Motif de l'exonération",
+        widget=forms.TextInput(attrs={'class': 'search-input', 'id': 'id_exemption_reason', 'placeholder': 'Ex: Bourse d\'excellence, convention 100%, mois offert...'})
+    )
+    apply_discount = forms.BooleanField(
+        required=False,
+        label="Appliquer une réduction / Convention sur ce paiement",
+        widget=forms.CheckboxInput(attrs={'class': 'status-checkbox', 'id': 'id_apply_discount'})
+    )
+    discount_amount = forms.DecimalField(
+        required=False,
+        initial=Decimal('0.00'),
+        min_value=0,
+        label="Montant de la réduction accordée (DH)",
+        widget=forms.NumberInput(attrs={'class': 'search-input', 'id': 'id_discount_amount', 'step': '10', 'placeholder': 'Ex: 50'})
+    )
+    convention_name = forms.CharField(
+        required=False,
+        label="Nom de la convention / Organisme",
+        widget=forms.TextInput(attrs={'class': 'search-input', 'id': 'id_convention_name', 'placeholder': 'Ex: Convention OCP, Club Enseignants, Fratrie...'})
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from finance.models import Invoice
@@ -178,19 +317,77 @@ class PaymentForm(forms.ModelForm):
         self.fields['invoice'].queryset = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')
         self.fields['invoice'].label_from_instance = lambda obj: f"{obj.student.get_full_name('fr')} — {obj.get_period_label('fr')} (Reste: {obj.get_balance()} DH)"
 
+        def format_student_option(st):
+            lbl = f"{st.registration_number} - {st.get_full_name('fr')} ({st.get_full_name('ar')})"
+            if st.has_convention:
+                lbl += f" 🏷️ [Convention: {st.convention_name or 'Partenaire'}]"
+            ex_count = st.payment_exemptions.count()
+            if ex_count > 0:
+                lbl += f" 🌟 [{ex_count} mois exonéré(s)]"
+            return lbl
+
+        self.fields['student'].label_from_instance = format_student_option
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_ex = cleaned_data.get('is_exemption')
+        amt = cleaned_data.get('amount')
+        if is_ex:
+            cleaned_data['amount'] = Decimal('0.00')
+        elif amt is not None and amt <= Decimal('0.00'):
+            self.add_error('amount', "Le montant du paiement doit être supérieur à 0 DH (ou cochez 'Exonérer ce mois' pour 0 DH).")
+        return cleaned_data
+
     class Meta:
         from finance.models import Payment
         model = Payment
         fields = ['student', 'invoice', 'amount', 'payment_date', 'payment_method', 'reference', 'notes']
         widgets = {
-            'student': forms.Select(attrs={'class': 'search-input'}),
+            'student': forms.Select(attrs={'class': 'search-input', 'id': 'id_student_select'}),
             'invoice': forms.Select(attrs={'class': 'search-input'}),
-            'amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '10'}),
+            'amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '10', 'id': 'id_payment_amount'}),
             'payment_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date'}),
             'payment_method': forms.Select(attrs={'class': 'search-input'}),
             'reference': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'N° Virement, Chèque ou Réf'}),
             'notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Remarques éventuelles'}),
         }
+
+
+class ExemptionForm(forms.Form):
+    student = forms.ModelChoiceField(
+        queryset=Student.objects.filter(active=True).order_by('last_name_fr'),
+        widget=forms.Select(attrs={'class': 'search-input'}),
+        label="Élève concerné / التلميذ المعني"
+    )
+    period_month = forms.ChoiceField(
+        choices=[
+            (1, '01 - Janvier / يناير'),
+            (2, '02 - Février / فبراير'),
+            (3, '03 - Mars / مارس'),
+            (4, '04 - Avril / أبريل'),
+            (5, '05 - Mai / ماي'),
+            (6, '06 - Juin / يونيو'),
+            (7, '07 - Juillet / يوليوز'),
+            (8, '08 - Août / غشت'),
+            (9, '09 - Septembre / شتنبر'),
+            (10, '10 - Octobre / أكتوبر'),
+            (11, '11 - Novembre / نونبر'),
+            (12, '12 - Décembre / دجنبر'),
+        ],
+        widget=forms.Select(attrs={'class': 'search-input'}),
+        label="Mois à exonérer / الشهر المعفى"
+    )
+    period_year = forms.IntegerField(
+        initial=2026,
+        widget=forms.NumberInput(attrs={'class': 'search-input'}),
+        label="Année / السنة"
+    )
+    reason = forms.CharField(
+        required=False,
+        initial="Bourse / Prise en charge convention",
+        widget=forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Bourse d\'excellence, convention 100%, cas social...'}),
+        label="Motif de l'exonération / سبب الإعفاء"
+    )
 
 
 class GroupMessageForm(forms.ModelForm):

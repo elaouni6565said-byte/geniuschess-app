@@ -20,12 +20,12 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
     month = int(month)
     year = int(year)
 
-    # 1. Factures du mois selectionne : réglées OU élèves ayant commencé (présence >= 1)
+    # 1. Factures du mois selectionne : réglées, partielles, exonérées OU élèves ayant commencé (présence >= 1)
     invoices = Invoice.objects.filter(
         period_month=month,
         period_year=year
     ).filter(
-        Q(status='paid') | Q(student__attendances__status='present')
+        Q(status__in=['paid', 'partial', 'exempt']) | Q(student__attendances__status='present')
     ).distinct().select_related("student", "student__parent", "group", "group__subject")
 
     total_expected = invoices.aggregate(total=Sum("amount_due"))["total"] or Decimal("0.00")
@@ -33,7 +33,8 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
 
     paid_invoices_count = invoices.filter(status="paid").count()
     partial_invoices_count = invoices.filter(status="partial").count()
-    unpaid_invoices_count = invoices.filter(status="unpaid").count()
+    unpaid_invoices_count = invoices.filter(status="unpaid", is_exempt=False).count()
+    exempt_invoices_count = invoices.filter(Q(status="exempt") | Q(is_exempt=True)).count()
 
     # 2. Total encaisse sur les factures de ce mois
     total_collected = invoices.aggregate(total=Sum("amount_paid"))["total"] or Decimal("0.00")
@@ -179,6 +180,7 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
         "paid_invoices_count": paid_invoices_count,
         "partial_invoices_count": partial_invoices_count,
         "unpaid_invoices_count": unpaid_invoices_count,
+        "exempt_invoices_count": exempt_invoices_count,
         "collected_before_15": collected_before_15,
         "collected_after_15": collected_after_15,
         "rate_at_15": rate_at_15,

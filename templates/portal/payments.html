@@ -60,9 +60,26 @@
             <tbody>
                 {% for inv in unpaid_invoices %}
                 <tr>
-                    <td><b>{{ inv.student|trans_field:CURRENT_LANG }}</b></td>
+                    <td>
+                        <b>{{ inv.student|trans_field:CURRENT_LANG }}</b>
+                        {% if inv.student.has_convention %}
+                            <div style="margin-top: 3px;">
+                                <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; font-size: 0.72rem;">
+                                    🏷️ {{ inv.student.convention_name|default:"Convention" }}
+                                    {% if inv.discount_amount > 0 %}(-{% money inv.discount_amount %}){% endif %}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </td>
                     <td>{{ inv|trans_field:CURRENT_LANG }}</td>
-                    <td>{% money inv.amount_due %}</td>
+                    <td>
+                        {% money inv.amount_due %}
+                        {% if inv.discount_amount > 0 %}
+                            <span style="font-size: 0.75rem; text-decoration: line-through; color: var(--text-muted); display: block;">
+                                {% money inv.original_amount %}
+                            </span>
+                        {% endif %}
+                    </td>
                     <td>{% money inv.amount_paid %}</td>
                     <td style="color: var(--danger); font-weight: bold;">{% money inv.get_balance %}</td>
                     <td>
@@ -71,10 +88,89 @@
                         </span>
                     </td>
                     <td style="text-align: center;">
-                        <a href="{% url 'portal:payment_add' %}?student={{ inv.student.id }}&invoice={{ inv.id }}&amount={{ inv.get_balance }}" 
-                           class="btn btn-primary btn-sm" style="white-space: nowrap; padding: 0.35rem 0.75rem;">
-                            💳 {% if CURRENT_LANG == 'ar' %}أداء الوصل{% else %}Encaisser{% endif %}
-                        </a>
+                        <div style="display: inline-flex; gap: 0.35rem; align-items: center;">
+                            <a href="{% url 'portal:payment_add' %}?student={{ inv.student.id }}&invoice={{ inv.id }}&amount={{ inv.get_balance }}" 
+                               class="btn btn-primary btn-sm" style="white-space: nowrap; padding: 0.35rem 0.75rem;">
+                                💳 {% if CURRENT_LANG == 'ar' %}أداء الوصل{% else %}Encaisser{% endif %}
+                            </a>
+                            <form method="POST" action="{% url 'portal:invoice_exempt' inv.id %}" style="display: inline;" 
+                                  onsubmit="var m = prompt('Motif de l\'exonération (ex: Bourse, mois offert, cas social...) :', 'Exonération accordée'); if (m !== null) { this.querySelector('[name=reason]').value = m; return true; } return false;">
+                                {% csrf_token %}
+                                <input type="hidden" name="reason" value="">
+                                <button type="submit" class="btn btn-outline btn-sm" style="color: #6B21A8; border-color: #D8B4FE; white-space: nowrap;" title="Exonérer l'élève de paiement pour ce mois">
+                                    🛡️ {% if CURRENT_LANG == 'ar' %}إعفاء{% else %}Exonérer{% endif %}
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Exempted Invoices Section (Factures Exonérées) -->
+{% if exempted_invoices %}
+<div class="card" style="border-inline-start: 4px solid #8B5CF6; margin-bottom: 2rem;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 class="card-title" style="color: #6D28D9;">
+            🌟 {% if CURRENT_LANG == 'ar' %}لائحة المعفين من الأداء شهرياً{% else %}Élèves Exonérés de Paiement{% endif %} ({{ exempted_invoices.count }})
+        </h3>
+        <span class="badge" style="background: #EDE9FE; color: #6D28D9; font-weight: 700; font-size: 0.82rem;">
+            {% if CURRENT_LANG == 'ar' %}0 درهم مستحق (إعفاء رسمي){% else %}0 DH Dû (Exonération officielle){% endif %}
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% trans "payments.student" %}</th>
+                    <th>{% trans "payments.month_paid" %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}الاتفاقية / المنحة{% else %}Convention / Bourse{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}سبب الإعفاء{% else %}Motif de l'exonération{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}السومة العادية{% else %}Tarif initial{% endif %}</th>
+                    <th>{% trans "payments.status" %}</th>
+                    <th style="text-align: center;">{% trans "crud.actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in exempted_invoices %}
+                <tr>
+                    <td>
+                        <b>{{ inv.student|trans_field:CURRENT_LANG }}</b>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">{{ inv.student.registration_number }}</span>
+                    </td>
+                    <td><b>{{ inv|trans_field:CURRENT_LANG }}</b></td>
+                    <td>
+                        {% if inv.student.has_convention %}
+                            <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE;">
+                                🏷️ {{ inv.student.convention_name|default:"Convention" }}
+                            </span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-weight: 600; color: #5B21B6;">
+                        {{ inv.exemption_reason|default:"Exonération accordée" }}
+                    </td>
+                    <td style="text-decoration: line-through; color: var(--text-muted);">
+                        {% money inv.original_amount %}
+                    </td>
+                    <td>
+                        <span class="badge" style="background: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; font-weight: 700;">
+                            🌟 {% if CURRENT_LANG == 'ar' %}معفى (0 درهم){% else %}Exonéré (0 DH){% endif %}
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <form method="POST" action="{% url 'portal:invoice_unexempt' inv.id %}" style="display: inline;" 
+                              onsubmit="return confirm('Voulez-vous rétablir cette facture et annuler l\'exonération pour cet élève ?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline btn-sm" style="color: #6D28D9; border-color: #C4B5FD; white-space: nowrap;">
+                                ↩️ {% if CURRENT_LANG == 'ar' %}إلغاء الإعفاء{% else %}Rétablir la facture{% endif %}
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
@@ -114,6 +210,13 @@
                         <div style="font-size: 0.75rem; font-family: monospace; color: var(--text-muted);">
                             {{ p.student.registration_number }}
                         </div>
+                        {% if p.student.has_convention %}
+                            <div style="margin-top: 2px;">
+                                <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; font-size: 0.70rem;">
+                                    🏷️ {{ p.student.convention_name|default:"Convention" }}
+                                </span>
+                            </div>
+                        {% endif %}
                     </td>
                     <td>
                         <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">

@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load gca_tags %}
 
 {% block title %}{{ title }} — {% trans "app_name" %}{% endblock %}
@@ -128,6 +128,91 @@
             </div>
         </div>
 
+        <!-- 5. Convention & Réduction de prix -->
+        <div style="background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                <h4 style="color: #1E40AF; font-size: 1.05rem; display: flex; align-items: center; gap: 0.4rem; margin: 0;">
+                    <span>🏷️</span> 5. {% if CURRENT_LANG == 'ar' %}اتفاقية الشراكة وتخفيض السعر{% else %}Convention & Réduction de Prix{% endif %}
+                </h4>
+                <div style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid #BFDBFE;">
+                    {{ form.has_convention }}
+                    <label for="id_has_convention" style="font-weight: 700; font-size: 0.85rem; color: #1E40AF; cursor: pointer;">
+                        {% if CURRENT_LANG == 'ar' %}تفعيل اتفاقية الشراكة{% else %}Bénéficie d'une convention{% endif %}
+                    </label>
+                </div>
+            </div>
+
+            <p style="font-size: 0.85rem; color: #1E3A8A; margin-top: 0.25rem; margin-bottom: 1rem;">
+                💡 {% if CURRENT_LANG == 'ar' %}
+                    تسمح هذه الميزة بتحديد سومة مخفضة خاصة (مثال: اتفاقية OCP، تخفيض الإخوة، أبناء الأساتذة...).
+                {% else %}
+                    Permet d'appliquer un tarif conventionné avantageux (ex: Convention Entreprise/Fondation, fratrie, remise spéciale).
+                {% endif %}
+            </p>
+
+            <div id="convention_details_box" style="display: {% if form.has_convention.value %}grid{% else %}none{% endif %}; grid-template-columns: 1.5fr 1fr 1fr; gap: 1rem; background: white; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid #BFDBFE;">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        {% if CURRENT_LANG == 'ar' %}اسم الاتفاقية / الشريك *{% else %}Nom de la convention / Partenaire *{% endif %}
+                    </label>
+                    {{ form.convention_name }}
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">Ex: Convention OCP, Club Enseignants, Fratrie</small>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        {% if CURRENT_LANG == 'ar' %}نوع التخفيض{% else %}Type d'application{% endif %}
+                    </label>
+                    {{ form.discount_type }}
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                        {% if CURRENT_LANG == 'ar' %}قيمة التخفيض أو السومة{% else %}Valeur (Tarif ou Remise){% endif %}
+                    </label>
+                    {{ form.discount_value }}
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">DH ou % selon le type choisi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Exonération de Paiement pour des Mois (Bourses / Mois offerts) -->
+        <div style="background: #FAF5FF; border: 1.5px solid #D8B4FE; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+            <div style="margin-bottom: 0.75rem;">
+                <h4 style="color: #6B21A8; font-size: 1.05rem; display: flex; align-items: center; gap: 0.4rem;">
+                    <span>🌟</span> 6. {% if CURRENT_LANG == 'ar' %}الإعفاء من الأداء لأشهر محددة (2026){% else %}Exonération de Paiement par Mois (Année 2026){% endif %}
+                </h4>
+                <p style="font-size: 0.85rem; color: #581C87; margin-top: 0.25rem;">
+                    💡 {% if CURRENT_LANG == 'ar' %}
+                        حدد الأشهر التي يتم فيها إعفاء هذا التلميذ تماماً من الأداء (0 درهم). لن تظهر كمتأخرات ولن تصله رسائل تذكير واتساب.
+                    {% else %}
+                        Cochez les mois pour lesquels cet élève est expressément exonéré de paiement (0 DH dû). Ces mois ne seront jamais comptabilisés comme impayés ni relancés.
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Motif d'exonération -->
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
+                    {% if CURRENT_LANG == 'ar' %}سبب / صفة الإعفاء{% else %}Motif de l'exonération{% endif %}
+                </label>
+                {{ form.exemption_reason }}
+            </div>
+
+            <!-- Grille des 12 mois -->
+            <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #6B21A8; margin-bottom: 0.5rem;">
+                {% if CURRENT_LANG == 'ar' %}الأشهر المعفاة من الأداء (2026) :{% else %}Sélectionnez les mois exonérés (2026) :{% endif %}
+            </label>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.65rem;">
+                {% for choice in form.exempted_months %}
+                <div style="background: white; border: 1px solid #E9D5FF; border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;">
+                    {{ choice.tag }}
+                    <label for="{{ choice.id_for_label }}" style="font-size: 0.84rem; cursor: pointer; color: var(--text-main); font-weight: 500;">
+                        {{ choice.choice_label }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
         <!-- Boutons de Soumission -->
         <div style="display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
             <a href="{% url 'portal:students' %}" class="btn btn-secondary">
@@ -140,4 +225,20 @@
 
     </form>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var conventionCheck = document.getElementById("id_has_convention");
+        var detailsBox = document.getElementById("convention_details_box");
+        if (conventionCheck && detailsBox) {
+            conventionCheck.addEventListener("change", function() {
+                if (this.checked) {
+                    detailsBox.style.display = "grid";
+                } else {
+                    detailsBox.style.display = "none";
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

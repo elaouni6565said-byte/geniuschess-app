@@ -62,9 +62,11 @@ def set_device_mode(request, mode):
 
 def sync_invoices_with_actual_attendances():
     """
-    Garantit une synchronisation 100% automatique et continue entre les présences et les impayés :
-    1. Si un élève a au moins une présence 'present' ce mois-ci et n'a pas encore de facture, elle est créée automatiquement.
-    2. Si un élève sans aucun paiement n'a plus aucune présence 'present', sa facture impayée est automatiquement retirée.
+    Garantit une synchronisation 100% automatique et continue entre les présences, conventions et impayés :
+    1. Si un élève a au moins une présence 'present' ce mois-ci et n'a pas encore de facture, elle est créée automatiquement
+       en appliquant ses réductions de convention ou son statut d'exonération mensuelle.
+    2. Si un élève sans aucun paiement n'a plus aucune présence 'present', sa facture impayée est automatiquement retirée
+       (sauf si elle a été expressément marquée comme exonérée).
     3. Les paiements orphelins sont automatiquement rattachés.
     """
     import datetime
@@ -78,7 +80,7 @@ def sync_invoices_with_actual_attendances():
     for p in Payment.objects.filter(invoice__isnull=True).select_related('student'):
         p.save()
 
-    # 2. Pour les élèves ayant assisté à au moins une séance, créer la facture si manquante
+    # 2. Pour les élèves ayant assisté à au moins une séance, créer ou synchroniser la facture
     attended_students = Student.objects.filter(
         active=True,
         attendances__status='present',
@@ -87,26 +89,71 @@ def sync_invoices_with_actual_attendances():
     ).distinct()
 
     for st in attended_students:
-        if not Invoice.objects.filter(student=st, period_month=month, period_year=year).exists():
+        is_exempt, ex_reason = st.is_exempt_for_period(month, year)
+        base_fee, discount, final_fee = st.calculate_monthly_fee()
+        inv = Invoice.objects.filter(student=st, period_month=month, period_year=year).first()
+        
+        if not inv:
             groups = st.groups.all()
             if groups.exists():
-                fee = sum(g.monthly_fee for g in groups if g.monthly_fee > 0) or Decimal('150.00')
                 first_grp = groups.first()
-                inv = Invoice.objects.create(
-                    student=st,
-                    group=first_grp,
-                    period_month=month,
-                    period_year=year,
-                    amount_due=fee,
-                    amount_paid=Decimal('0.00'),
-                    status='unpaid',
-                    due_date=due_date
-                )
-                # Vérifier si un paiement existait déjà
+                if is_exempt:
+                    Invoice.objects.create(
+                        student=st,
+                        group=first_grp,
+                        period_month=month,
+                        period_year=year,
+                        original_amount=base_fee,
+                        discount_amount=base_fee,
+                        amount_due=Decimal('0.00'),
+                        amount_paid=Decimal('0.00'),
+                        status='exempt',
+                        is_exempt=True,
+                        exemption_reason=ex_reason or "Exonération accordée",
+                        due_date=due_date
+                    )
+                else:
+                    new_inv = Invoice.objects.create(
+                        student=st,
+                        group=first_grp,
+                        period_month=month,
+                        period_year=year,
+                        original_amount=base_fee,
+                        discount_amount=discount,
+                        amount_due=final_fee,
+                        amount_paid=Decimal('0.00'),
+                        status='unpaid',
+                        is_exempt=False,
+                        exemption_reason='',
+                        due_date=due_date
+                    )
+                    new_inv.update_totals()
+        else:
+            # Synchroniser si l'élève est devenu exonéré ou a changé de convention
+            if is_exempt and not inv.is_exempt and inv.amount_paid == Decimal('0.00'):
+                inv.is_exempt = True
+                inv.status = 'exempt'
+                inv.original_amount = base_fee
+                inv.discount_amount = base_fee
+                inv.amount_due = Decimal('0.00')
+                inv.exemption_reason = ex_reason or "Exonération accordée"
+                inv.save()
+            elif not is_exempt and inv.is_exempt and inv.amount_paid == Decimal('0.00'):
+                inv.is_exempt = False
+                inv.original_amount = base_fee
+                inv.discount_amount = discount
+                inv.amount_due = final_fee
+                inv.exemption_reason = ''
                 inv.update_totals()
+            elif not inv.is_exempt and inv.status == 'unpaid' and inv.amount_paid == Decimal('0.00'):
+                if inv.amount_due != final_fee:
+                    inv.original_amount = base_fee
+                    inv.discount_amount = discount
+                    inv.amount_due = final_fee
+                    inv.save()
 
     # 3. Supprimer les factures impayées (sans aucun paiement versé) des élèves n'ayant AUCUNE présence
-    for inv in Invoice.objects.filter(status='unpaid', period_month=month, period_year=year, amount_paid=Decimal('0.00')):
+    for inv in Invoice.objects.filter(status='unpaid', is_exempt=False, period_month=month, period_year=year, amount_paid=Decimal('0.00')):
         has_pres = Attendance.objects.filter(student=inv.student, status='present').exists()
         if not has_pres:
             inv.delete()
@@ -116,11 +163,12 @@ def get_billable_unpaid_invoices_qs():
     """
     Retourne uniquement les factures impayées ou partielles des élèves ayant
     effectivement assisté à au moins une séance de cours (status='present').
-    Exclut les élèves inscrits mais qui n'ont pas encore commencé.
+    Exclut rigoureusement les factures exonérées et les élèves n'ayant pas commencé.
     """
     sync_invoices_with_actual_attendances()
     return Invoice.objects.filter(
         status__in=['unpaid', 'partial'],
+        is_exempt=False,
         student__attendances__status='present'
     ).distinct()
 
@@ -448,12 +496,84 @@ def payments_list_view(request):
     sync_invoices_with_actual_attendances()
     payments = Payment.objects.select_related('student', 'invoice', 'invoice__group').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
     unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'group')
+    exempted_invoices = Invoice.objects.filter(
+        Q(is_exempt=True) | Q(status='exempt')
+    ).select_related('student', 'group', 'student__parent').order_by('-period_year', '-period_month', 'student__last_name_fr')
     
     context = {
         'payments': payments,
         'unpaid_invoices': unpaid_invoices,
+        'exempted_invoices': exempted_invoices,
     }
     return render(request, 'portal/payments.html', context)
+
+
+@admin_required
+def invoice_exempt_view(request, invoice_id):
+    """
+    Exonère une facture spécifique pour un élève (Mois offert, Bourse d'excellence, cas social, etc.).
+    Enregistre automatiquement l'exonération mensuelle dans PaymentExemption.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    inv = get_object_or_404(Invoice.objects.select_related('student'), id=invoice_id)
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '').strip() or "Exonération accordée par la direction"
+        from finance.models import PaymentExemption
+        PaymentExemption.objects.update_or_create(
+            student=inv.student,
+            period_month=inv.period_month,
+            period_year=inv.period_year,
+            defaults={'reason': reason}
+        )
+        base_fee, discount, _ = inv.student.calculate_monthly_fee()
+        inv.is_exempt = True
+        inv.status = 'exempt'
+        inv.original_amount = base_fee
+        inv.discount_amount = base_fee
+        inv.amount_due = Decimal('0.00')
+        inv.exemption_reason = reason
+        inv.save()
+        
+        msg = (
+            f"✓ L'élève {inv.student.get_full_name('fr')} a été exonéré(e) de paiement pour {inv.get_period_label('fr')} (Motif: {reason})."
+            if lang == 'fr' else
+            f"✓ تم إعفاء التلميذ(ة) {inv.student.get_full_name('ar')} من أداء شهر {inv.get_period_label('ar')} (السبب: {reason})."
+        )
+        messages.success(request, msg)
+    return redirect('portal:payments')
+
+
+@admin_required
+def invoice_unexempt_view(request, invoice_id):
+    """
+    Annule l'exonération d'une facture et rétablit le montant dû selon les tarifs et conventions applicables.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    inv = get_object_or_404(Invoice.objects.select_related('student'), id=invoice_id)
+    if request.method == 'POST':
+        from finance.models import PaymentExemption
+        PaymentExemption.objects.filter(
+            student=inv.student,
+            period_month=inv.period_month,
+            period_year=inv.period_year
+        ).delete()
+        
+        base_fee, discount, final_fee = inv.student.calculate_monthly_fee()
+        inv.is_exempt = False
+        inv.original_amount = base_fee
+        inv.discount_amount = discount
+        inv.amount_due = final_fee
+        inv.exemption_reason = ''
+        inv.update_totals()
+        
+        msg = (
+            f"✓ L'exonération a été annulée. La facture de {inv.student.get_full_name('fr')} pour {inv.get_period_label('fr')} a été rétablie ({final_fee} DH)."
+            if lang == 'fr' else
+            f"✓ تم إلغاء الإعفاء واسترجاع مستحقات التلميذ(ة) {inv.student.get_full_name('ar')} لشهر {inv.get_period_label('ar')} ({final_fee} درهم)."
+        )
+        messages.success(request, msg)
+    return redirect('portal:payments')
+
 
 
 def download_receipt_pdf_view(request, payment_id):
@@ -1067,9 +1187,16 @@ def login_view(request):
         # 5. Look up Parent by Phone Number, CIN or Email
         if user is None and raw_identifier:
             cleaned_phone = re.sub(r'[^0-9]', '', raw_identifier)
+            phone_queries = Q(phone__icontains=raw_identifier)
+            if cleaned_phone:
+                phone_queries |= Q(phone__icontains=cleaned_phone)
+                if cleaned_phone.startswith('0'):
+                    phone_queries |= Q(phone__icontains=cleaned_phone[1:])
+                    phone_queries |= Q(phone__icontains='212' + cleaned_phone[1:])
+                elif cleaned_phone.startswith('212'):
+                    phone_queries |= Q(phone__icontains=cleaned_phone[3:])
             parent_contact = Parent.objects.filter(
-                Q(phone__icontains=raw_identifier) |
-                (Q(phone__icontains=cleaned_phone) if cleaned_phone else Q(id__isnull=True)) |
+                phone_queries |
                 Q(cin__iexact=raw_identifier) |
                 Q(email__iexact=raw_identifier)
             ).select_related('user').first()
@@ -1735,6 +1862,58 @@ def payment_create_view(request):
         else:
             if form.is_valid():
                 p = form.save(commit=False)
+                is_exemption = form.cleaned_data.get('is_exemption')
+                ex_reason = form.cleaned_data.get('exemption_reason', '').strip() or "Exonération accordée"
+                apply_discount = form.cleaned_data.get('apply_discount')
+                disc_amount = form.cleaned_data.get('discount_amount') or Decimal('0.00')
+                conv_name = form.cleaned_data.get('convention_name', '').strip()
+
+                if is_exemption:
+                    from finance.models import PaymentExemption
+                    inv = p.invoice or Invoice.objects.filter(student=p.student, status__in=['unpaid', 'partial']).first()
+                    month = inv.period_month if inv else p.payment_date.month
+                    year = inv.period_year if inv else p.payment_date.year
+
+                    PaymentExemption.objects.update_or_create(
+                        student=p.student,
+                        period_month=month,
+                        period_year=year,
+                        defaults={'reason': ex_reason}
+                    )
+
+                    base_fee, _, _ = p.student.calculate_monthly_fee()
+                    if inv:
+                        inv.is_exempt = True
+                        inv.status = 'exempt'
+                        inv.original_amount = base_fee
+                        inv.discount_amount = base_fee
+                        inv.amount_due = Decimal('0.00')
+                        inv.exemption_reason = ex_reason
+                        inv.save()
+
+                    msg = (
+                        f"✓ L'élève {p.student.get_full_name('fr')} a été enregistré(e) comme exonéré(e) de paiement pour {month}/{year} (0 DH dû)."
+                        if lang == 'fr' else
+                        f"✓ تم إعفاء التلميذ(ة) {p.student.get_full_name('ar')} من أداء شهر {month}/{year} (0 درهم مستحق)."
+                    )
+                    messages.success(request, msg)
+                    return redirect('portal:payments')
+
+                # Si une réduction manuelle / convention a été demandée sur ce paiement
+                if apply_discount and disc_amount > Decimal('0.00'):
+                    inv = p.invoice or Invoice.objects.filter(student=p.student, status__in=['unpaid', 'partial']).first()
+                    if inv:
+                        inv.discount_amount = disc_amount
+                        inv.amount_due = max(Decimal('0.00'), inv.original_amount - disc_amount)
+                        inv.save()
+                        p.invoice = inv
+                    if conv_name and not p.student.has_convention:
+                        p.student.has_convention = True
+                        p.student.convention_name = conv_name
+                        p.student.discount_type = 'fixed_discount'
+                        p.student.discount_value = disc_amount
+                        p.student.save()
+
                 count = Payment.objects.count() + 1
                 rec_no = f"REC-2026-{count:04d}"
                 while Payment.objects.filter(receipt_number=rec_no).exists():
@@ -1750,11 +1929,24 @@ def payment_create_view(request):
     else:
         import datetime
         initial_data = {'payment_date': datetime.date.today(), 'security_code': ''}
-        if request.GET.get('student'):
-            initial_data['student'] = request.GET.get('student')
+        st_id = request.GET.get('student')
+        if st_id:
+            initial_data['student'] = st_id
+            try:
+                st_obj = Student.objects.get(id=st_id)
+                if st_obj.has_convention:
+                    base_fee, discount, final_fee = st_obj.calculate_monthly_fee()
+                    initial_data['apply_discount'] = True
+                    initial_data['convention_name'] = st_obj.convention_name
+                    initial_data['discount_amount'] = discount
+                    if not request.GET.get('amount'):
+                        initial_data['amount'] = final_fee
+            except (Student.DoesNotExist, ValueError):
+                pass
+
         if request.GET.get('invoice'):
             initial_data['invoice'] = request.GET.get('invoice')
-        if request.GET.get('amount'):
+        if request.GET.get('amount') and 'amount' not in initial_data:
             initial_data['amount'] = request.GET.get('amount')
         form = PaymentForm(initial=initial_data)
 

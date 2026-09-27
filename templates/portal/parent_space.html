@@ -315,6 +315,82 @@
     </div>
 </div>
 
+<!-- Cotisations & Facturation de l'Enfant (Inclus Exonérations) -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 class="card-title">💳 {% if CURRENT_LANG == 'ar' %}الوضع المالي وواجبات الاشتراك{% else %}État des Cotisations & Facturation{% endif %}</h3>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">
+            {% if CURRENT_LANG == 'ar' %}متابعة الوضعية الشهرية والإعفاءات الرسمية{% else %}Suivi mensuel et exonérations accordées{% endif %}
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th>{% trans "payments.month_paid" %}</th>
+                    <th>{% trans "parent_space.child_name" %}</th>
+                    <th>{% trans "payments.amount_due" %}</th>
+                    <th>{% trans "payments.amount_paid" %}</th>
+                    <th>{% trans "payments.status" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices %}
+                <tr>
+                    <td><b>{{ inv|trans_field:CURRENT_LANG }}</b></td>
+                    <td>
+                        {{ inv.student|trans_field:CURRENT_LANG }}
+                        {% if inv.student.has_convention %}
+                            <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; font-size: 0.72rem; margin-inline-start: 4px;">
+                                🏷️ {{ inv.student.convention_name|default:"Convention" }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if inv.is_exempt or inv.status == 'exempt' %}
+                            <span style="text-decoration: line-through; color: var(--text-muted);">{% money inv.original_amount %}</span>
+                            <b style="color: #7E22CE; margin-inline-start: 4px;">0,00 DH</b>
+                        {% else %}
+                            <b>{% money inv.amount_due %}</b>
+                            {% if inv.discount_amount > 0 %}
+                                <span style="font-size: 0.72rem; color: var(--success); display: block;">
+                                    (Remise : -{% money inv.discount_amount %})
+                                </span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>{% money inv.amount_paid %}</td>
+                    <td>
+                        {% if inv.is_exempt or inv.status == 'exempt' %}
+                            <span class="badge" style="background: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE; font-weight: 700;">
+                                🌟 {% if CURRENT_LANG == 'ar' %}معفى من الأداء{% else %}Exonéré (0 DH){% endif %}
+                            </span>
+                            {% if inv.exemption_reason %}
+                                <div style="font-size: 0.72rem; color: #6B21A8; margin-top: 2px;">
+                                    ({{ inv.exemption_reason }})
+                                </div>
+                            {% endif %}
+                        {% elif inv.status == 'paid' %}
+                            <span class="badge badge-paid">✓ {% if CURRENT_LANG == 'ar' %}مؤدى بالكامل{% else %}Réglé{% endif %}</span>
+                        {% elif inv.status == 'partial' %}
+                            <span class="badge badge-partial">⚠️ {% if CURRENT_LANG == 'ar' %}أداء جزئي{% else %}Partiel (Reste: {% money inv.get_balance %}){% endif %}</span>
+                        {% else %}
+                            <span class="badge badge-unpaid">⏳ {% if CURRENT_LANG == 'ar' %}غير مؤدى{% else %}En attente{% endif %}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1rem;">
+                        {% trans "common.not_found" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Payments & Receipts Table for Parent -->
 <div class="card" style="margin-bottom: 2rem;">
     <div class="card-header">

@@ -65,6 +65,54 @@
                     {{ form.invoice }}
                 </div>
 
+                <!-- Option Exonération de Paiement (0 DH) -->
+                <div style="background: #FAF5FF; border: 1.5px solid #D8B4FE; border-radius: var(--radius-md); padding: 1rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            {{ form.is_exemption }}
+                            <label for="id_is_exemption" style="font-weight: 700; color: #6B21A8; font-size: 0.9rem; cursor: pointer;">
+                                🌟 {% if CURRENT_LANG == 'ar' %}إعفاء التلميذ من الأداء لهذا الشهر (0 درهم / معفى){% else %}Exonérer cet élève pour ce mois (0 DH / Exonération){% endif %}
+                            </label>
+                        </div>
+                        <span class="badge" style="background: #EDE9FE; color: #7E22CE; font-weight: 700; font-size: 0.8rem;">
+                            0 DH Dû
+                        </span>
+                    </div>
+                    <div id="exemption_reason_wrapper" style="display: none; margin-top: 0.75rem;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #581C87; margin-bottom: 0.25rem;">
+                            {% if CURRENT_LANG == 'ar' %}سبب الإعفاء :{% else %}Motif de l'exonération :{% endif %}
+                        </label>
+                        {{ form.exemption_reason }}
+                        <small style="color: #7E22CE; font-size: 0.75rem;">Ex: Bourse d'excellence sportive, Convention 100%, Mois offert...</small>
+                    </div>
+                </div>
+
+                <!-- Option Réduction Convention -->
+                <div style="background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: var(--radius-md); padding: 1rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            {{ form.apply_discount }}
+                            <label for="id_apply_discount" style="font-weight: 700; color: #1E40AF; font-size: 0.9rem; cursor: pointer;">
+                                🏷️ {% if CURRENT_LANG == 'ar' %}تطبيق تخفيض اتفاقية شراكة على هذا الأداء{% else %}Appliquer une réduction / Convention sur ce paiement{% endif %}
+                            </label>
+                        </div>
+                    </div>
+                    <div id="discount_details_wrapper" style="display: none; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #1E3A8A; margin-bottom: 0.25rem;">
+                                {% if CURRENT_LANG == 'ar' %}مبلغ التخفيض (درهم) :{% else %}Montant de la réduction (DH) :{% endif %}
+                            </label>
+                            {{ form.discount_amount }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #1E3A8A; margin-bottom: 0.25rem;">
+                                {% if CURRENT_LANG == 'ar' %}اسم الاتفاقية / الشريك :{% else %}Nom de la convention / Motif :{% endif %}
+                            </label>
+                            {{ form.convention_name }}
+                        </div>
+                    </div>
+                </div>
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div>
                         <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main);">
@@ -117,4 +165,41 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var exCheck = document.getElementById("id_is_exemption");
+        var exWrap = document.getElementById("exemption_reason_wrapper");
+        var discCheck = document.getElementById("id_apply_discount");
+        var discWrap = document.getElementById("discount_details_wrapper");
+        var amtInput = document.getElementById("id_payment_amount");
+
+        if (exCheck && exWrap) {
+            function toggleEx() {
+                if (exCheck.checked) {
+                    exWrap.style.display = "block";
+                    if (amtInput) {
+                        amtInput.value = "0.00";
+                    }
+                } else {
+                    exWrap.style.display = "none";
+                }
+            }
+            exCheck.addEventListener("change", toggleEx);
+            toggleEx();
+        }
+
+        if (discCheck && discWrap) {
+            function toggleDisc() {
+                if (discCheck.checked) {
+                    discWrap.style.display = "grid";
+                } else {
+                    discWrap.style.display = "none";
+                }
+            }
+            discCheck.addEventListener("change", toggleDisc);
+            toggleDisc();
+        }
+    });
+</script>
 {% endblock %}

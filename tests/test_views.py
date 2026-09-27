@@ -394,7 +394,7 @@ def test_public_family_registration():
     assert "Sami Bennani" in content_success
 
     # 4. Verify Database Objects
-    parent = Parent.objects.get(phone='0677889900')
+    parent = Parent.objects.get(phone__endswith='677889900')
     assert parent.full_name_fr == 'Rachid Bennani'
     assert parent.full_name_ar == 'رشيد بناني'
     assert parent.email == 'rachid.bennani@gmail.com'

@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static gca_tags %}
 
 {% block title %}
@@ -70,6 +70,9 @@
             </div>
             <div style="font-size: 0.8rem; color: #64748B;">
                 📋 {{ total_invoiced_count }} {% if CURRENT_LANG == 'ar' %}فاتورة اشتراك مسجلة{% else %}factures générées ce mois{% endif %}
+                {% if exempt_invoices_count %}
+                    • <span style="color: #7E22CE; font-weight: 700;">🌟 {{ exempt_invoices_count }} {% if CURRENT_LANG == 'ar' %}معفى من الأداء{% else %}exonéré{{ exempt_invoices_count|pluralize }}{% endif %}</span>
+                {% endif %}
             </div>
         </div>
 
