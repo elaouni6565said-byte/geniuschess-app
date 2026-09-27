@@ -153,7 +153,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - قائمة المقبوضات والأداءات المؤداة 2026"
         headers = [
             "رقم الإيصال", "تاريخ الأداء", "رقم التسجيل", "اسم التلميذ (بالعربية)", "اسم التلميذ (بالفرنسية)",
-            "الأنشطة المستفاد منها", "المبلغ المؤدى (درهم)"
+            "الأنشطة المستفاد منها", "الاتفاقية / سبب التخفيض", "المبلغ المؤدى (درهم)"
         ]
     elif lang == "bilingual":
         ws.title = "Paiements Réglés"
@@ -162,7 +162,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Réglés / قائمة المقبوضات 2026"
         headers = [
             "N° Reçu", "Date Paiement", "Matricule", "Élève (FR)", "الاسم (AR)",
-            "Activités Bénéficiées / الأنشطة", "Montant (DH)"
+            "Activités Bénéficiées / الأنشطة", "Convention / Motif Réduction", "Montant (DH)"
         ]
     else: # fr
         ws.title = "Liste des Paiements"
@@ -171,7 +171,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Encaissés (Payants) 2026"
         headers = [
             "N° Reçu", "Date Paiement", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
-            "Activités Bénéficiées", "Montant Réglé (DH)"
+            "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Réglé (DH)"
         ]
 
     # Title row
@@ -212,6 +212,25 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
         else:
             activities_str = "-"
         
+        # Motif de réduction le cas échéant
+        reduction_str = "-"
+        if st:
+            inv = p.invoice
+            discount_val = 0.0
+            if inv and inv.discount_amount > 0:
+                discount_val = float(inv.discount_amount)
+            elif st.has_convention:
+                _, disc, _ = st.calculate_monthly_fee()
+                discount_val = float(disc)
+
+            if st.has_convention and st.convention_name:
+                if discount_val > 0:
+                    reduction_str = f"{st.convention_name} (-{discount_val:.2f} DH)" if lang != "ar" else f"{st.convention_name} (تخفيض {discount_val:.2f} درهم)"
+                else:
+                    reduction_str = st.convention_name
+            elif discount_val > 0:
+                reduction_str = f"Réduction (-{discount_val:.2f} DH)" if lang != "ar" else f"تخفيض ({discount_val:.2f} درهم)"
+
         amt = float(p.amount)
         total_amount += amt
 
@@ -222,6 +241,7 @@ def export_paid_payments_to_excel(payments_queryset, lang="fr"):
             f"{st.first_name_fr} {st.last_name_fr}".strip() if st else "-",
             f"{st.first_name_ar} {st.last_name_ar}".strip() if st else "-",
             activities_str,
+            reduction_str,
             amt,
         ]
         if lang == "ar":
@@ -287,8 +307,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - لائحة المستحقات غير المؤداة (المتأخرات) 2026"
         headers = [
             "رقم التسجيل", "اسم التلميذ (بالعربية)", "اسم التلميذ (بالفرنسية)", "ولي الأمر",
-            "رقم الهاتف للمتابعة", "المادة / النشاط", "الشهر المعني", "الواجب الشهري (درهم)",
-            "المبلغ المدفوع (درهم)", "الباقي المستحق (درهم)", "الحالة"
+            "رقم الهاتف للمتابعة", "المادة / النشاط", "الشهر المعني", "الاتفاقية / سبب التخفيض",
+            "الواجب الشهري (درهم)", "المبلغ المدفوع (درهم)", "الباقي المستحق (درهم)", "الحالة"
         ]
     elif lang == "bilingual":
         ws.title = "Impayés - المتأخرات"
@@ -297,8 +317,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Impayés / لائحة المستحقات غير المؤداة 2026"
         headers = [
             "Matricule", "Élève (FR)", "الاسم (AR)", "Parent / ولي الأمر",
-            "Tél Relance", "Activité / النشاط", "Mois", "Montant Dû (DH)",
-            "Payé (DH)", "Reste Impayé (DH)", "Statut / الحالة"
+            "Tél Relance", "Activité / النشاط", "Mois", "Convention / Motif Réduction",
+            "Montant Dû (DH)", "Payé (DH)", "Reste Impayé (DH)", "Statut / الحالة"
         ]
     else: # fr
         ws.title = "Liste des Impayés"
@@ -307,8 +327,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Élèves Non-Payants & Impayés 2026"
         headers = [
             "Matricule", "Nom Élève (FR)", "Nom Élève (AR)", "Parent / Tuteur",
-            "Téléphone Relance", "Activité & Niveau", "Mois Concerné", "Montant Dû (DH)",
-            "Déjà Versé (DH)", "Reste Impayé (DH)", "Statut"
+            "Téléphone Relance", "Activité & Niveau", "Mois Concerné", "Convention / Motif Réduction",
+            "Montant Dû (DH)", "Déjà Versé (DH)", "Reste Impayé (DH)", "Statut"
         ]
 
     # Title row
@@ -345,6 +365,22 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         phone_str = st.parent.phone if (st and st.parent) else "-"
         month_str = inv.get_period_label(lang)
 
+        # Motif de réduction le cas échéant
+        reduction_str = "-"
+        if st:
+            discount_val = float(inv.discount_amount) if inv.discount_amount > 0 else 0.0
+            if discount_val == 0.0 and st.has_convention:
+                _, disc, _ = st.calculate_monthly_fee()
+                discount_val = float(disc)
+
+            if st.has_convention and st.convention_name:
+                if discount_val > 0:
+                    reduction_str = f"{st.convention_name} (-{discount_val:.2f} DH)" if lang != "ar" else f"{st.convention_name} (تخفيض {discount_val:.2f} درهم)"
+                else:
+                    reduction_str = st.convention_name
+            elif discount_val > 0:
+                reduction_str = f"Réduction (-{discount_val:.2f} DH)" if lang != "ar" else f"تخفيض ({discount_val:.2f} درهم)"
+
         amt_due = float(inv.amount_due)
         amt_paid = float(inv.amount_paid)
         balance = float(inv.get_balance())
@@ -363,6 +399,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
             phone_str,
             subject_str,
             month_str,
+            reduction_str,
             amt_due,
             amt_paid,
             balance,
@@ -376,10 +413,10 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
             cell.value = val
             cell.font = DATA_FONT
             cell.border = BORDER_THIN
-            if col_num in (8, 9):
+            if col_num in (9, 10):
                 cell.alignment = Alignment(horizontal="right", vertical="center")
                 cell.number_format = '#,##0.00 "DH"'
-            elif col_num == 10:
+            elif col_num == 11:
                 cell.alignment = Alignment(horizontal="right", vertical="center")
                 cell.number_format = '#,##0.00 "DH"'
                 cell.font = Font(name="Segoe UI", size=10, bold=True, color="991B1B")
@@ -389,7 +426,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
 
     # Total Summary Row
     ws.row_dimensions[row_idx].height = 28
-    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=7)
+    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=8)
     tot_label = ws.cell(row=row_idx, column=1)
     tot_label.value = "TOTAL DES IMPAYÉS RESTANTS / مجموع المتأخرات المتبقية :" if lang != "ar" else "مجموع المتأخرات المتبقية المستحقة :"
     tot_label.font = TOTAL_RED_FONT
@@ -397,7 +434,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_label.alignment = Alignment(horizontal="right" if lang != "ar" else "left", vertical="center")
     tot_label.border = BORDER_TOTAL
 
-    tot_due_cell = ws.cell(row=row_idx, column=8)
+    tot_due_cell = ws.cell(row=row_idx, column=9)
     tot_due_cell.value = total_due
     tot_due_cell.font = BOLD_DATA_FONT
     tot_due_cell.fill = UNPAID_TOTAL_FILL
@@ -405,7 +442,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_due_cell.number_format = '#,##0.00 "DH"'
     tot_due_cell.border = BORDER_TOTAL
 
-    tot_paid_cell = ws.cell(row=row_idx, column=9)
+    tot_paid_cell = ws.cell(row=row_idx, column=10)
     tot_paid_cell.value = total_paid
     tot_paid_cell.font = BOLD_DATA_FONT
     tot_paid_cell.fill = UNPAID_TOTAL_FILL
@@ -413,7 +450,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_paid_cell.number_format = '#,##0.00 "DH"'
     tot_paid_cell.border = BORDER_TOTAL
 
-    tot_bal_cell = ws.cell(row=row_idx, column=10)
+    tot_bal_cell = ws.cell(row=row_idx, column=11)
     tot_bal_cell.value = total_balance
     tot_bal_cell.font = TOTAL_RED_FONT
     tot_bal_cell.fill = UNPAID_TOTAL_FILL
@@ -421,8 +458,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_bal_cell.number_format = '#,##0.00 "DH"'
     tot_bal_cell.border = BORDER_TOTAL
 
-    ws.cell(row=row_idx, column=11).border = BORDER_TOTAL
-    ws.cell(row=row_idx, column=11).fill = UNPAID_TOTAL_FILL
+    ws.cell(row=row_idx, column=12).border = BORDER_TOTAL
+    ws.cell(row=row_idx, column=12).fill = UNPAID_TOTAL_FILL
 
     # Auto-adjust column widths
     for col in ws.columns:
