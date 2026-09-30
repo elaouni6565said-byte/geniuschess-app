@@ -301,3 +301,119 @@ def test_payment_create_view_with_exemption():
     assert inv.exemption_reason == "Bourse d'honneur"
     assert PaymentExemption.objects.filter(student=st, period_month=12, period_year=2026).exists()
 
+
+@pytest.mark.django_db
+def test_check_duplicate_payment_ajax_view():
+    """
+    Vérifie le fonctionnement de l'API AJAX de détection anti-doublon :
+    - Sans élève : pas de risque
+    - Élève sans paiement : pas de risque
+    - Élève avec paiement complet existant : risque de doublon détecté (100% réglé, balance=0.00)
+    - Élève avec versement partiel : reliquat calculé et bouton d'ajustement
+    - Élève exonéré pour le mois : alerte exonération (0 DH)
+    """
+    admin_user = User.objects.create_user(username="admin_dup", password="password", role="admin")
+    client = Client()
+    client.login(username="admin_dup", password="password")
+
+    parent = Parent.objects.create(full_name_fr="Parent Dup", phone="212688776655")
+    sub = Subject.objects.create(name_fr="Échecs", name_ar="الشطرنج")
+    grp = Group.objects.create(name_fr="Groupe Dup", name_ar="فوج", subject=sub, monthly_fee=Decimal("300.00"))
+    st = Student.objects.create(
+        registration_number="GCA-DUP-01",
+        first_name_fr="Sami",
+        last_name_fr="Alami",
+        parent=parent,
+        active=True
+    )
+    st.groups.add(grp)
+
+    # 1. Sans student_id
+    r1 = client.get("/payments/check-duplicate/")
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["is_duplicate_risk"] is False
+
+    # 2. Avec élève sans aucun paiement ni exonération
+    r2 = client.get(f"/payments/check-duplicate/?student={st.id}&date=2026-10-05")
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2["is_duplicate_risk"] is False
+    assert d2["is_exempt"] is False
+    assert len(d2["existing_payments"]) == 0
+
+    # 3. Créer une facture de 300 DH pour 10/2026 et un paiement complet de 300 DH
+    inv = Invoice.objects.create(
+        student=st,
+        group=grp,
+        period_month=10,
+        period_year=2026,
+        original_amount=Decimal("300.00"),
+        amount_due=Decimal("300.00"),
+        amount_paid=Decimal("300.00"),
+        status="paid",
+        due_date=date(2026, 10, 15)
+    )
+    pay = Payment.objects.create(
+        invoice=inv,
+        student=st,
+        amount=Decimal("300.00"),
+        payment_date=date(2026, 10, 2),
+        payment_method="cash",
+        receipt_number="REC-202610-001"
+    )
+
+    r3 = client.get(f"/payments/check-duplicate/?student={st.id}&invoice={inv.id}")
+    assert r3.status_code == 200
+    d3 = r3.json()
+    assert d3["is_duplicate_risk"] is True
+    assert d3["balance_remaining"] == "0.00"
+    assert len(d3["existing_payments"]) == 1
+    assert d3["existing_payments"][0]["receipt_number"] == "REC-202610-001"
+    assert "100%" in d3["status_badge_fr"]
+
+    # 4. Versement partiel pour un autre mois (ex: 11/2026 : montant 300 DH, payé 100 DH, reste 200 DH)
+    inv2 = Invoice.objects.create(
+        student=st,
+        group=grp,
+        period_month=11,
+        period_year=2026,
+        original_amount=Decimal("300.00"),
+        amount_due=Decimal("300.00"),
+        amount_paid=Decimal("100.00"),
+        status="partial",
+        due_date=date(2026, 11, 15)
+    )
+    pay2 = Payment.objects.create(
+        invoice=inv2,
+        student=st,
+        amount=Decimal("100.00"),
+        payment_date=date(2026, 11, 3),
+        payment_method="transfer",
+        receipt_number="REC-202611-002"
+    )
+
+    r4 = client.get(f"/payments/check-duplicate/?student={st.id}&invoice={inv2.id}")
+    assert r4.status_code == 200
+    d4 = r4.json()
+    assert d4["is_duplicate_risk"] is True
+    assert d4["balance_remaining"] == "200.00"
+    assert "Partiel" in d4["status_badge_fr"]
+    assert len(d4["existing_payments"]) == 1
+
+    # 5. Élève exonéré pour le mois 12/2026
+    PaymentExemption.objects.create(
+        student=st,
+        period_month=12,
+        period_year=2026,
+        reason="Convention Partenaire Gratuite"
+    )
+    r5 = client.get(f"/payments/check-duplicate/?student={st.id}&date=2026-12-10")
+    assert r5.status_code == 200
+    d5 = r5.json()
+    assert d5["is_duplicate_risk"] is True
+    assert d5["is_exempt"] is True
+    assert "Exonéré" in d5["status_badge_fr"]
+    assert "Convention Partenaire Gratuite" in d5["warning_msg_fr"]
+
+

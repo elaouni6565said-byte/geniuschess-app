@@ -1846,6 +1846,140 @@ def register_view(request):
 
 
 @admin_required
+def check_duplicate_payment_ajax_view(request):
+    """
+    Contrôle automatique et instantané des risques de paiements doublons (AJAX) :
+    Vérifie en temps réel lors de la saisie si l'élève a déjà un versement pour la même période,
+    ou si la facture est déjà entièrement réglée, ou s'il est exonéré de paiement.
+    Renvoie les données complètes pour l'affichage de l'infobulle interactive.
+    """
+    from datetime import datetime, date
+    from django.http import JsonResponse
+    from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    student_id = request.GET.get('student')
+    invoice_id = request.GET.get('invoice')
+    date_str = request.GET.get('date')
+
+    if not student_id or not str(student_id).isdigit():
+        return JsonResponse({'is_duplicate_risk': False, 'existing_payments': []})
+
+    student = Student.objects.filter(id=int(student_id)).first()
+    if not student:
+        return JsonResponse({'is_duplicate_risk': False, 'existing_payments': []})
+
+    target_date = date.today()
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            pass
+
+    target_month = target_date.month
+    target_year = target_date.year
+
+    # 1. Vérifier si l'élève est officiellement exonéré pour ce mois
+    is_exempt, ex_reason = student.is_exempt_for_period(target_month, target_year)
+
+    # 2. Chercher les paiements existants pour ce même mois / facture
+    payments_qs = Payment.objects.filter(student=student).select_related('invoice')
+
+    if invoice_id and str(invoice_id).isdigit():
+        inv = Invoice.objects.filter(id=int(invoice_id)).first()
+        if inv:
+            target_month = inv.period_month
+            target_year = inv.period_year
+            month_payments = payments_qs.filter(
+                Q(invoice=inv) |
+                Q(invoice__period_month=target_month, invoice__period_year=target_year) |
+                Q(payment_date__year=target_year, payment_date__month=target_month)
+            ).distinct()
+        else:
+            month_payments = payments_qs.filter(
+                Q(invoice__period_month=target_month, invoice__period_year=target_year) |
+                Q(payment_date__year=target_year, payment_date__month=target_month)
+            ).distinct()
+    else:
+        month_payments = payments_qs.filter(
+            Q(invoice__period_month=target_month, invoice__period_year=target_year) |
+            Q(payment_date__year=target_year, payment_date__month=target_month)
+        ).distinct()
+
+    existing_payments = []
+    total_already_paid = Decimal('0.00')
+
+    for p in month_payments.order_by('-payment_date', '-id'):
+        total_already_paid += p.amount
+        existing_payments.append({
+            'id': p.id,
+            'receipt_number': p.receipt_number,
+            'amount': f"{p.amount:.2f}",
+            'payment_date': p.payment_date.strftime('%d/%m/%Y'),
+            'payment_method': p.get_method_label(lang),
+            'invoice_status': p.invoice.get_status_label(lang) if p.invoice else None,
+        })
+
+    month_name_fr = FRENCH_MONTHS.get(target_month, str(target_month)).capitalize()
+    month_name_ar = ARABIC_MONTHS.get(target_month, str(target_month))
+    period_label_fr = f"{month_name_fr} {target_year}"
+    period_label_ar = f"{month_name_ar} {target_year}"
+
+    # Récupérer la facture pour comparer le montant dû
+    inv = Invoice.objects.filter(student=student, period_month=target_month, period_year=target_year).first()
+    base_fee, discount, final_fee = student.calculate_monthly_fee()
+    amount_due = inv.amount_due if inv else final_fee
+    balance = max(Decimal('0.00'), amount_due - total_already_paid)
+
+    is_duplicate_risk = (len(existing_payments) > 0) or is_exempt
+
+    # Construction des libellés bilingues
+    warning_title_fr = "⚠️ Attention : Risque de Paiement Doublé !"
+    warning_title_ar = "⚠️ تنبيه : احتمال تكرار الأداء !"
+
+    if is_exempt:
+        status_badge_fr = "Élève Exonéré (0 DH)"
+        status_badge_ar = "تلميذ معفى (0 درهم)"
+        warning_msg_fr = f"L'élève {student.get_full_name('fr')} est officiellement exonéré(e) de paiement pour {period_label_fr} (Motif : {ex_reason or 'Exonération accordée'}). Aucun montant n'est dû."
+        warning_msg_ar = f"التلميذ(ة) {student.get_full_name('ar')} معفى رسمياً من الأداء لشهر {period_label_ar} (السبب : {ex_reason or 'إعفاء رسمي'}). لا يوجد أي مبلغ مستحق."
+    elif existing_payments:
+        last_pay = existing_payments[0]
+        if balance == Decimal('0.00'):
+            status_badge_fr = "Cotisation Déjà Réglée à 100%"
+            status_badge_ar = "المستحقات مؤداة بالكامل 100%"
+            warning_msg_fr = f"Attention : Cet élève a DÉJÀ réglé la totalité de sa cotisation pour {period_label_fr} ({total_already_paid:.2f} DH versés via le reçu #{last_pay['receipt_number']} le {last_pay['payment_date']}). Risque de double encaissement !"
+            warning_msg_ar = f"تنبيه : هذا التلميذ أدى بالفعل كامل مستحقات شهر {period_label_ar} ({total_already_paid:.2f} درهم عبر الوصل #{last_pay['receipt_number']} بتاريخ {last_pay['payment_date']}). احتمال تكرار القبض !"
+        else:
+            status_badge_fr = f"Paiement Partiel Existant (Reste : {balance:.2f} DH)"
+            status_badge_ar = f"أداء جزئي سابق (المتبقي : {balance:.2f} درهم)"
+            warning_msg_fr = f"Cet élève a déjà un versement partiel enregistré pour {period_label_fr} ({total_already_paid:.2f} DH déjà versés via le reçu #{last_pay['receipt_number']}). Le reliquat restant dû est de {balance:.2f} DH."
+            warning_msg_ar = f"هذا التلميذ لديه بالفعل دفعة مسجلة لشهر {period_label_ar} (تم دفع {total_already_paid:.2f} درهم عبر الوصل #{last_pay['receipt_number']}). المبلغ المتبقي المستحق هو {balance:.2f} درهم."
+    else:
+        status_badge_fr = ""
+        status_badge_ar = ""
+        warning_msg_fr = ""
+        warning_msg_ar = ""
+
+    return JsonResponse({
+        'is_duplicate_risk': is_duplicate_risk,
+        'is_exempt': is_exempt,
+        'exemption_reason': ex_reason if is_exempt else '',
+        'period_label_fr': period_label_fr,
+        'period_label_ar': period_label_ar,
+        'total_already_paid': f"{total_already_paid:.2f}",
+        'amount_due': f"{amount_due:.2f}",
+        'balance_remaining': f"{balance:.2f}",
+        'existing_payments': existing_payments,
+        'warning_title_fr': warning_title_fr,
+        'warning_title_ar': warning_title_ar,
+        'status_badge_fr': status_badge_fr,
+        'status_badge_ar': status_badge_ar,
+        'warning_msg_fr': warning_msg_fr,
+        'warning_msg_ar': warning_msg_ar,
+    })
+
+
+@admin_required
 def payment_create_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     security_code_expected = getattr(settings, 'ADMIN_FINANCIAL_SECURITY_CODE', '6565')

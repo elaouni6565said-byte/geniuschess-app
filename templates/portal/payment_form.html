@@ -65,6 +65,42 @@
                     {{ form.invoice }}
                 </div>
 
+                <!-- INFOBULLE ET CONTRÔLE DYNAMIQUE DE PAIEMENT DOUBLÉ (ANTI-DOUBLON) -->
+                <div id="duplicate_alert_box" style="display: none; background: #FFFBEB; border: 2px solid #F59E0B; border-radius: var(--radius-md); padding: 1.15rem; box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.15); transition: all 0.3s ease;">
+                    <div style="display: flex; align-items: flex-start; gap: 0.85rem;">
+                        <div style="background: #FDE68A; border: 1.5px solid #F59E0B; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">
+                            ⚠️
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.35rem;">
+                                <h4 id="duplicate_alert_title" style="margin: 0; color: #92400E; font-size: 0.96rem; font-weight: 700;">
+                                    ⚠️ {% if CURRENT_LANG == 'ar' %}تنبيه : احتمال تكرار الأداء !{% else %}Attention : Risque de Paiement Doublé !{% endif %}
+                                </h4>
+                                <span id="duplicate_status_badge" class="badge" style="background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; font-weight: 700; font-size: 0.78rem;">
+                                </span>
+                            </div>
+                            <p id="duplicate_alert_text" style="margin: 0 0 0.65rem 0; font-size: 0.86rem; color: #B45309; line-height: 1.45;">
+                            </p>
+                            
+                            <!-- Conteneur des détails des versements déjà enregistrés -->
+                            <div id="duplicate_payments_container" style="display: none; background: white; border: 1px solid #FDE68A; border-radius: var(--radius-sm); padding: 0.65rem 0.85rem;">
+                                <div style="font-size: 0.8rem; font-weight: 700; color: #78350F; margin-bottom: 0.35rem;">
+                                    📋 {% if CURRENT_LANG == 'ar' %}الأداءات المسجلة مسبقاً لهذه الفترة :{% else %}Versements déjà enregistrés pour cette période :{% endif %}
+                                </div>
+                                <ul id="duplicate_payments_ul" style="margin: 0; padding-inline-start: 1.25rem; font-size: 0.82rem; color: #451A03;">
+                                </ul>
+                            </div>
+
+                            <!-- Action rapide pour ajuster au reliquat -->
+                            <div id="duplicate_adjust_wrapper" style="display: none; margin-top: 0.75rem;">
+                                <button type="button" id="btn_apply_balance" class="btn btn-sm" style="background: #D97706; color: white; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.75rem;">
+                                    🎯 {% if CURRENT_LANG == 'ar' %}ضبط المبلغ تلقائياً على الباقي المستحق{% else %}Ajuster le montant au reliquat restant{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Option Exonération de Paiement (0 DH) -->
                 <div style="background: #FAF5FF; border: 1.5px solid #D8B4FE; border-radius: var(--radius-md); padding: 1rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
@@ -200,6 +236,109 @@
             discCheck.addEventListener("change", toggleDisc);
             toggleDisc();
         }
+
+        // ==========================================
+        // CONTRÔLE DYNAMIQUE ANTI-DOUBLON (AJAX)
+        // ==========================================
+        var studentSelect = document.getElementById("id_student_select");
+        var invoiceSelect = document.getElementById("id_invoice");
+        var dateInput = document.getElementById("id_payment_date");
+
+        var dupBox = document.getElementById("duplicate_alert_box");
+        var dupTitle = document.getElementById("duplicate_alert_title");
+        var dupBadge = document.getElementById("duplicate_status_badge");
+        var dupText = document.getElementById("duplicate_alert_text");
+        var dupListContainer = document.getElementById("duplicate_payments_container");
+        var dupUl = document.getElementById("duplicate_payments_ul");
+        var dupAdjustWrap = document.getElementById("duplicate_adjust_wrapper");
+        var btnApplyBalance = document.getElementById("btn_apply_balance");
+
+        var currentBalanceRemaining = null;
+
+        function checkDuplicatePayment() {
+            if (!studentSelect || !studentSelect.value) {
+                if (dupBox) dupBox.style.display = "none";
+                return;
+            }
+
+            var studentId = studentSelect.value;
+            var invoiceId = invoiceSelect ? invoiceSelect.value : "";
+            var payDate = dateInput ? dateInput.value : "";
+
+            var checkUrl = "{% url 'portal:check_duplicate_payment_ajax' %}?student=" + encodeURIComponent(studentId) +
+                           "&invoice=" + encodeURIComponent(invoiceId) +
+                           "&date=" + encodeURIComponent(payDate);
+
+            fetch(checkUrl)
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data && data.is_duplicate_risk) {
+                        var isAr = "{{ CURRENT_LANG }}" === "ar";
+                        if (dupTitle) dupTitle.textContent = isAr ? data.warning_title_ar : data.warning_title_fr;
+                        if (dupBadge) dupBadge.textContent = isAr ? data.status_badge_ar : data.status_badge_fr;
+                        if (dupText) dupText.textContent = isAr ? data.warning_msg_ar : data.warning_msg_fr;
+
+                        // Liste des paiements existants
+                        if (dupUl && data.existing_payments && data.existing_payments.length > 0) {
+                            dupUl.innerHTML = "";
+                            data.existing_payments.forEach(function(item) {
+                                var li = document.createElement("li");
+                                li.style.marginBottom = "4px";
+                                li.innerHTML = "<b>#" + item.receipt_number + "</b> (" + item.payment_date + ") : <b>" + item.amount + " DH</b> (" + item.payment_method + ")";
+                                dupUl.appendChild(li);
+                            });
+                            if (dupListContainer) dupListContainer.style.display = "block";
+                        } else {
+                            if (dupListContainer) dupListContainer.style.display = "none";
+                        }
+
+                        // Bouton d'ajustement rapide au reliquat restant
+                        var rem = parseFloat(data.balance_remaining || "0");
+                        currentBalanceRemaining = rem;
+                        if (rem > 0 && data.existing_payments && data.existing_payments.length > 0) {
+                            if (dupAdjustWrap) dupAdjustWrap.style.display = "block";
+                            if (btnApplyBalance) {
+                                btnApplyBalance.textContent = isAr
+                                    ? ("🎯 ضبط المبلغ على الباقي المستحق (" + rem.toFixed(2) + " درهم)")
+                                    : ("🎯 Ajuster automatiquement le montant au reste dû (" + rem.toFixed(2) + " DH)");
+                            }
+                        } else {
+                            if (dupAdjustWrap) dupAdjustWrap.style.display = "none";
+                        }
+
+                        if (dupBox) dupBox.style.display = "block";
+                    } else {
+                        if (dupBox) dupBox.style.display = "none";
+                    }
+                })
+                .catch(function(err) {
+                    console.error("Erreur vérification doublon :", err);
+                });
+        }
+
+        if (studentSelect) {
+            studentSelect.addEventListener("change", checkDuplicatePayment);
+        }
+        if (invoiceSelect) {
+            invoiceSelect.addEventListener("change", checkDuplicatePayment);
+        }
+        if (dateInput) {
+            dateInput.addEventListener("change", checkDuplicatePayment);
+        }
+
+        if (btnApplyBalance) {
+            btnApplyBalance.addEventListener("click", function() {
+                if (currentBalanceRemaining !== null && amtInput) {
+                    amtInput.value = currentBalanceRemaining.toFixed(2);
+                    amtInput.focus();
+                }
+            });
+        }
+
+        // Vérification automatique au chargement (ex: si pré-rempli via URL)
+        checkDuplicatePayment();
     });
 </script>
 {% endblock %}

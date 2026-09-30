@@ -13,6 +13,7 @@ urlpatterns = [
     path('planning/pdf/', views.download_planning_pdf_view, name='planning_pdf'),
     path('payments/', views.payments_list_view, name='payments'),
     path('payments/add/', views.payment_create_view, name='payment_add'),
+    path('payments/check-duplicate/', views.check_duplicate_payment_ajax_view, name='check_duplicate_payment_ajax'),
     path('payments/export-paid-excel/', views.export_paid_payments_excel_view, name='export_paid_excel'),
     path('payments/export-unpaid-excel/', views.export_unpaid_invoices_excel_view, name='export_unpaid_excel'),
     path('payments/forecast/', views.financial_forecast_view, name='financial_forecast'),
