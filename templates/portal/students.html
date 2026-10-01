@@ -14,7 +14,7 @@
         <a href="{% url 'portal:student_add' %}" class="btn btn-primary">
             ➕ {% trans "student_crud.add_title" %}
         </a>
-        <a href="{% url 'portal:students_cards_sheet_pdf' %}" target="_blank" class="btn btn-outline" style="background: white; border-color: #0F172A; color: #0F172A; font-weight: 700; box-shadow: var(--shadow-sm);">
+        <a href="{% url 'portal:students_cards_sheet_pdf' %}" id="btn_top_print_sheet" target="_blank" class="btn btn-outline" style="background: white; border-color: #0F172A; color: #0F172A; font-weight: 700; box-shadow: var(--shadow-sm);">
             🪪 {% if CURRENT_LANG == 'ar' %}طباعة البطاقات (PDF){% else %}Planche Badges (PDF){% endif %}
         </a>
         <a href="{% url 'portal:export_students_excel' %}" class="btn btn-secondary" style="font-weight: 600;">
@@ -50,11 +50,38 @@
 </form>
 
 <!-- Students Table -->
+<!-- Barre d'Action de Sélection pour Planche de Cartes -->
+<div id="selection_action_bar" style="display: none; background: #0F172A; color: white; padding: 0.75rem 1.25rem; border-radius: var(--radius-md); margin-bottom: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; box-shadow: var(--shadow-md);">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 1.3rem;">🪪</span>
+        <div>
+            <div style="font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
+                <span id="selected_count_badge" style="background: #D97706; color: white; padding: 2px 8px; border-radius: 9999px; font-size: 0.85rem;">0</span>
+                <span>{% if CURRENT_LANG == 'ar' %}تلميذ(ة) تم اختيارهم للطباعة{% else %}élève(s) sélectionné(s) pour la planche{% endif %}</span>
+            </div>
+            <div style="font-size: 0.78rem; color: #94A3B8; margin-top: 1px;">
+                {% if CURRENT_LANG == 'ar' %}سيتم إنشاء ورقة A4 تحتوي حصرياً على بطاقات التلاميذ المحددين (8 بطاقات في كل صفحة){% else %}Génère une planche A4 contenant exclusivement les cartes des élèves cochés (8 cartes / page){% endif %}
+            </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button type="button" id="btn_clear_selection" class="btn btn-sm btn-outline" style="color: #CBD5E1; border-color: #475569; background: transparent;">
+            ✕ {% if CURRENT_LANG == 'ar' %}إلغاء التحديد{% else %}Tout décocher{% endif %}
+        </button>
+        <button type="button" id="btn_print_selected_sheet" class="btn btn-sm btn-primary" style="background: #D97706; border-color: #D97706; font-weight: 700; padding: 0.45rem 1.1rem; box-shadow: var(--shadow-sm);">
+            🖨️ {% if CURRENT_LANG == 'ar' %}طباعة بطاقات المحددين (PDF){% else %}Imprimer la Planche des Sélectionnés (PDF){% endif %}
+        </button>
+    </div>
+</div>
+
 <div class="card">
     <div class="table-responsive">
         <table class="gca-table">
             <thead>
                 <tr>
+                    <th style="width: 36px; text-align: center;">
+                        <input type="checkbox" id="select_all_students" style="width: 16px; height: 16px; cursor: pointer;" title="{% if CURRENT_LANG == 'ar' %}تحديد الكل / إلغاء التحديد{% else %}Tout cocher / Décocher{% endif %}">
+                    </th>
                     <th>Matricule</th>
                     <th>{% trans "students.name_fr" %}</th>
                     <th>{% trans "students.name_ar" %}</th>
@@ -68,6 +95,9 @@
             <tbody>
                 {% for st in students %}
                 <tr>
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="student-select-cb" value="{{ st.id }}" style="width: 16px; height: 16px; cursor: pointer;">
+                    </td>
                     <td><b>{{ st.registration_number }}</b></td>
                     <td>
                         <div>{{ st.first_name_fr }} {{ st.last_name_fr }}</div>
@@ -147,7 +177,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                    <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 3rem;">
                         <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">🔍 {% trans "students.no_students_found" %}</p>
                         <p style="font-size: 0.85rem;">Essayez avec un autre mot-clé (ex: <i>Mohamed</i> ou <i>محمد</i>).</p>
                     </td>
@@ -157,4 +187,111 @@
         </table>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var selectAllCb = document.getElementById("select_all_students");
+    var studentCbs = document.querySelectorAll(".student-select-cb");
+    var actionBar = document.getElementById("selection_action_bar");
+    var countBadge = document.getElementById("selected_count_badge");
+    var btnClear = document.getElementById("btn_clear_selection");
+    var btnPrintSelected = document.getElementById("btn_print_selected_sheet");
+    var topPrintBtn = document.getElementById("btn_top_print_sheet");
+
+    var baseSheetUrl = "{% url 'portal:students_cards_sheet_pdf' %}";
+
+    function getSelectedIds() {
+        var ids = [];
+        studentCbs.forEach(function(cb) {
+            if (cb.checked) {
+                ids.push(cb.value);
+            }
+        });
+        return ids;
+    }
+
+    function updateSelectionUI() {
+        var selected = getSelectedIds();
+        var count = selected.length;
+
+        if (countBadge) countBadge.textContent = count;
+
+        if (count > 0) {
+            if (actionBar) actionBar.style.display = "flex";
+            if (topPrintBtn) {
+                topPrintBtn.innerHTML = "🪪 {% if CURRENT_LANG == 'ar' %}طباعة بطاقات المحددين ({% else %}Planche Sélectionnée ({% endif %}" + count + ")";
+                topPrintBtn.style.background = "#0F172A";
+                topPrintBtn.style.color = "white";
+            }
+        } else {
+            if (actionBar) actionBar.style.display = "none";
+            if (topPrintBtn) {
+                topPrintBtn.innerHTML = "🪪 {% if CURRENT_LANG == 'ar' %}طباعة البطاقات (PDF){% else %}Planche Badges (PDF){% endif %}";
+                topPrintBtn.style.background = "white";
+                topPrintBtn.style.color = "#0F172A";
+            }
+        }
+
+        if (selectAllCb) {
+            if (count === 0) {
+                selectAllCb.checked = false;
+                selectAllCb.indeterminate = false;
+            } else if (count === studentCbs.length) {
+                selectAllCb.checked = true;
+                selectAllCb.indeterminate = false;
+            } else {
+                selectAllCb.checked = false;
+                selectAllCb.indeterminate = true;
+            }
+        }
+    }
+
+    if (selectAllCb) {
+        selectAllCb.addEventListener("change", function() {
+            var isChecked = this.checked;
+            studentCbs.forEach(function(cb) {
+                cb.checked = isChecked;
+            });
+            updateSelectionUI();
+        });
+    }
+
+    studentCbs.forEach(function(cb) {
+        cb.addEventListener("change", updateSelectionUI);
+    });
+
+    if (btnClear) {
+        btnClear.addEventListener("click", function() {
+            studentCbs.forEach(function(cb) {
+                cb.checked = false;
+            });
+            updateSelectionUI();
+        });
+    }
+
+    function openSelectedSheet() {
+        var selected = getSelectedIds();
+        if (selected.length === 0) {
+            alert("{% if CURRENT_LANG == 'ar' %}يرجى تحديد تلميذ واحد على الأقل لطباعة بطاقته.{% else %}Veuillez cocher au moins un élève pour imprimer sa carte.{% endif %}");
+            return;
+        }
+        var url = baseSheetUrl + "?ids=" + selected.join(",");
+        window.open(url, "_blank");
+    }
+
+    if (btnPrintSelected) {
+        btnPrintSelected.addEventListener("click", openSelectedSheet);
+    }
+
+    if (topPrintBtn) {
+        topPrintBtn.addEventListener("click", function(e) {
+            var selected = getSelectedIds();
+            if (selected.length > 0) {
+                e.preventDefault();
+                openSelectedSheet();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

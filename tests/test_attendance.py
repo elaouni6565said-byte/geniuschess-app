@@ -125,6 +125,19 @@ def test_attendance_views_and_qr_scanning():
     assert resp_sheet_pdf['Content-Type'] == 'application/pdf'
     assert resp_sheet_pdf.content.startswith(b'%PDF')
 
+    # 9. Selected student cards sheet PDF download via ?ids=...
+    resp_custom_sheet = client.get(f'/students/cards-pdf/?ids={student.id}')
+    assert resp_custom_sheet.status_code == 200
+    assert resp_custom_sheet['Content-Type'] == 'application/pdf'
+    assert resp_custom_sheet.content.startswith(b'%PDF')
+    assert "Selection_1_Eleves" in resp_custom_sheet['Content-Disposition']
+
+    # 10. Selected student cards via POST
+    resp_post_sheet = client.post('/students/cards-pdf/', data={'selected_students': [student.id]})
+    assert resp_post_sheet.status_code == 200
+    assert resp_post_sheet['Content-Type'] == 'application/pdf'
+    assert resp_post_sheet.content.startswith(b'%PDF')
+
 
 @pytest.mark.django_db
 def test_attendance_recap_and_excel_export():

@@ -2894,11 +2894,28 @@ def student_card_pdf_view(request, student_id):
 
 @admin_required
 def students_cards_sheet_pdf_view(request):
-    """Téléchargement d'une planche A4 de badges d'élèves avec QR Codes (8 cartes par page)."""
+    """Téléchargement d'une planche A4 de badges d'élèves avec QR Codes (8 cartes par page).
+    Permet d'imprimer :
+    - Soit une sélection personnalisée d'élèves choisis (?ids=1,2,3... ou POST selected_students)
+    - Soit tous les élèves d'un groupe (?group=ID)
+    - Soit tous les élèves actifs de l'académie.
+    """
     from portal.student_card import generate_student_cards_sheet_pdf
 
+    ids_raw = request.GET.get('ids')
+    post_ids = request.POST.getlist('selected_students') or request.GET.getlist('students')
     group_id = request.GET.get('group')
-    if group_id:
+
+    selected_ids = []
+    if ids_raw:
+        selected_ids = [int(x.strip()) for x in ids_raw.split(',') if x.strip().isdigit()]
+    elif post_ids:
+        selected_ids = [int(x) for x in post_ids if str(x).isdigit()]
+
+    if selected_ids:
+        students = list(Student.objects.filter(id__in=selected_ids).order_by('last_name_fr', 'first_name_fr'))
+        filename = f"Planche_Cartes_Selection_{len(students)}_Eleves.pdf"
+    elif group_id:
         group = get_object_or_404(Group, id=group_id)
         students = list(group.students.filter(active=True).order_by('last_name_fr', 'first_name_fr'))
         filename = f"Planche_Cartes_{group.name_fr.replace(' ', '_')}.pdf"
