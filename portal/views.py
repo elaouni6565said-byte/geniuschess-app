@@ -1256,6 +1256,146 @@ def csrf_failure_view(request, reason=""):
 # ==========================================
 
 @admin_required
+def check_duplicate_student_ajax_view(request):
+    """
+    Contrôle automatique et instantané des risques de double inscription d'un élève (AJAX) :
+    Vérifie en temps réel lors de la saisie si un élève existe déjà avec le même nom/prénom
+    (français ou arabe), même parent, même date de naissance ou même matricule.
+    Renvoie les données complètes pour l'affichage de l'infobulle interactive anti-doublon.
+    """
+    from datetime import datetime
+    from django.urls import reverse
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    fn_fr = (request.GET.get('first_name_fr') or '').strip()
+    ln_fr = (request.GET.get('last_name_fr') or '').strip()
+    fn_ar = (request.GET.get('first_name_ar') or '').strip()
+    ln_ar = (request.GET.get('last_name_ar') or '').strip()
+    bdate_str = (request.GET.get('birth_date') or '').strip()
+    parent_id = (request.GET.get('parent') or '').strip()
+    reg_num = (request.GET.get('registration_number') or '').strip()
+    student_id = (request.GET.get('student_id') or '').strip()
+
+    # Si rien de suffisant n'est saisi, retourner immédiatement
+    has_fr = len(fn_fr) >= 2 and len(ln_fr) >= 2
+    has_ar = len(fn_ar) >= 2 and len(ln_ar) >= 2
+    has_reg = len(reg_num) >= 4
+
+    if not has_fr and not has_ar and not has_reg:
+        return JsonResponse({'is_duplicate': False, 'existing_students': []})
+
+    qs = Student.objects.all().select_related('parent').prefetch_related('groups')
+    if student_id and str(student_id).isdigit():
+        qs = qs.exclude(id=int(student_id))
+
+    target_bdate = None
+    if bdate_str:
+        try:
+            target_bdate = datetime.strptime(bdate_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            pass
+
+    target_parent_id = int(parent_id) if parent_id and str(parent_id).isdigit() else None
+
+    exact_students = []
+    similar_students = []
+
+    # 1. Vérification par matricule
+    if has_reg:
+        reg_matches = qs.filter(registration_number__iexact=reg_num)
+        for rm in reg_matches:
+            exact_students.append(rm)
+
+    # 2. Recherche par nom/prénom
+    q_filter = Q()
+    if has_fr:
+        q_filter |= (Q(first_name_fr__iexact=fn_fr) & Q(last_name_fr__iexact=ln_fr))
+    if has_ar:
+        q_filter |= (Q(first_name_ar__iexact=fn_ar) & Q(last_name_ar__iexact=ln_ar))
+
+    if q_filter:
+        matches = list(qs.filter(q_filter).exclude(id__in=[s.id for s in exact_students])[:10])
+        for st in matches:
+            is_exact = False
+            if target_parent_id and st.parent_id == target_parent_id:
+                is_exact = True
+            elif target_bdate and st.birth_date and st.birth_date == target_bdate:
+                is_exact = True
+
+            if is_exact:
+                exact_students.append(st)
+            else:
+                similar_students.append(st)
+
+    all_found = exact_students + similar_students
+    if not all_found:
+        return JsonResponse({'is_duplicate': False, 'existing_students': []})
+
+    match_type = 'exact' if exact_students else 'similar'
+    first_match = all_found[0]
+
+    existing_students = []
+    for s in all_found[:5]:
+        groups_list = [g.get_name(lang) for g in s.groups.all()]
+        existing_students.append({
+            'id': s.id,
+            'registration_number': s.registration_number,
+            'full_name_fr': f"{s.first_name_fr} {s.last_name_fr}".strip(),
+            'full_name_ar': f"{s.first_name_ar} {s.last_name_ar}".strip(),
+            'birth_date': s.birth_date.strftime('%d/%m/%Y') if s.birth_date else '',
+            'parent_name': s.parent.get_name(lang) if s.parent else '',
+            'parent_phone': s.parent.phone if s.parent else '',
+            'groups': groups_list,
+            'active': s.active,
+            'edit_url': reverse('portal:student_edit', args=[s.id]),
+            'is_exact': s in exact_students,
+        })
+
+    if match_type == 'exact':
+        status_badge_fr = "Doublon Détecté (Élève déjà inscrit)"
+        status_badge_ar = "تلميذ مسجل مسبقاً (احتمال تكرار التسجيل)"
+        warning_title_fr = "🛑 Attention : Cet élève est déjà inscrit !"
+        warning_title_ar = "🛑 تنبيه : هذا التلميذ مسجل بالفعل مسبقاً !"
+        parent_name = first_match.parent.get_name('fr') if first_match.parent else "Parent"
+        warning_msg_fr = (
+            f"Un élève avec la même identité ({first_match.get_bilingual_full_name()}) est DÉJÀ inscrit "
+            f"sous le matricule [{first_match.registration_number}] (Parent : {parent_name}). "
+            "Pour éviter de créer une double inscription inutile, vous pouvez ouvrir et modifier directement sa fiche existante."
+        )
+        parent_name_ar = first_match.parent.get_name('ar') if first_match.parent else "ولي الأمر"
+        warning_msg_ar = (
+            f"تلميذ بنفس البيانات ({first_match.get_bilingual_full_name()}) مسجل بالفعل "
+            f"برقم التسجيل [{first_match.registration_number}] (ولي الأمر : {parent_name_ar}). "
+            "لتفادي تكرار التسجيل بدون قصد، يمكنك فتح وتعديل ملفه الحالي مباشرة."
+        )
+    else:
+        status_badge_fr = f"Homonyme Détecté ({len(similar_students)} élève(s))"
+        status_badge_ar = f"تشابه في الأسماء ({len(similar_students)} تلميذ)"
+        warning_title_fr = "⚠️ Information : Homonyme(s) existant(s)"
+        warning_title_ar = "⚠️ معلومة : تم العثور على تلميذ بنفس الاسم"
+        warning_msg_fr = (
+            f"Il existe déjà un ou plusieurs élèves portant le nom '{first_match.get_bilingual_full_name()}' au sein de l'académie. "
+            "Veuillez vérifier les fiches existantes ci-dessous pour confirmer s'il s'agit d'un doublon ou d'un homonyme distinct."
+        )
+        warning_msg_ar = (
+            f"يوجد تلميذ أو أكثر بنفس الاسم '{first_match.get_bilingual_full_name()}' في الأكاديمية. "
+            "يرجى مراجعة الملفات أدناه للتأكد مما إذا كان نفس التلميذ أو حالة تشابه أسماء."
+        )
+
+    return JsonResponse({
+        'is_duplicate': True,
+        'match_type': match_type,
+        'warning_title_fr': warning_title_fr,
+        'warning_title_ar': warning_title_ar,
+        'status_badge_fr': status_badge_fr,
+        'status_badge_ar': status_badge_ar,
+        'warning_msg_fr': warning_msg_fr,
+        'warning_msg_ar': warning_msg_ar,
+        'existing_students': existing_students,
+    })
+
+
+@admin_required
 def student_create_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     if request.method == 'POST':
@@ -1819,19 +1959,52 @@ def register_view(request):
                     except (ValueError, TypeError):
                         bdate = None
 
-                    st = Student.objects.create(
-                        registration_number=reg,
-                        first_name_fr=first_name_fr,
-                        last_name_fr=last_name_fr,
-                        first_name_ar=first_name_ar,
-                        last_name_ar=last_name_ar,
-                        birth_date=bdate,
-                        school=ch['school'],
-                        grade_level=ch['grade_level'],
+                    # Contrôle anti-doublon d'inscription pour l'enfant
+                    existing_st = Student.objects.filter(
                         parent=parent,
-                        active=True
-                    )
-                    created_students.append(st)
+                        first_name_fr__iexact=first_name_fr,
+                        last_name_fr__iexact=last_name_fr
+                    ).first()
+                    if not existing_st and bdate:
+                        existing_st = Student.objects.filter(
+                            parent=parent,
+                            birth_date=bdate
+                        ).filter(
+                            Q(first_name_fr__iexact=first_name_fr) | Q(first_name_ar__iexact=first_name_ar)
+                        ).first()
+
+                    if existing_st:
+                        # Élève déjà inscrit : mise à jour des informations si nécessaire (pas de doublon)
+                        updated = False
+                        if ch.get('school') and not existing_st.school:
+                            existing_st.school = ch['school']
+                            updated = True
+                        if ch.get('grade_level') and not existing_st.grade_level:
+                            existing_st.grade_level = ch['grade_level']
+                            updated = True
+                        if updated:
+                            existing_st.save()
+                        created_students.append(existing_st)
+                    else:
+                        count = Student.objects.count() + 1
+                        reg = f"GCA-2026-{count:03d}"
+                        while Student.objects.filter(registration_number=reg).exists():
+                            count += 1
+                            reg = f"GCA-2026-{count:03d}"
+
+                        st = Student.objects.create(
+                            registration_number=reg,
+                            first_name_fr=first_name_fr,
+                            last_name_fr=last_name_fr,
+                            first_name_ar=first_name_ar,
+                            last_name_ar=last_name_ar,
+                            birth_date=bdate,
+                            school=ch['school'],
+                            grade_level=ch['grade_level'],
+                            parent=parent,
+                            active=True
+                        )
+                        created_students.append(st)
 
                 return render(request, 'portal/register_success.html', {
                     'parent': parent,

@@ -241,3 +241,115 @@ def test_crud_security_access_control():
     client.login(username='karim_alaoui', password='Parent@2026')
     resp_parent_forbidden = client.get('/students/add/')
     assert resp_parent_forbidden.status_code == 302 # Redirected because permission denied
+
+
+@pytest.mark.django_db
+def test_anti_duplicate_student_registration():
+    """
+    Vérifie le contrôle anti-double inscription complet :
+    1. Endpoint AJAX /students/check-duplicate/ (détection en temps réel, similar et exact)
+    2. StudentForm (blocage de doublon exact sans confirmation, validation avec force_override)
+    3. Portail public /register/ (ne recrée pas d'élève doublon pour le même parent)
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    parent1 = Parent.objects.create(full_name_fr="Parent Test1", phone="0611223344")
+    parent2 = Parent.objects.create(full_name_fr="Parent Test2", phone="0699887766")
+
+    # Élève existant dans l'académie
+    st_orig = Student.objects.create(
+        registration_number="GCA-ORIG-01",
+        first_name_fr="Mehdi",
+        last_name_fr="Fassi",
+        first_name_ar="المهدي",
+        last_name_ar="الفاسي",
+        birth_date=date(2015, 6, 20),
+        parent=parent1,
+        active=True
+    )
+
+    # 1. Test Endpoint AJAX
+    # 1.a Sans paramètre
+    r_empty = client.get('/students/check-duplicate/')
+    assert r_empty.status_code == 200
+    assert r_empty.json()['is_duplicate'] is False
+
+    # 1.b Nom identique mais parent différent (homonyme -> similar)
+    r_sim = client.get(f'/students/check-duplicate/?first_name_fr=Mehdi&last_name_fr=Fassi&parent={parent2.id}')
+    assert r_sim.status_code == 200
+    d_sim = r_sim.json()
+    assert d_sim['is_duplicate'] is True
+    assert d_sim['match_type'] == 'similar'
+    assert len(d_sim['existing_students']) >= 1
+    assert "Homonyme" in d_sim['status_badge_fr']
+
+    # 1.c Nom identique ET même parent -> exact
+    r_exact = client.get(f'/students/check-duplicate/?first_name_fr=Mehdi&last_name_fr=Fassi&parent={parent1.id}')
+    assert r_exact.status_code == 200
+    d_exact = r_exact.json()
+    assert d_exact['is_duplicate'] is True
+    assert d_exact['match_type'] == 'exact'
+    assert "Doublon" in d_exact['status_badge_fr']
+
+    # 1.d Même élève exclu lors de l'édition (via student_id)
+    r_edit = client.get(f'/students/check-duplicate/?first_name_fr=Mehdi&last_name_fr=Fassi&parent={parent1.id}&student_id={st_orig.id}')
+    assert r_edit.status_code == 200
+    assert r_edit.json()['is_duplicate'] is False
+
+    # 2. Test StudentForm
+    from portal.forms import StudentForm
+
+    # 2.a Tentative d'enregistrement d'un doublon exact sans confirmation -> bloqué
+    form_dup = StudentForm(data={
+        'registration_number': '',
+        'first_name_fr': 'Mehdi',
+        'last_name_fr': 'Fassi',
+        'first_name_ar': 'المهدي',
+        'last_name_ar': 'الفاسي',
+        'parent': parent1.id,
+        'active': True,
+    })
+    assert not form_dup.is_valid()
+    assert "double inscription" in str(form_dup.errors).lower()
+
+    # 2.b Avec confirmation force_duplicate_override=True -> accepté
+    form_override = StudentForm(data={
+        'registration_number': '',
+        'first_name_fr': 'Mehdi',
+        'last_name_fr': 'Fassi',
+        'first_name_ar': 'المهدي',
+        'last_name_ar': 'الفاسي',
+        'parent': parent1.id,
+        'active': True,
+        'force_duplicate_override': True,
+    })
+    assert form_override.is_valid(), form_override.errors
+    st_homonym = form_override.save()
+    assert st_homonym.id != st_orig.id
+
+    # 3. Test Portail d'inscription public /register/
+    client.logout()
+    reg_data = {
+        'parent_name_fr': 'Parent Test1',
+        'parent_name_ar': 'ولي أمر 1',
+        'parent_phone': '0611223344',
+        'child_name_fr[]': ['Mehdi Fassi'],
+        'child_name_ar[]': ['المهدي الفاسي'],
+        'child_birth_date[]': ['2015-06-20'],
+        'child_school[]': ['Nouvelle École'],
+        'child_grade_level[]': ['CM2'],
+    }
+    count_before = Student.objects.filter(parent=parent1).count()
+    resp_pub = client.post('/register/', reg_data)
+    assert resp_pub.status_code == 200
+    assert any('register_success.html' in t.name for t in resp_pub.templates)
+    count_after = Student.objects.filter(parent=parent1).count()
+    # Pas de nouvel élève créé en doublon !
+    assert count_after == count_before
+    st_orig.refresh_from_db()
+    assert st_orig.school == 'Nouvelle École'
+

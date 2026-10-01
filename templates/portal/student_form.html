@@ -92,6 +92,40 @@
             </div>
         </div>
 
+        <!-- INFOBULLE / ALERTE DYNAMIQUE ANTI-DOUBLON D'INSCRIPTION -->
+        <div id="duplicate_student_alert_box" style="display: none; margin-bottom: 1.5rem; border-radius: var(--radius-md); padding: 1.15rem 1.35rem; transition: all 0.3s ease;">
+            <div style="display: flex; align-items: flex-start; gap: 0.85rem;">
+                <span id="dup_student_icon" style="font-size: 1.6rem; line-height: 1;">⚠️</span>
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.35rem;">
+                        <h4 id="dup_student_title" style="margin: 0; font-size: 0.98rem; font-weight: 700;">
+                        </h4>
+                        <span id="dup_student_badge" class="badge" style="font-weight: 700; font-size: 0.78rem;">
+                        </span>
+                    </div>
+                    <p id="dup_student_text" style="margin: 0 0 0.65rem 0; font-size: 0.86rem; line-height: 1.45;">
+                    </p>
+
+                    <!-- Liste des élèves trouvés -->
+                    <div id="dup_student_list_container" style="background: white; border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; border: 1px solid rgba(0,0,0,0.08); margin-top: 0.5rem;">
+                        <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 0.45rem; color: var(--primary-navy);">
+                            📋 {% if CURRENT_LANG == 'ar' %}الملفات المسجلة مسبقاً المطابقة في الأكاديمية :{% else %}Fiches déjà enregistrées dans l'académie :{% endif %}
+                        </div>
+                        <div id="dup_student_items" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        </div>
+                    </div>
+
+                    <!-- Option de forçage si homonyme -->
+                    <div id="dup_override_container" style="display: none; margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px dashed rgba(0,0,0,0.15);">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; font-weight: 600; cursor: pointer; color: inherit;">
+                            {{ form.force_duplicate_override }}
+                            <span>{% if CURRENT_LANG == 'ar' %}تأكيد التسجيل رغم وجود تشابه (حالة تطابق أسماء مؤكدة){% else %}Confirmer l'enregistrement malgré la similitude détectée (homonyme distinct){% endif %}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 3. Choix du Parent -->
         <div style="margin-bottom: 1.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -228,6 +262,7 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // Toggle Convention Details Box
         var conventionCheck = document.getElementById("id_has_convention");
         var detailsBox = document.getElementById("convention_details_box");
         if (conventionCheck && detailsBox) {
@@ -239,6 +274,154 @@
                 }
             });
         }
+
+        // ==========================================
+        // CONTRÔLE DYNAMIQUE ANTI-DOUBLE INSCRIPTION (AJAX)
+        // ==========================================
+        var debounceTimer = null;
+
+        function triggerCheckDuplicate() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(checkDuplicateStudent, 250);
+        }
+
+        function checkDuplicateStudent() {
+            var fnFr = document.getElementById("id_first_name_fr") ? document.getElementById("id_first_name_fr").value.trim() : "";
+            var lnFr = document.getElementById("id_last_name_fr") ? document.getElementById("id_last_name_fr").value.trim() : "";
+            var fnAr = document.getElementById("id_first_name_ar") ? document.getElementById("id_first_name_ar").value.trim() : "";
+            var lnAr = document.getElementById("id_last_name_ar") ? document.getElementById("id_last_name_ar").value.trim() : "";
+            var bDate = document.getElementById("id_birth_date") ? document.getElementById("id_birth_date").value.trim() : "";
+            var parentSel = document.getElementById("id_parent") ? document.getElementById("id_parent").value : "";
+            var regNum = document.getElementById("id_registration_number") ? document.getElementById("id_registration_number").value.trim() : "";
+            var studentId = "{% if student %}{{ student.id }}{% endif %}";
+
+            var hasFr = fnFr.length >= 2 && lnFr.length >= 2;
+            var hasAr = fnAr.length >= 2 && lnAr.length >= 2;
+            var hasReg = regNum.length >= 4;
+
+            var dupBox = document.getElementById("duplicate_student_alert_box");
+            if (!hasFr && !hasAr && !hasReg) {
+                if (dupBox) dupBox.style.display = "none";
+                return;
+            }
+
+            var checkUrl = "{% url 'portal:check_duplicate_student_ajax' %}?first_name_fr=" + encodeURIComponent(fnFr) +
+                           "&last_name_fr=" + encodeURIComponent(lnFr) +
+                           "&first_name_ar=" + encodeURIComponent(fnAr) +
+                           "&last_name_ar=" + encodeURIComponent(lnAr) +
+                           "&birth_date=" + encodeURIComponent(bDate) +
+                           "&parent=" + encodeURIComponent(parentSel) +
+                           "&registration_number=" + encodeURIComponent(regNum) +
+                           "&student_id=" + encodeURIComponent(studentId);
+
+            fetch(checkUrl)
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.is_duplicate) {
+                        var isAr = "{{ CURRENT_LANG }}" === "ar";
+                        var dupTitle = document.getElementById("dup_student_title");
+                        var dupBadge = document.getElementById("dup_student_badge");
+                        var dupText = document.getElementById("dup_student_text");
+                        var dupItems = document.getElementById("dup_student_items");
+                        var dupIcon = document.getElementById("dup_student_icon");
+                        var overrideWrap = document.getElementById("dup_override_container");
+
+                        if (dupTitle) dupTitle.textContent = isAr ? data.warning_title_ar : data.warning_title_fr;
+                        if (dupBadge) dupBadge.textContent = isAr ? data.status_badge_ar : data.status_badge_fr;
+                        if (dupText) dupText.textContent = isAr ? data.warning_msg_ar : data.warning_msg_fr;
+
+                        if (data.match_type === 'exact') {
+                            dupBox.style.background = "#FEF2F2";
+                            dupBox.style.border = "1.5px solid #F87171";
+                            dupBox.style.color = "#991B1B";
+                            if (dupTitle) dupTitle.style.color = "#991B1B";
+                            if (dupBadge) {
+                                dupBadge.style.background = "#FEE2E2";
+                                dupBadge.style.color = "#DC2626";
+                                dupBadge.style.border = "1px solid #FCA5A5";
+                            }
+                            if (dupIcon) dupIcon.textContent = "🛑";
+                            if (overrideWrap) overrideWrap.style.display = "block";
+                        } else {
+                            dupBox.style.background = "#FEF3C7";
+                            dupBox.style.border = "1.5px solid #FCD34D";
+                            dupBox.style.color = "#92400E";
+                            if (dupTitle) dupTitle.style.color = "#92400E";
+                            if (dupBadge) {
+                                dupBadge.style.background = "#FFFBEB";
+                                dupBadge.style.color = "#D97706";
+                                dupBadge.style.border = "1px solid #FDE68A";
+                            }
+                            if (dupIcon) dupIcon.textContent = "⚠️";
+                            if (overrideWrap) overrideWrap.style.display = "none";
+                        }
+
+                        if (dupItems && data.existing_students) {
+                            dupItems.innerHTML = "";
+                            data.existing_students.forEach(function(s) {
+                                var card = document.createElement("div");
+                                card.style.border = s.is_exact ? "1.5px solid #F87171" : "1px solid #E2E8F0";
+                                card.style.background = s.is_exact ? "#FFF5F5" : "#F8FAFC";
+                                card.style.borderRadius = "6px";
+                                card.style.padding = "0.6rem 0.75rem";
+                                card.style.display = "flex";
+                                card.style.justifyContent = "space-between";
+                                card.style.alignItems = "center";
+                                card.style.flexWrap = "wrap";
+                                card.style.gap = "0.5rem";
+
+                                var groupsText = s.groups && s.groups.length > 0 ? s.groups.join(", ") : (isAr ? "لا توجد أفواج" : "Aucun groupe");
+                                var bdateInfo = s.birth_date ? (isAr ? (" | تاريخ الازدياد: " + s.birth_date) : (" | Né(e) le : " + s.birth_date)) : "";
+                                var parentInfo = s.parent_name ? (isAr ? ("ولي الأمر : " + s.parent_name + " (" + s.parent_phone + ")") : ("Parent : " + s.parent_name + " (" + s.parent_phone + ")")) : "";
+
+                                var infoHtml = "<div>" +
+                                    "<div style='font-weight: 700; font-size: 0.88rem; color: #1E293B;'>" +
+                                        "🎓 [" + s.registration_number + "] " + s.full_name_fr + (s.full_name_ar ? " (" + s.full_name_ar + ")" : "") +
+                                        (s.is_exact ? " <span style='font-size:0.75rem; background:#DC2626; color:white; padding:1px 6px; border-radius:4px; margin-inline-start:4px; font-weight:600;'>Exact</span>" : "") +
+                                    "</div>" +
+                                    "<div style='font-size: 0.78rem; color: #475569; margin-top: 2px;'>" +
+                                        "👨‍👩‍👧 " + parentInfo + bdateInfo +
+                                    "</div>" +
+                                    "<div style='font-size: 0.76rem; color: #059669; margin-top: 2px; font-weight: 500;'>" +
+                                        "🎯 " + (isAr ? "الأفواج : " : "Groupes : ") + groupsText +
+                                    "</div>" +
+                                "</div>";
+
+                                var btnHtml = "<a href='" + s.edit_url + "' target='_blank' class='btn btn-sm btn-outline' style='font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.65rem; background: white;'>" +
+                                    (isAr ? "✏️ فتح ملف التلميذ" : "✏️ Voir cette fiche") +
+                                "</a>";
+
+                                card.innerHTML = infoHtml + btnHtml;
+                                dupItems.appendChild(card);
+                            });
+                        }
+
+                        dupBox.style.display = "block";
+                    } else {
+                        if (dupBox) dupBox.style.display = "none";
+                    }
+                })
+                .catch(function(err) {
+                    console.error("Erreur vérification doublon inscription :", err);
+                });
+        }
+
+        // Attacher les écouteurs sur tous les champs d'identification
+        ["id_first_name_fr", "id_last_name_fr", "id_first_name_ar", "id_last_name_ar", "id_birth_date", "id_registration_number"].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener("input", triggerCheckDuplicate);
+                el.addEventListener("change", triggerCheckDuplicate);
+            }
+        });
+
+        var parentEl = document.getElementById("id_parent");
+        if (parentEl) {
+            parentEl.addEventListener("change", triggerCheckDuplicate);
+        }
+
+        // Vérification automatique au chargement
+        triggerCheckDuplicate();
     });
 </script>
 {% endblock %}

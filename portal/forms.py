@@ -39,6 +39,11 @@ class StudentForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Bourse d\'excellence, convention 100%, cas social...'}),
         label="Motif de l'exonération"
     )
+    force_duplicate_override = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'status-checkbox', 'id': 'id_force_duplicate_override'}),
+        label="Confirmer l'inscription malgré la détection d'un doublon / homonyme"
+    )
 
     class Meta:
         model = Student
@@ -96,6 +101,67 @@ class StudentForm(forms.ModelForm):
         else:
             if cleaned_data.get('discount_value') is None:
                 cleaned_data['discount_value'] = Decimal('0.00')
+
+        # Contrôle anti-double inscription
+        fn_fr = (cleaned_data.get('first_name_fr') or '').strip()
+        ln_fr = (cleaned_data.get('last_name_fr') or '').strip()
+        fn_ar = (cleaned_data.get('first_name_ar') or '').strip()
+        ln_ar = (cleaned_data.get('last_name_ar') or '').strip()
+        birth_date = cleaned_data.get('birth_date')
+        parent = cleaned_data.get('parent')
+        force_override = cleaned_data.get('force_duplicate_override', False)
+
+        current_pk = self.instance.pk if self.instance else None
+
+        if (fn_fr and ln_fr) or (fn_ar and ln_ar):
+            qs = Student.objects.all().select_related('parent')
+            if current_pk:
+                qs = qs.exclude(pk=current_pk)
+
+            exact_match = None
+
+            # 1. Même prénom/nom FR et même parent
+            if parent and fn_fr and ln_fr:
+                exact_match = qs.filter(
+                    parent=parent,
+                    first_name_fr__iexact=fn_fr,
+                    last_name_fr__iexact=ln_fr
+                ).first()
+
+            # 2. Même prénom/nom FR et même date de naissance
+            if not exact_match and birth_date and fn_fr and ln_fr:
+                exact_match = qs.filter(
+                    birth_date=birth_date,
+                    first_name_fr__iexact=fn_fr,
+                    last_name_fr__iexact=ln_fr
+                ).first()
+
+            # 3. Même prénom/nom AR et même parent
+            if not exact_match and parent and fn_ar and ln_ar:
+                exact_match = qs.filter(
+                    parent=parent,
+                    first_name_ar__iexact=fn_ar,
+                    last_name_ar__iexact=ln_ar
+                ).first()
+
+            # 4. Même prénom/nom AR et même date de naissance
+            if not exact_match and birth_date and fn_ar and ln_ar:
+                exact_match = qs.filter(
+                    birth_date=birth_date,
+                    first_name_ar__iexact=fn_ar,
+                    last_name_ar__iexact=ln_ar
+                ).first()
+
+            if exact_match and not force_override:
+                parent_info = f" (Parent: {exact_match.parent.get_name()})" if exact_match.parent else ""
+                bdate_info = f" - Né(e) le {exact_match.birth_date.strftime('%d/%m/%Y')}" if exact_match.birth_date else ""
+                raise forms.ValidationError(
+                    f"⚠️ Risque de double inscription détecté : Cet élève est déjà enregistré sous le matricule "
+                    f"[{exact_match.registration_number}] {exact_match.get_bilingual_full_name()}{parent_info}{bdate_info}. "
+                    "Si vous souhaitez modifier son inscription ou ses activités, ouvrez directement sa fiche existante. "
+                    "Si c'est un homonyme distinct, cochez la case 'Confirmer l'inscription malgré la similitude'."
+                )
+
         return cleaned_data
 
     def clean_first_name_fr(self):

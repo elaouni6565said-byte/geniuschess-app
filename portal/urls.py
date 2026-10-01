@@ -35,6 +35,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
 
     # Élèves CRUD
+    path('students/check-duplicate/', views.check_duplicate_student_ajax_view, name='check_duplicate_student_ajax'),
     path('students/add/', views.student_create_view, name='student_add'),
     path('students/<int:student_id>/edit/', views.student_edit_view, name='student_edit'),
     path('students/<int:student_id>/delete/', views.student_delete_view, name='student_delete'),
