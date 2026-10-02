@@ -2149,22 +2149,62 @@ def check_duplicate_payment_ajax_view(request):
     })
 
 
+def check_financial_auth(request, entered_code=None):
+    """
+    Vérifie l'autorisation pour les opérations financières (Paiements).
+    - Code attendu : ADMIN_FINANCIAL_SECURITY_CODE (par défaut '8081')
+    - Si la session financière est déjà déverrouillée, l'opération est autorisée immédiatement.
+    - Dès qu'un code valide est saisi, la session reste déverrouillée pour toute la session de travail.
+    """
+    expected_code = str(getattr(settings, 'ADMIN_FINANCIAL_SECURITY_CODE', '8081'))
+    session = getattr(request, 'session', None)
+    if session is not None and session.get('financial_session_unlocked', False) is True:
+        return True, None
+
+    code = (entered_code or '').strip()
+    if code == expected_code:
+        if session is not None:
+            session['financial_session_unlocked'] = True
+        return True, None
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    error_msg = (
+        "Code d'autorisation incorrect ! Opération non autorisée."
+        if lang == 'fr' else
+        "الرمز السري المالي غير صحيح ! العملية غير مسموح بها."
+    )
+    return False, error_msg
+
+
+@admin_required
+def financial_lock_session_view(request):
+    """
+    Permet à l'administrateur de reverrouiller manuellement la session financière.
+    """
+    request.session['financial_session_unlocked'] = False
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    msg = (
+        "Session financière reverrouillée avec succès."
+        if lang == 'fr' else
+        "تم قفل الجلسة المالية بنجاح."
+    )
+    messages.info(request, msg)
+    referer = request.META.get('HTTP_REFERER')
+    if referer and 'lock-session' not in referer:
+        return redirect(referer)
+    return redirect('portal:payments')
+
+
 @admin_required
 def payment_create_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    security_code_expected = getattr(settings, 'ADMIN_FINANCIAL_SECURITY_CODE', '6565')
     error_msg = None
 
     if request.method == 'POST':
         form = PaymentForm(request.POST)
         entered_code = request.POST.get('security_code', '').strip()
-        if entered_code != security_code_expected:
-            error_msg = (
-                "Code spécial de sécurité incorrect ! Opération non autorisée."
-                if lang == 'fr' else
-                "الرمز السري المالي الخاص غير صحيح ! العملية غير مسموح بها."
-            )
-        else:
+        authorized, error_msg = check_financial_auth(request, entered_code)
+        if authorized:
             if form.is_valid():
                 p = form.save(commit=False)
                 if not p.payment_date:
@@ -2319,6 +2359,7 @@ def payment_create_view(request):
         'form': form,
         'error_msg': error_msg,
         'is_edit': False,
+        'is_financial_session_unlocked': request.session.get('financial_session_unlocked', False) is True,
         'title': "Enregistrer un Paiement / تسجيل أداء جديد",
     }
     return render(request, 'portal/payment_form.html', context)
@@ -2328,19 +2369,13 @@ def payment_create_view(request):
 def payment_edit_view(request, payment_id):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     payment = get_object_or_404(Payment.objects.select_related('student', 'invoice'), id=payment_id)
-    security_code_expected = getattr(settings, 'ADMIN_FINANCIAL_SECURITY_CODE', '6565')
     error_msg = None
 
     if request.method == 'POST':
         form = PaymentForm(request.POST, instance=payment)
         entered_code = request.POST.get('security_code', '').strip()
-        if entered_code != security_code_expected:
-            error_msg = (
-                "Code spécial de sécurité incorrect ! Modification non autorisée."
-                if lang == 'fr' else
-                "الرمز السري المالي الخاص غير صحيح ! لا يمكن تعديل الأداء."
-            )
-        else:
+        authorized, error_msg = check_financial_auth(request, entered_code)
+        if authorized:
             if form.is_valid():
                 updated_payment = form.save()
                 
@@ -2358,9 +2393,9 @@ def payment_edit_view(request, payment_id):
                     inv.save()
 
                 msg = (
-                    f"✓ Reçu #{updated_payment.receipt_number} modifié avec succès (Code Spécial Validé)."
+                    f"✓ Reçu #{updated_payment.receipt_number} modifié avec succès."
                     if lang == 'fr' else
-                    f"✓ تم تعديل الوصل #{updated_payment.receipt_number} بنجاح (تم تأكيد الرمز السري)."
+                    f"✓ تم تعديل الوصل #{updated_payment.receipt_number} بنجاح."
                 )
                 messages.success(request, msg)
                 return redirect('portal:payments')
@@ -2372,6 +2407,7 @@ def payment_edit_view(request, payment_id):
         'payment': payment,
         'error_msg': error_msg,
         'is_edit': True,
+        'is_financial_session_unlocked': request.session.get('financial_session_unlocked', False) is True,
         'title': f"Modifier Reçu #{payment.receipt_number}",
     }
     return render(request, 'portal/payment_form.html', context)
@@ -2381,18 +2417,12 @@ def payment_edit_view(request, payment_id):
 def payment_delete_view(request, payment_id):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     payment = get_object_or_404(Payment.objects.select_related('student', 'invoice'), id=payment_id)
-    security_code_expected = getattr(settings, 'ADMIN_FINANCIAL_SECURITY_CODE', '6565')
     error_msg = None
 
     if request.method == 'POST':
         entered_code = request.POST.get('security_code', '').strip()
-        if entered_code != security_code_expected:
-            error_msg = (
-                "Code spécial de sécurité incorrect ! Suppression non autorisée."
-                if lang == 'fr' else
-                "الرمز السري المالي الخاص غير صحيح ! لا يمكن حذف الأداء."
-            )
-        else:
+        authorized, error_msg = check_financial_auth(request, entered_code)
+        if authorized:
             invoice = payment.invoice
             rec_no = payment.receipt_number
             payment.delete()
@@ -2419,6 +2449,7 @@ def payment_delete_view(request, payment_id):
     context = {
         'payment': payment,
         'error_msg': error_msg,
+        'is_financial_session_unlocked': request.session.get('financial_session_unlocked', False) is True,
         'cancel_url': '/payments/',
     }
     return render(request, 'portal/payment_confirm_delete.html', context)

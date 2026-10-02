@@ -283,7 +283,7 @@ def test_payment_create_view_with_exemption():
     )
 
     resp = client.post("/payments/add/", {
-        "security_code": "6565",
+        "security_code": "8081",
         "student": st.id,
         "invoice": inv.id,
         "is_exemption": "on",
@@ -565,7 +565,7 @@ def test_payment_student_search_and_default_entry_date():
 
     # 2. Vérifier PaymentForm avec payment_date vide
     form = PaymentForm(data={
-        'security_code': '6565',
+        'security_code': '8081',
         'student': st.id,
         'period_month': 10,
         'period_year': 2026,
@@ -580,7 +580,7 @@ def test_payment_student_search_and_default_entry_date():
 
     # 3. Vérifier soumission POST via la vue payment_create_view
     post_data = {
-        'security_code': '6565',
+        'security_code': '8081',
         'student': st.id,
         'period_month': 10,
         'period_year': 2026,
@@ -606,6 +606,119 @@ def test_payment_student_search_and_default_entry_date():
         period_year=2026,
     )
     assert pay_model.payment_date == date.today()
+
+
+@pytest.mark.django_db
+def test_financial_session_single_code_execution_8081_and_excel_month_column():
+    """
+    Vérifie les deux exigences utilisateur :
+    1. Le code de sécurité financier est 8081 et ne doit être exécuté/saisi qu'une seule fois par session.
+       Une fois saisi, les opérations ultérieures de la session n'exigent plus le code.
+       Le verrouillage manuel /payments/lock-session/ réactive la protection.
+    2. L'export Excel des paiements (payants + impayés) et l'export direct des impayés
+       comportent bien la colonne du mois concerné.
+    """
+    client = Client()
+    admin_user = User.objects.create_superuser(username="admin_session_test_8081", email="admin8081@gca.ma", password="pass")
+    admin_user.preferred_language = 'fr'
+    admin_user.save()
+    client.force_login(admin_user)
+
+    st = Student.objects.first()
+
+    # 1. Tentative avec l'ancien code 6565 ou mauvais code -> Rejeté
+    res_bad = client.post("/payments/add/", {
+        'security_code': '6565',
+        'student': st.id,
+        'amount': '300.00',
+        'period_month': 10,
+        'period_year': 2026,
+        'payment_method': 'cash',
+        'reference': 'REF-BAD-01'
+    })
+    assert res_bad.status_code == 200
+    assert "autorisation incorrect" in res_bad.content.decode("utf-8")
+    assert not Payment.objects.filter(reference='REF-BAD-01').exists()
+
+    # 2. Saisie du NOUVEAU code 8081 -> Succès et déverrouillage de la session
+    res_good = client.post("/payments/add/", {
+        'security_code': '8081',
+        'student': st.id,
+        'amount': '300.00',
+        'period_month': 10,
+        'period_year': 2026,
+        'payment_method': 'cash',
+        'reference': 'REF-OK-SESSION-01'
+    })
+    assert res_good.status_code == 302
+    pay1 = Payment.objects.filter(reference='REF-OK-SESSION-01').first()
+    assert pay1 is not None
+    assert client.session.get('financial_session_unlocked') is True
+
+    # 3. Deuxième opération durant la même session SANS entrer de code -> Doit réussir directement !
+    res_session = client.post("/payments/add/", {
+        'security_code': '',  # Champ vide
+        'student': st.id,
+        'amount': '300.00',
+        'period_month': 11,
+        'period_year': 2026,
+        'payment_method': 'cash',
+        'reference': 'REF-OK-SESSION-02'
+    })
+    assert res_session.status_code == 302
+    assert Payment.objects.filter(reference='REF-OK-SESSION-02').exists()
+
+    # 4. Modification dans la même session sans code -> Réussit également
+    res_edit = client.post(f"/payments/{pay1.id}/edit/", {
+        'security_code': '',  # Champ vide
+        'student': st.id,
+        'amount': '350.00',
+        'payment_date': str(pay1.payment_date),
+        'payment_method': 'cash',
+        'reference': 'REF-OK-SESSION-01-EDITED'
+    })
+    assert res_edit.status_code == 302
+    pay1.refresh_from_db()
+    assert pay1.amount == Decimal('350.00')
+
+    # 5. Verrouillage manuel de la session
+    res_lock = client.get("/payments/lock-session/")
+    assert res_lock.status_code == 302
+    assert client.session.get('financial_session_unlocked') is False
+
+    # 6. Après verrouillage, une opération sans code doit être à nouveau rejetée
+    res_locked = client.post("/payments/add/", {
+        'security_code': '',
+        'student': st.id,
+        'amount': '300.00',
+        'period_month': 12,
+        'period_year': 2026,
+        'payment_method': 'cash',
+        'reference': 'REF-LOCKED-03'
+    })
+    assert res_locked.status_code == 200
+    assert "autorisation incorrect" in res_locked.content.decode("utf-8")
+    assert not Payment.objects.filter(reference='REF-LOCKED-03').exists()
+
+    # 7. Vérification des colonnes du mois concerné dans les exports Excel
+    from portal.excel_export import export_paid_payments_to_excel, export_unpaid_invoices_to_excel
+    import openpyxl
+    import io
+
+    # Export des paiements (payants + impayés)
+    paid_xlsx_bytes = export_paid_payments_to_excel(Payment.objects.all(), Invoice.objects.all(), lang="fr")
+    wb_paid = openpyxl.load_workbook(io.BytesIO(paid_xlsx_bytes))
+    ws_paid = wb_paid.active
+    header_cells_paid = [ws_paid.cell(row=3, column=c).value for c in range(1, 13)]
+    assert "Mois Concerné (Période)" in header_cells_paid
+
+    # Export direct des impayés
+    unpaid_xlsx_bytes = export_unpaid_invoices_to_excel(Invoice.objects.all(), lang="fr")
+    wb_unpaid = openpyxl.load_workbook(io.BytesIO(unpaid_xlsx_bytes))
+    ws_unpaid = wb_unpaid.active
+    header_cells_unpaid = [ws_unpaid.cell(row=3, column=c).value for c in range(1, 13)]
+    assert "Mois Concerné (Période)" in header_cells_unpaid
+
 
 
 

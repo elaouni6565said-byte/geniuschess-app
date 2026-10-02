@@ -106,8 +106,8 @@ CSRF_TRUSTED_ORIGINS = [
 
 CSRF_FAILURE_VIEW = 'portal.views.csrf_failure_view'
 
-# Code de sécurité financier pour autoriser la modification des paiements
-ADMIN_FINANCIAL_SECURITY_CODE = '6565'
+# Code de sécurité financier pour autoriser les opérations de paiement
+ADMIN_FINANCIAL_SECURITY_CODE = '8081'
 
 # Configuration Mode WhatsApp Automatique (Passerelle WAHA - WhatsApp HTTP API)
 WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', 'http://127.0.0.1:3000/api/sendText')

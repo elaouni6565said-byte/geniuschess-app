@@ -17,6 +17,7 @@ urlpatterns = [
     path('payments/export-paid-excel/', views.export_paid_payments_excel_view, name='export_paid_excel'),
     path('payments/export-unpaid-excel/', views.export_unpaid_invoices_excel_view, name='export_unpaid_excel'),
     path('payments/forecast/', views.financial_forecast_view, name='financial_forecast'),
+    path('payments/lock-session/', views.financial_lock_session_view, name='financial_lock_session'),
     path('payments/<int:payment_id>/edit/', views.payment_edit_view, name='payment_edit'),
     path('payments/<int:payment_id>/delete/', views.payment_delete_view, name='payment_delete'),
     path('payments/<int:payment_id>/receipt-pdf/', views.download_receipt_pdf_view, name='receipt_pdf'),

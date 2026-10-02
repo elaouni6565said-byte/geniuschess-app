@@ -337,13 +337,13 @@ class SessionScheduleForm(forms.ModelForm):
 
 class PaymentForm(forms.ModelForm):
     security_code = forms.CharField(
-        required=True,
+        required=False,
         widget=forms.PasswordInput(attrs={
             'class': 'search-input',
-            'placeholder': 'Code spécial (ex: 6565)',
+            'placeholder': "Code d'autorisation",
             'style': 'letter-spacing: 0.25em; font-weight: bold; background: #FEF9C3; border: 2px solid #EAB308;'
         }),
-        label="Code Spécial d'Autorisation"
+        label="Code d'Autorisation"
     )
 
     # Nouveaux champs direct de Convention et Exonération lors du paiement

@@ -188,7 +188,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             "الأنشطة المستفاد منها", "الاتفاقية / سبب التخفيض", "المبلغ المؤدى (درهم)", "عدد الأنشطة", "حصة المركز", "حصة الأستاذ"
         ]
         headers_unpaid = [
-            "رقم الفاتورة", "تاريخ الاستحقاق", "الشهر المستحق", "رقم التسجيل", "اسم التلميذ (بالفرنسية)", "اسم التلميذ (بالعربية)",
+            "رقم الفاتورة", "تاريخ الاستحقاق", "الشهر المستحق (المعني)", "رقم التسجيل", "اسم التلميذ (بالفرنسية)", "اسم التلميذ (بالعربية)",
             "الأنشطة المستفاد منها", "الاتفاقية / سبب التخفيض", "المبلغ المستحق (درهم)", "عدد الأنشطة", "حصة المركز المتوقعة", "حصة الأستاذ المتوقعة"
         ]
     elif lang == "bilingual":
@@ -201,7 +201,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Réglé (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
         headers_unpaid = [
-            "N° Facture", "Date Échéance", "Mois Dû / الشهر المستحق", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
+            "N° Facture", "Date Échéance", "Mois Concerné / الشهر المستحق", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Dû (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
     else: # fr
@@ -214,7 +214,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Réglé (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
         headers_unpaid = [
-            "N° Facture", "Date Échéance", "Mois Dû (Période)", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
+            "N° Facture", "Date Échéance", "Mois Concerné (Période)", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Dû (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
 
@@ -619,7 +619,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - لائحة المستحقات غير المؤداة (المتأخرات) 2026"
         headers = [
             "رقم التسجيل", "اسم التلميذ (بالعربية)", "اسم التلميذ (بالفرنسية)", "ولي الأمر",
-            "رقم الهاتف للمتابعة", "المادة / النشاط", "الشهر المعني", "الاتفاقية / سبب التخفيض",
+            "رقم الهاتف للمتابعة", "المادة / النشاط", "الشهر المعني (المستحق)", "الاتفاقية / سبب التخفيض",
             "الواجب الشهري (درهم)", "المبلغ المدفوع (درهم)", "الباقي المستحق (درهم)", "الحالة"
         ]
     elif lang == "bilingual":
@@ -629,7 +629,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Impayés / لائحة المستحقات غير المؤداة 2026"
         headers = [
             "Matricule", "Élève (FR)", "الاسم (AR)", "Parent / ولي الأمر",
-            "Tél Relance", "Activité / النشاط", "Mois", "Convention / Motif Réduction",
+            "Tél Relance", "Activité / النشاط", "Mois Concerné / الشهر المعني", "Convention / Motif Réduction",
             "Montant Dû (DH)", "Payé (DH)", "Reste Impayé (DH)", "Statut / الحالة"
         ]
     else: # fr
@@ -639,7 +639,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Élèves Non-Payants & Impayés 2026"
         headers = [
             "Matricule", "Nom Élève (FR)", "Nom Élève (AR)", "Parent / Tuteur",
-            "Téléphone Relance", "Activité & Niveau", "Mois Concerné", "Convention / Motif Réduction",
+            "Téléphone Relance", "Activité & Niveau", "Mois Concerné (Période)", "Convention / Motif Réduction",
             "Montant Dû (DH)", "Déjà Versé (DH)", "Reste Impayé (DH)", "Statut"
         ]
 

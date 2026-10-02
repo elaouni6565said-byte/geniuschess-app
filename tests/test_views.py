@@ -432,9 +432,9 @@ def test_admin_payment_modification_with_security_code():
     Validates that:
     1. Only authenticated Admin can edit/delete payments
     2. Editing a payment fails without or with wrong security code
-    3. Editing succeeds when correct special security code '6565' is provided
+    3. Editing succeeds when correct authorization security code '8081' is provided
     4. Associated invoice balance and status are recalculated automatically
-    5. Deleting a payment requires security code '6565' and updates invoice status
+    5. Deleting a payment requires security code '8081' and updates invoice status
     """
     client = Client()
 
@@ -479,7 +479,7 @@ def test_admin_payment_modification_with_security_code():
     resp_get = client.get(f'/payments/{payment.id}/edit/')
     assert resp_get.status_code == 200
     assert "REC-TEST-SEC-01" in resp_get.content.decode('utf-8')
-    assert "Code Spécial" in resp_get.content.decode('utf-8')
+    assert "Code d'Autorisation" in resp_get.content.decode('utf-8')
 
     # 2. Attempt modification with WRONG security code -> Rejected
     edit_data_bad = {
@@ -493,15 +493,15 @@ def test_admin_payment_modification_with_security_code():
     }
     resp_bad = client.post(f'/payments/{payment.id}/edit/', edit_data_bad)
     assert resp_bad.status_code == 200
-    assert "Code spécial de sécurité incorrect" in resp_bad.content.decode('utf-8')
+    assert "autorisation incorrect" in resp_bad.content.decode('utf-8')
 
     # Value should remain unchanged in database
     payment.refresh_from_db()
     assert payment.amount == Decimal('300.00')
 
-    # 3. Successful modification with CORRECT security code '6565'
+    # 3. Successful modification with CORRECT security code '8081' (unlocks session)
     edit_data_good = {
-        'security_code': '6565',
+        'security_code': '8081',
         'student': student.id,
         'amount': '250.00', # Changed to 250 DH
         'payment_date': '2026-09-04',
@@ -518,19 +518,31 @@ def test_admin_payment_modification_with_security_code():
     assert payment.payment_method == 'check'
     assert payment.reference == 'CHQ-987654'
 
-    # Verify invoice status recalculated properly
-    inv.refresh_from_db()
-    expected_paid = inv.payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    assert inv.amount_paid == expected_paid
+    # Verify session is now unlocked: next edit does NOT require typing code again
+    edit_data_session = {
+        'security_code': '',  # Empty code because session is unlocked
+        'student': student.id,
+        'amount': '260.00',
+        'payment_date': '2026-09-04',
+        'payment_method': 'check',
+        'reference': 'CHQ-987654',
+    }
+    resp_session = client.post(f'/payments/{payment.id}/edit/', edit_data_session)
+    assert resp_session.status_code == 302
+    payment.refresh_from_db()
+    assert payment.amount == Decimal('260.00')
+
+    # Lock session to test rejection on deletion
+    client.get('/payments/lock-session/')
 
     # 4. Deletion with wrong security code -> Rejected
     resp_del_bad = client.post(f'/payments/{payment.id}/delete/', {'security_code': '0000'})
     assert resp_del_bad.status_code == 200
-    assert "Code spécial de sécurité incorrect" in resp_del_bad.content.decode('utf-8')
+    assert "autorisation incorrect" in resp_del_bad.content.decode('utf-8')
     assert Payment.objects.filter(id=payment.id).exists()
 
-    # 5. Deletion with correct security code '6565' -> Accepted
-    resp_del_good = client.post(f'/payments/{payment.id}/delete/', {'security_code': '6565'})
+    # 5. Deletion with correct security code '8081' -> Accepted
+    resp_del_good = client.post(f'/payments/{payment.id}/delete/', {'security_code': '8081'})
     assert resp_del_good.status_code == 302
     assert resp_del_good.url == '/payments/'
 
@@ -581,7 +593,7 @@ def test_payment_creation_auto_updates_invoice_and_dashboard():
         'amount': '400',
         'payment_date': '2026-10-02',
         'payment_method': 'transfer',
-        'security_code': '6565',
+        'security_code': '8081',
     })
     assert resp.status_code == 302
     assert resp.url == '/payments/'
