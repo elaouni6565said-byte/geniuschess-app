@@ -1,4 +1,5 @@
 import os
+from datetime import date, datetime
 from decimal import Decimal
 from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm, GroupMessageForm
 from django.conf import settings
@@ -10,7 +11,7 @@ from django.views.decorators.http import require_POST
 
 from core.i18n import (
     SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, normalize_text_for_search,
-    get_translation, format_currency
+    get_translation, format_currency, FRENCH_MONTHS, ARABIC_MONTHS
 )
 from academy.models import (
     Student, Parent, Group, Subject, Room, SessionSchedule,
@@ -176,22 +177,135 @@ def get_billable_unpaid_invoices_qs():
 def dashboard_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     sync_invoices_with_actual_attendances()
+    today = date.today()
+
+    # Gestion du mois et année d'observation (par défaut mois en cours ou dernier mois actif)
+    if 'month' in request.GET:
+        try:
+            selected_month = int(request.GET.get('month'))
+        except (ValueError, TypeError):
+            selected_month = today.month
+    else:
+        selected_month = today.month
+        # Si le mois courant n'a pas encore de paiements enregistrés, basculer sur le dernier mois actif
+        if not Payment.objects.filter(Q(period_month=today.month, period_year=today.year) | Q(period_month__isnull=True, payment_date__month=today.month, payment_date__year=today.year)).exists():
+            last_pay = Payment.objects.order_by('-period_year', '-period_month', '-payment_date').first()
+            if last_pay:
+                p_m = last_pay.period_month or (last_pay.payment_date.month if last_pay.payment_date else None)
+                p_y = last_pay.period_year or (last_pay.payment_date.year if last_pay.payment_date else None)
+                if p_m and p_y:
+                    selected_month = p_m
+
+    try:
+        selected_year = int(request.GET.get('year', today.year))
+    except (ValueError, TypeError):
+        selected_year = today.year
+
     total_students = Student.objects.filter(active=True).count()
     active_groups = Group.objects.count()
-    
-    # Financial KPIs
-    total_revenue = Payment.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    invoices = get_billable_unpaid_invoices_qs()
-    total_unpaid = sum((inv.get_balance() for inv in invoices), Decimal('0.00'))
-    
+
+    # 1. Recette DU MOIS SÉLECTIONNÉ SEULE (calculée uniquement pour ce mois sans le sommer avec d'autres)
+    month_payments = Payment.objects.filter(
+        Q(period_month=selected_month, period_year=selected_year) |
+        Q(period_month__isnull=True, payment_date__month=selected_month, payment_date__year=selected_year)
+    )
+    month_revenue = month_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    # Impayés du mois sélectionné seul
+    all_billable_invoices = get_billable_unpaid_invoices_qs()
+    month_invoices = all_billable_invoices.filter(period_month=selected_month, period_year=selected_year)
+    month_unpaid = sum((inv.get_balance() for inv in month_invoices), Decimal('0.00'))
+
+    # Totaux globaux (toutes périodes confondues) pour information
+    total_all_revenue = Payment.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_all_unpaid = sum((inv.get_balance() for inv in all_billable_invoices), Decimal('0.00'))
+
+    # Libellé du mois sélectionné
+    month_name_fr = FRENCH_MONTHS.get(selected_month, str(selected_month)).capitalize()
+    month_name_ar = ARABIC_MONTHS.get(selected_month, str(selected_month))
+    if lang == 'ar':
+        period_label = f"{month_name_ar} {selected_year}"
+    elif lang == 'bilingual':
+        period_label = f"{month_name_fr} {selected_year} / {month_name_ar} {selected_year}"
+    else:
+        period_label = f"{month_name_fr} {selected_year}"
+
+    # 2. Recette de CHAQUE MOIS affichée seule (détail mensuel distinct)
+    base_year = selected_year if selected_month >= 9 else (selected_year - 1)
+    school_months_tuples = [
+        (9, base_year),
+        (10, base_year),
+        (11, base_year),
+        (12, base_year),
+        (1, base_year + 1),
+        (2, base_year + 1),
+        (3, base_year + 1),
+        (4, base_year + 1),
+        (5, base_year + 1),
+        (6, base_year + 1),
+        (7, base_year + 1),
+    ]
+
+    recorded_tuples = Payment.objects.values_list('period_month', 'period_year').distinct()
+    for pm, py in recorded_tuples:
+        if pm and py and (pm, py) not in school_months_tuples:
+            school_months_tuples.append((pm, py))
+
+    monthly_breakdown = []
+    for m_num, y_num in school_months_tuples:
+        m_pays = Payment.objects.filter(
+            Q(period_month=m_num, period_year=y_num) |
+            Q(period_month__isnull=True, payment_date__month=m_num, payment_date__year=y_num)
+        )
+        m_rev = m_pays.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        m_cnt = m_pays.count()
+
+        m_invs = all_billable_invoices.filter(period_month=m_num, period_year=y_num)
+        m_unp = sum((inv.get_balance() for inv in m_invs), Decimal('0.00'))
+
+        m_expected = m_rev + m_unp
+        m_rate = round(float((m_rev / m_expected) * 100), 1) if m_expected > Decimal('0.00') else (100.0 if m_rev > Decimal('0.00') else 0.0)
+
+        is_selected = (m_num == selected_month and y_num == selected_year)
+        has_activity = (m_rev > Decimal('0.00') or m_unp > Decimal('0.00') or (m_num == today.month and y_num == today.year) or is_selected)
+
+        if has_activity:
+            m_l_fr = f"{FRENCH_MONTHS.get(m_num, str(m_num)).capitalize()} {y_num}"
+            m_l_ar = f"{ARABIC_MONTHS.get(m_num, str(m_num))} {y_num}"
+            monthly_breakdown.append({
+                'month': m_num,
+                'year': y_num,
+                'label_fr': m_l_fr,
+                'label_ar': m_l_ar,
+                'label': m_l_ar if lang == 'ar' else m_l_fr,
+                'revenue': m_rev,
+                'unpaid': m_unp,
+                'total_expected': m_expected,
+                'rate': m_rate,
+                'payment_count': m_cnt,
+                'is_selected': is_selected,
+            })
+
+    def month_sort_key(item):
+        m = item['month']
+        y = item['year']
+        return (y, m if m >= 9 else m + 12)
+
+    monthly_breakdown.sort(key=month_sort_key)
+
+    months_list = [
+        {'num': i, 'name_fr': FRENCH_MONTHS.get(i, '').capitalize(), 'name_ar': ARABIC_MONTHS.get(i, '')}
+        for i in range(1, 13)
+    ]
+    years_list = sorted(list(set([today.year - 1, today.year, today.year + 1, selected_year])))
+
     # Attendance Rate
     total_att = Attendance.objects.count()
     present_att = Attendance.objects.filter(status='present').count()
     att_rate = int((present_att / total_att * 100)) if total_att > 0 else 94
 
     # Today's sessions
-    import datetime
-    today_weekday = datetime.date.today().weekday()
+    today_weekday = today.weekday()
     today_sessions = SessionSchedule.objects.filter(day_of_week=today_weekday).select_related('group', 'room')
 
     recent_payments = Payment.objects.select_related('student', 'invoice').order_by('-payment_date', '-id')[:6]
@@ -201,8 +315,16 @@ def dashboard_view(request):
     context = {
         'total_students': total_students,
         'active_groups': active_groups,
-        'total_revenue': total_revenue,
-        'total_unpaid': total_unpaid,
+        'month_revenue': month_revenue,
+        'month_unpaid': month_unpaid,
+        'total_revenue': total_all_revenue,
+        'total_unpaid': total_all_unpaid,
+        'selected_month': selected_month,
+        'selected_year': selected_year,
+        'period_label': period_label,
+        'months_list': months_list,
+        'years_list': years_list,
+        'monthly_breakdown': monthly_breakdown,
         'attendance_rate': att_rate,
         'today_sessions': today_sessions,
         'recent_payments': recent_payments,
@@ -297,11 +419,30 @@ def download_planning_pdf_view(request):
 def export_paid_payments_excel_view(request):
     """Export the consolidated payments & unpaid statement to an official Excel workbook."""
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    payments = Payment.objects.select_related('student', 'student__parent', 'invoice', 'invoice__group', 'invoice__group__subject').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
-    unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'student__parent', 'group', 'group__subject').prefetch_related('student__groups__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
-    excel_data = export_paid_payments_to_excel(payments, unpaid_invoices_queryset=unpaid_invoices, lang=lang)
+    req_month = request.GET.get('month')
+    req_year = request.GET.get('year')
 
-    filename = f"GCA_Etat_Paiements_Consolide_{lang}.xlsx"
+    payments = Payment.objects.select_related(
+        'student', 'student__parent', 'invoice', 'invoice__group', 'invoice__group__subject'
+    ).prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
+
+    unpaid_invoices = get_billable_unpaid_invoices_qs().select_related(
+        'student', 'student__parent', 'group', 'group__subject'
+    ).prefetch_related('student__groups__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
+
+    if req_month and req_month.isdigit():
+        m_val = int(req_month)
+        y_val = int(req_year) if req_year and req_year.isdigit() else date.today().year
+        payments = payments.filter(
+            Q(period_month=m_val, period_year=y_val) |
+            Q(period_month__isnull=True, payment_date__month=m_val, payment_date__year=y_val)
+        )
+        unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val)
+        filename = f"GCA_Etat_Paiements_{m_val:02d}_{y_val}_{lang}.xlsx"
+    else:
+        filename = f"GCA_Etat_Paiements_Consolide_{lang}.xlsx"
+
+    excel_data = export_paid_payments_to_excel(payments, unpaid_invoices_queryset=unpaid_invoices, lang=lang)
     response = HttpResponse(
         excel_data,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -314,10 +455,22 @@ def export_paid_payments_excel_view(request):
 def export_unpaid_invoices_excel_view(request):
     """Export the list of unpaid/partially paid students (Impayés) to an official Excel workbook."""
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'student__parent', 'group', 'group__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
-    excel_data = export_unpaid_invoices_to_excel(unpaid_invoices, lang=lang)
+    req_month = request.GET.get('month')
+    req_year = request.GET.get('year')
 
-    filename = f"GCA_Liste_Impayes_{lang}.xlsx"
+    unpaid_invoices = get_billable_unpaid_invoices_qs().select_related(
+        'student', 'student__parent', 'group', 'group__subject'
+    ).order_by('-period_year', '-period_month', 'student__last_name_fr')
+
+    if req_month and req_month.isdigit():
+        m_val = int(req_month)
+        y_val = int(req_year) if req_year and req_year.isdigit() else date.today().year
+        unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val)
+        filename = f"GCA_Liste_Impayes_{m_val:02d}_{y_val}_{lang}.xlsx"
+    else:
+        filename = f"GCA_Liste_Impayes_{lang}.xlsx"
+
+    excel_data = export_unpaid_invoices_to_excel(unpaid_invoices, lang=lang)
     response = HttpResponse(
         excel_data,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

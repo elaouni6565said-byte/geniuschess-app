@@ -1020,6 +1020,68 @@ def test_group_messages_admin_and_parent_space():
     assert not GroupMessage.objects.filter(id=created_msg.id).exists()
 
 
+@pytest.mark.django_db
+def test_dashboard_isolated_monthly_revenue_and_breakdown():
+    """
+    Vérifie que la recette du mois sur le tableau de bord affiche bien
+    la recette de chaque mois seule sans faire la somme globale de tous les mois.
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    st = Student.objects.first()
+
+    # Créer un paiement pour Septembre 2026 (500 DH)
+    Payment.objects.create(
+        student=st,
+        amount=Decimal('500.00'),
+        receipt_number='REC-DASH-SEP',
+        period_month=9,
+        period_year=2026,
+        payment_date=date(2026, 9, 10),
+    )
+
+    # Créer un paiement pour Octobre 2026 (800 DH)
+    Payment.objects.create(
+        student=st,
+        amount=Decimal('800.00'),
+        receipt_number='REC-DASH-OCT',
+        period_month=10,
+        period_year=2026,
+        payment_date=date(2026, 10, 5),
+    )
+
+    # 1. Consulter le tableau de bord pour Septembre 2026
+    resp_sep = client.get('/?month=9&year=2026')
+    assert resp_sep.status_code == 200
+    # La recette du mois de Septembre doit être calculée SEULE (>= 500 DH) sans inclure Octobre (800 DH)
+    assert resp_sep.context['month_revenue'] >= Decimal('500.00')
+    # Le montant d'octobre (800) ne doit PAS être additionné à la recette du mois de septembre
+    total_rev = resp_sep.context['total_revenue']
+    month_sep_rev = resp_sep.context['month_revenue']
+    assert month_sep_rev < total_rev
+
+    # 2. Consulter le tableau de bord pour Octobre 2026
+    resp_oct = client.get('/?month=10&year=2026')
+    assert resp_oct.status_code == 200
+    assert resp_oct.context['month_revenue'] == Decimal('800.00')
+    assert resp_oct.context['month_revenue'] < total_rev
+
+    # 3. Vérifier la présence du tableau récapitulatif mensuel sur le tableau de bord
+    content_oct = resp_oct.content.decode('utf-8')
+    assert 'Recettes de Chaque Mois' in content_oct or 'مداخيل كل شهر على حدة' in content_oct
+    assert len(resp_oct.context['monthly_breakdown']) >= 2
+
+    # Vérifier que dans le breakdown, chaque mois a sa propre recette isolée
+    breakdown_dict = {item['month']: item['revenue'] for item in resp_oct.context['monthly_breakdown']}
+    assert breakdown_dict.get(10) == Decimal('800.00')
+    assert breakdown_dict.get(9) >= Decimal('500.00')
+
+
+
 
 
 

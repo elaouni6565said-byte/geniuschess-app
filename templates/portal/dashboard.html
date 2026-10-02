@@ -28,6 +28,34 @@
     </div>
 </div>
 
+<!-- Sélecteur de Mois pour les Recettes et Indicateurs -->
+<div style="background: white; border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; border: 1px solid #E2E8F0;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: var(--primary-navy); font-size: 0.95rem;">
+        <span style="font-size: 1.15rem;">📅</span>
+        <span>{% if CURRENT_LANG == 'ar' %}مداخيل ومؤشرات الشهر المحدد :{% else %}Mois d'observation des recettes :{% endif %}</span>
+        <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 0.9rem; padding: 0.25rem 0.65rem; border: 1px solid #BFDBFE;">
+            {{ period_label }}
+        </span>
+    </div>
+    <form method="GET" action="{% url 'portal:dashboard' %}" style="display: flex; align-items: center; gap: 0.5rem; margin: 0; flex-wrap: wrap;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin: 0;">
+            {% if CURRENT_LANG == 'ar' %}تغيير الشهر :{% else %}Changer de mois :{% endif %}
+        </label>
+        <select name="month" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; border-radius: var(--radius-sm); border: 1.5px solid #CBD5E1; font-weight: 600; background: #F8FAFC;" onchange="this.form.submit()">
+            {% for m in months_list %}
+                <option value="{{ m.num }}" {% if m.num == selected_month %}selected{% endif %}>
+                    {% if CURRENT_LANG == 'ar' %}{{ m.name_ar }}{% else %}{{ m.name_fr }}{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+        <select name="year" class="search-input" style="padding: 0.35rem 0.65rem; font-size: 0.85rem; border-radius: var(--radius-sm); border: 1.5px solid #CBD5E1; font-weight: 600; background: #F8FAFC;" onchange="this.form.submit()">
+            {% for y in years_list %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
 <!-- KPI Cards -->
 <div class="grid-kpi">
     <div class="kpi-card">
@@ -52,26 +80,151 @@
         <div class="kpi-icon navy">👥</div>
     </div>
 
-    <div class="kpi-card">
+    <!-- KPI RECETTE DU MOIS (SEULE, NON CUMULÉE) -->
+    <div class="kpi-card" style="border-inline-start: 4px solid var(--success);">
         <div class="kpi-content">
-            <h4>{% trans "dashboard.monthly_revenue" %}</h4>
-            <div class="kpi-value" style="color: var(--success);">{% money total_revenue %}</div>
-            <a href="{% url 'portal:export_paid_excel' %}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--success); text-decoration: underline;">
-                📥 {% if CURRENT_LANG == 'ar' %}تصدير لائحة المداخيل (Excel){% else %}Exporter l'état des paiements (Excel){% endif %}
+            <h4>
+                {% trans "dashboard.monthly_revenue" %}
+                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                    ({{ period_label }})
+                </span>
+            </h4>
+            <div class="kpi-value" style="color: var(--success);">{% money month_revenue %}</div>
+            <div style="font-size: 0.72rem; color: #047857; font-weight: 600; margin-top: 0.15rem;">
+                {% if CURRENT_LANG == 'ar' %}
+                    ✓ مداخيل شهر {{ period_label }} وحدها
+                {% else %}
+                    ✓ Recette de {{ period_label }} seule
+                {% endif %}
+            </div>
+            <a href="{% url 'portal:export_paid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--success); text-decoration: underline;">
+                📥 {% if CURRENT_LANG == 'ar' %}تصدير أداءات الشهر (Excel){% else %}Exporter paiements du mois (Excel){% endif %}
             </a>
         </div>
         <div class="kpi-icon green">💰</div>
     </div>
 
-    <div class="kpi-card">
+    <!-- KPI IMPAYÉS DU MOIS (SEULS, NON CUMULÉS) -->
+    <div class="kpi-card" style="border-inline-start: 4px solid var(--danger);">
         <div class="kpi-content">
-            <h4>{% trans "dashboard.unpaid_total" %}</h4>
-            <div class="kpi-value" style="color: var(--danger);">{% money total_unpaid %}</div>
-            <a href="{% url 'portal:export_unpaid_excel' %}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--danger); text-decoration: underline;">
-                ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير لائحة المتأخرات (Excel){% else %}Exporter les impayés (Excel){% endif %}
+            <h4>
+                {% trans "dashboard.unpaid_total" %}
+                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                    ({{ period_label }})
+                </span>
+            </h4>
+            <div class="kpi-value" style="color: var(--danger);">{% money month_unpaid %}</div>
+            <div style="font-size: 0.72rem; color: #B91C1C; font-weight: 600; margin-top: 0.15rem;">
+                {% if CURRENT_LANG == 'ar' %}
+                    ⚠️ متأخرات شهر {{ period_label }} وحدها
+                {% else %}
+                    ⚠️ Impayés de {{ period_label }} seuls
+                {% endif %}
+            </div>
+            <a href="{% url 'portal:export_unpaid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--danger); text-decoration: underline;">
+                ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير متأخرات الشهر (Excel){% else %}Exporter impayés du mois (Excel){% endif %}
             </a>
         </div>
         <div class="kpi-icon red">⚠️</div>
+    </div>
+</div>
+
+<!-- TABLEAU DES RECETTES MENSUELLES (CHAQUE MOIS AFFICHÉ SEUL) -->
+<div class="card" style="margin-bottom: 2rem; border-top: 4px solid var(--primary-navy); box-shadow: var(--shadow-sm);">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <span style="font-size: 1.25rem;">📊</span>
+            <div>
+                <h3 class="card-title" style="margin: 0; font-size: 1.05rem;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        مداخيل كل شهر على حدة (مفصلة وغير مدمجة)
+                    {% else %}
+                        Recettes de Chaque Mois (Affichage Individuel et Isolé)
+                    {% endif %}
+                </h3>
+                <small style="color: var(--text-muted); font-size: 0.8rem;">
+                    {% if CURRENT_LANG == 'ar' %}
+                        عرض مستقل لمداخيل ومتأخرات كل شهر دون خلط أو جمع بين الشهور
+                    {% else %}
+                        Affichage autonome des encaissements et des restes dus par mois, sans cumul entre les mois
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+        <div style="font-size: 0.82rem; font-weight: 700; color: var(--primary-navy); background: #F1F5F9; padding: 0.4rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid #E2E8F0;">
+            {% if CURRENT_LANG == 'ar' %}
+                المجموع التراكمي العام : <span style="color: var(--success);">{% money total_revenue %}</span>
+            {% else %}
+                Total cumulé toutes périodes : <span style="color: var(--success);">{% money total_revenue %}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr style="background: #F8FAFC;">
+                    <th>{% if CURRENT_LANG == 'ar' %}الشهر والسنة{% else %}Mois & Année{% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المداخيل المحصلة للشهر فقط{% else %}Recette Encaissée du Mois (Seule){% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المتأخرات المتبقية للشهر{% else %}Reste Impayé du Mois{% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المجموع المستحق{% else %}Total Attendu{% endif %}</th>
+                    <th style="text-align: center;">{% if CURRENT_LANG == 'ar' %}نسبة الاستخلاص{% else %}Taux Recouvrement{% endif %}</th>
+                    <th style="text-align: center;">{% if CURRENT_LANG == 'ar' %}العمليات{% else %}Actions{% endif %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mb in monthly_breakdown %}
+                <tr style="{% if mb.is_selected %}background: #F0FDF4; font-weight: 600;{% endif %}">
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span>🗓️</span>
+                            <b>{{ mb.label }}</b>
+                            {% if mb.is_selected %}
+                                <span class="badge" style="background: #DCFCE7; color: #15803D; font-size: 0.72rem; padding: 0.15rem 0.45rem;">
+                                    {% if CURRENT_LANG == 'ar' %}المحدد حالياً{% else %}Sélectionné{% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td style="text-align: right; color: var(--success); font-weight: 700; font-size: 1rem;">
+                        {% money mb.revenue %}
+                    </td>
+                    <td style="text-align: right; color: {% if mb.unpaid > 0 %}var(--danger){% else %}var(--text-muted){% endif %}; font-weight: 600;">
+                        {% money mb.unpaid %}
+                    </td>
+                    <td style="text-align: right; font-weight: 600; color: var(--text-main);">
+                        {% money mb.total_expected %}
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="badge" style="{% if mb.rate >= 90 %}background: #DCFCE7; color: #15803D;{% elif mb.rate >= 50 %}background: #FEF9C3; color: #854D0E;{% else %}background: #FEE2E2; color: #B91C1C;{% endif %} font-weight: 700;">
+                            {{ mb.rate }}%
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: inline-flex; gap: 0.4rem;">
+                            <a href="{% url 'portal:dashboard' %}?month={{ mb.month }}&year={{ mb.year }}" 
+                               class="btn btn-sm {% if mb.is_selected %}btn-primary{% else %}btn-outline{% endif %}" 
+                               style="padding: 0.25rem 0.55rem; font-size: 0.78rem;">
+                                🎯 {% if CURRENT_LANG == 'ar' %}عرض هذا الشهر{% else %}Sélectionner{% endif %}
+                            </a>
+                            <a href="{% url 'portal:export_paid_excel' %}?month={{ mb.month }}&year={{ mb.year }}" 
+                               class="btn btn-outline btn-sm" 
+                               style="padding: 0.25rem 0.55rem; font-size: 0.78rem; border-color: #86EFAC; color: #15803D;"
+                               title="Exporter Excel pour {{ mb.label }}">
+                                📥 Excel
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                        {% if CURRENT_LANG == 'ar' %}لا توجد تسجيلات بعد{% else %}Aucun enregistrement pour le moment.{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
