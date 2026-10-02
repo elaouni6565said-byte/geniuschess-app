@@ -3,6 +3,11 @@ from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from portal.excel_validator import (
+    deduplicate_items,
+    sanitize_header_list,
+    audit_and_correct_worksheet,
+)
 
 # Styles et palettes
 NAVY_HEADER = "0A192F"
@@ -63,6 +68,15 @@ def generate_attendance_excel(attendances, student_summaries, period_label, lang
     # Ligne vide
     ws1.row_dimensions[3].height = 10
 
+    attendances_list = deduplicate_items(
+        attendances,
+        key_func=lambda a: getattr(a, 'id', None) or (getattr(a, 'session_id', None), getattr(a, 'student_id', None), getattr(a, 'date', None))
+    )
+    student_summaries_list = deduplicate_items(
+        student_summaries,
+        key_func=lambda s: getattr(s.get('student'), 'id', None) or getattr(s.get('student'), 'registration_number', None) or str(s)
+    )
+
     # 2. En-têtes de colonnes
     headers = [
         ("N°", 6),
@@ -76,6 +90,7 @@ def generate_attendance_excel(attendances, student_summaries, period_label, lang
         ("Statut / الحالة", 15),
         ("Remarques / ملاحظات", 24),
     ]
+    headers, _ = sanitize_header_list(headers)
 
     header_row = 4
     ws1.row_dimensions[header_row].height = 25
@@ -92,7 +107,7 @@ def generate_attendance_excel(attendances, student_summaries, period_label, lang
 
     # 3. Remplissage des données
     current_row = 5
-    for idx, att in enumerate(attendances, 1):
+    for idx, att in enumerate(attendances_list, 1):
         ws1.row_dimensions[current_row].height = 20
 
         # Données de la séance
@@ -186,6 +201,7 @@ def generate_attendance_excel(attendances, student_summaries, period_label, lang
         ("Absents / غائب", 14),
         ("Taux d'Assiduité / نسبة المواظبة", 22),
     ]
+    headers2, _ = sanitize_header_list(headers2)
 
     ws2.row_dimensions[3].height = 24
     for c_idx, (h_title, col_w) in enumerate(headers2, 1):
@@ -198,7 +214,7 @@ def generate_attendance_excel(attendances, student_summaries, period_label, lang
         ws2.column_dimensions[col_letter].width = col_w
 
     row2 = 4
-    for idx, s in enumerate(student_summaries, 1):
+    for idx, s in enumerate(student_summaries_list, 1):
         ws2.row_dimensions[row2].height = 20
         rate_str = f"{s['rate']}%"
 
@@ -238,6 +254,10 @@ def generate_attendance_excel(attendances, student_summaries, period_label, lang
                 cell.font = Font(name="Calibri", size=9.5, bold=True, color=rate_fg)
 
         row2 += 1
+
+    # Système de vérification et correction automatique des deux feuilles
+    audit_and_correct_worksheet(ws1, candidate_header_row=4)
+    audit_and_correct_worksheet(ws2, candidate_header_row=3)
 
     buffer = io.BytesIO()
     wb.save(buffer)

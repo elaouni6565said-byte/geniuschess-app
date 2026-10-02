@@ -377,7 +377,7 @@ def students_list_view(request):
 def export_students_excel_view(request):
     """Export the complete list of all students (active & inactive) to Excel."""
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
-    students = Student.objects.all().select_related('parent').prefetch_related('groups__subject').order_by('last_name_fr', 'first_name_fr')
+    students = Student.objects.all().select_related('parent').prefetch_related('groups__subject').distinct().order_by('last_name_fr', 'first_name_fr')
     excel_data = export_students_to_excel(students, lang=lang)
 
     filename = f"GCA_Tous_Eleves_{lang}.xlsx"
@@ -424,11 +424,11 @@ def export_paid_payments_excel_view(request):
 
     payments = Payment.objects.select_related(
         'student', 'student__parent', 'invoice', 'invoice__group', 'invoice__group__subject'
-    ).prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
+    ).prefetch_related('student__groups__subject').distinct().order_by('-payment_date', '-id')
 
     unpaid_invoices = get_billable_unpaid_invoices_qs().select_related(
         'student', 'student__parent', 'group', 'group__subject'
-    ).prefetch_related('student__groups__subject').order_by('-period_year', '-period_month', 'student__last_name_fr')
+    ).prefetch_related('student__groups__subject').distinct().order_by('-period_year', '-period_month', 'student__last_name_fr')
 
     if req_month and req_month.isdigit():
         m_val = int(req_month)
@@ -436,8 +436,8 @@ def export_paid_payments_excel_view(request):
         payments = payments.filter(
             Q(period_month=m_val, period_year=y_val) |
             Q(period_month__isnull=True, invoice__period_month=m_val, invoice__period_year=y_val)
-        )
-        unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val)
+        ).distinct()
+        unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val).distinct()
         filename = f"GCA_Etat_Paiements_{m_val:02d}_{y_val}_{lang}.xlsx"
     else:
         filename = f"GCA_Etat_Paiements_Consolide_{lang}.xlsx"
@@ -460,12 +460,12 @@ def export_unpaid_invoices_excel_view(request):
 
     unpaid_invoices = get_billable_unpaid_invoices_qs().select_related(
         'student', 'student__parent', 'group', 'group__subject'
-    ).order_by('-period_year', '-period_month', 'student__last_name_fr')
+    ).distinct().order_by('-period_year', '-period_month', 'student__last_name_fr')
 
     if req_month and req_month.isdigit():
         m_val = int(req_month)
         y_val = int(req_year) if req_year and req_year.isdigit() else date.today().year
-        unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val)
+        unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val).distinct()
         filename = f"GCA_Liste_Impayes_{m_val:02d}_{y_val}_{lang}.xlsx"
     else:
         filename = f"GCA_Liste_Impayes_{lang}.xlsx"

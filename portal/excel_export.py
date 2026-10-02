@@ -2,6 +2,12 @@ import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from portal.excel_validator import (
+    deduplicate_items,
+    sanitize_header_list,
+    align_row_to_headers,
+    audit_and_correct_worksheet,
+)
 
 NAVY_FILL = PatternFill(start_color="001B57", end_color="001B57", fill_type="solid")
 RED_FILL = PatternFill(start_color="991B1B", end_color="991B1B", fill_type="solid")
@@ -69,6 +75,9 @@ def export_students_to_excel(students_queryset, lang="fr"):
             "Activité & Niveau", "Groupe", "Parent / Tuteur", "Téléphone", "Email", "Statut"
         ]
 
+    # Sanitize and deduplicate headers
+    headers, kept_cols = sanitize_header_list(headers)
+
     # Title row
     last_col_letter = get_column_letter(len(headers))
     ws.merge_cells(f"A1:{last_col_letter}1")
@@ -88,9 +97,10 @@ def export_students_to_excel(students_queryset, lang="fr"):
         cell.alignment = align_header
         cell.border = BORDER_THIN
 
-    # Data rows
+    # Data rows (Deduplicated sources)
+    students_list = deduplicate_items(students_queryset, key_func=lambda s: getattr(s, 'id', s))
     row_idx = 4
-    for st in students_queryset:
+    for st in students_list:
         ws.row_dimensions[row_idx].height = 22
         group = st.groups.first()
         subject_str = group.subject.get_bilingual_name() if group and group.subject else ("Échecs / الشطرنج" if st.active else "-")
@@ -116,6 +126,9 @@ def export_students_to_excel(students_queryset, lang="fr"):
         if lang == "ar":
             row_values[1], row_values[2] = row_values[2], row_values[1]
 
+        # Ensure strict alignment with headers
+        row_values = align_row_to_headers(row_values, len(headers), kept_cols)
+
         for col_num, val in enumerate(row_values, 1):
             cell = ws.cell(row=row_idx, column=col_num)
             cell.value = val
@@ -124,11 +137,8 @@ def export_students_to_excel(students_queryset, lang="fr"):
             cell.border = BORDER_THIN
         row_idx += 1
 
-    # Auto-adjust column widths
-    for col in ws.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
-        col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+    # Système de vérification et correction automatique de la feuille (lignes et colonnes)
+    audit_and_correct_worksheet(ws, candidate_header_row=3)
 
     buffer = io.BytesIO()
     wb.save(buffer)
@@ -218,6 +228,10 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Dû (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
 
+    # Sanitize and deduplicate headers
+    headers_paid, kept_paid = sanitize_header_list(headers_paid)
+    headers_unpaid, kept_unpaid = sanitize_header_list(headers_unpaid)
+
     # Title row
     last_col_letter = get_column_letter(len(headers_paid))
     ws.merge_cells(f"A1:{last_col_letter}1")
@@ -237,13 +251,14 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         cell.alignment = align_header
         cell.border = BORDER_THIN
 
-    # 1. SECTION PAYANTS
+    # 1. SECTION PAYANTS (Deduplicated)
+    payments_list = deduplicate_items(payments_queryset, key_func=lambda p: getattr(p, 'id', p))
     row_idx = 4
     total_amount = 0.0
     total_centre = 0.0
     total_prof = 0.0
 
-    for p in payments_queryset:
+    for p in payments_list:
         ws.row_dimensions[row_idx].height = 22
         st = p.student
         
@@ -304,6 +319,9 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             part_centre,
             part_prof,
         ]
+
+        # Ensure strict alignment with headers
+        row_values = align_row_to_headers(row_values, len(headers_paid), kept_paid)
 
         for col_num, val in enumerate(row_values, 1):
             cell = ws.cell(row=row_idx, column=col_num)
@@ -400,7 +418,8 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             cell.border = BORDER_THIN
         row_idx += 1
 
-        for inv in unpaid_invoices_queryset:
+        unpaid_list = deduplicate_items(unpaid_invoices_queryset, key_func=lambda inv: getattr(inv, 'id', inv))
+        for inv in unpaid_list:
             ws.row_dimensions[row_idx].height = 22
             st = inv.student
             
@@ -458,6 +477,9 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
                 part_centre,
                 part_prof,
             ]
+
+            # Ensure strict alignment with headers
+            row_values = align_row_to_headers(row_values, len(headers_unpaid), kept_unpaid)
 
             for col_num, val in enumerate(row_values, 1):
                 cell = ws.cell(row=row_idx, column=col_num)
@@ -596,6 +618,9 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         col_letter = get_column_letter(col[0].column)
         ws.column_dimensions[col_letter].width = max(max_len + 4, 13)
 
+    # Système de vérification et correction automatique de la feuille (lignes et colonnes)
+    audit_and_correct_worksheet(ws, candidate_header_row=3)
+
     buffer = io.BytesIO()
     wb.save(buffer)
     excel_bytes = buffer.getvalue()
@@ -643,6 +668,9 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
             "Montant Dû (DH)", "Déjà Versé (DH)", "Reste Impayé (DH)", "Statut"
         ]
 
+    # Sanitize and deduplicate headers
+    headers, kept_indices = sanitize_header_list(headers)
+
     # Title row
     last_col_letter = get_column_letter(len(headers))
     ws.merge_cells(f"A1:{last_col_letter}1")
@@ -662,13 +690,14 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         cell.alignment = align_header
         cell.border = BORDER_THIN
 
-    # Data rows
+    # Data rows (Deduplicated sources)
+    invoices_list = deduplicate_items(invoices_queryset, key_func=lambda inv: getattr(inv, 'id', inv))
     row_idx = 4
     total_due = 0.0
     total_paid = 0.0
     total_balance = 0.0
 
-    for inv in invoices_queryset:
+    for inv in invoices_list:
         ws.row_dimensions[row_idx].height = 22
         st = inv.student
         group = inv.group if inv.group else (st.groups.first() if st else None)
@@ -719,6 +748,9 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         ]
         if lang == "ar":
             row_values[1], row_values[2] = row_values[2], row_values[1]
+
+        # Ensure strict alignment with headers
+        row_values = align_row_to_headers(row_values, len(headers), kept_indices)
 
         for col_num, val in enumerate(row_values, 1):
             cell = ws.cell(row=row_idx, column=col_num)
@@ -773,11 +805,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     ws.cell(row=row_idx, column=12).border = BORDER_TOTAL
     ws.cell(row=row_idx, column=12).fill = UNPAID_TOTAL_FILL
 
-    # Auto-adjust column widths
-    for col in ws.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
-        col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+    # Système de vérification et correction automatique de la feuille (lignes et colonnes)
+    audit_and_correct_worksheet(ws, candidate_header_row=3)
 
     buffer = io.BytesIO()
     wb.save(buffer)

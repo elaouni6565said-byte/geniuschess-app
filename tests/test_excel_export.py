@@ -169,4 +169,114 @@ def test_export_paid_excel_with_unpaid_section_and_centre_shares():
     assert "Adam Tazi" in content_all
 
 
+@pytest.mark.django_db
+def test_excel_export_duplicate_rows_verification_and_correction():
+    """
+    Vérifie que le système détecte et élimine automatiquement les lignes doublées :
+    1. Si des élèves sont fournis en double dans le queryset / liste, l'Excel n'a qu'une seule ligne.
+    2. Si des paiements ou factures impayées sont dupliqués, l'Excel n'a qu'une seule ligne et les totaux restent exacts.
+    """
+    from decimal import Decimal
+    from academy.models import Parent, Student
+    from finance.models import Payment
+    from portal.excel_export import export_students_to_excel, export_paid_payments_to_excel
+    from portal.excel_validator import deduplicate_items
+
+    parent = Parent.objects.create(full_name_fr="Parent Doublon", phone="0611223344")
+    st = Student.objects.create(
+        registration_number="GCA-DUP-01",
+        first_name_fr="Youssef",
+        last_name_fr="Berrada",
+        parent=parent,
+        active=True
+    )
+
+    # 1. Simuler une liste avec 3 fois le même élève
+    duplicated_students = [st, st, st]
+    excel_bytes = export_students_to_excel(duplicated_students, lang="fr")
+    wb = openpyxl.load_workbook(io.BytesIO(excel_bytes))
+    ws = wb.active
+
+    # Compter le nombre de fois où le matricule apparaît dans la feuille
+    matricule_occurrences = 0
+    for row in ws.iter_rows(values_only=True):
+        for cell in row:
+            if cell == "GCA-DUP-01":
+                matricule_occurrences += 1
+
+    # Doit apparaître exactement 1 seule fois !
+    assert matricule_occurrences == 1, f"L'élève doit apparaître 1 seule fois, trouvé {matricule_occurrences} fois"
+
+    # 2. Simuler un paiement dupliqué
+    p = Payment.objects.create(
+        receipt_number="REC-DUP-999",
+        student=st,
+        amount=Decimal("300.00"),
+        period_month=10,
+        period_year=2026
+    )
+    duplicated_payments = [p, p, p]
+    excel_paid_bytes = export_paid_payments_to_excel(duplicated_payments, lang="fr")
+    wb_paid = openpyxl.load_workbook(io.BytesIO(excel_paid_bytes))
+    ws_paid = wb_paid.active
+
+    rec_occurrences = 0
+    for row in ws_paid.iter_rows(values_only=True):
+        for cell in row:
+            if cell == "#REC-DUP-999":
+                rec_occurrences += 1
+
+    # Doit apparaître exactement 1 seule fois !
+    assert rec_occurrences == 1, f"Le reçu doit apparaître 1 seule fois, trouvé {rec_occurrences} fois"
+
+
+def test_excel_export_duplicate_columns_verification_and_correction():
+    """
+    Vérifie que le système détecte et supprime automatiquement les colonnes en double :
+    1. sanitize_header_list élimine les colonnes ayant le même en-tête.
+    2. audit_and_correct_worksheet supprime physiquement la colonne dupliquée et répare les plages fusionnées.
+    """
+    from portal.excel_validator import sanitize_header_list, audit_and_correct_worksheet
+
+    # 1. Test au niveau de la liste des en-têtes
+    headers = ["N° Reçu", "Date", "Matricule", "N° Reçu", "Montant", "Date"]
+    cleaned, kept = sanitize_header_list(headers)
+    assert cleaned == ["N° Reçu", "Date", "Matricule", "Montant"]
+    assert kept == [0, 1, 2, 4]
+
+    # 2. Test physique sur une feuille openpyxl avec colonne doublée
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "TestColonnes"
+
+    # Titre fusionné sur 4 colonnes
+    ws.merge_cells("A1:D1")
+    ws["A1"] = "Bannière Titre"
+
+    # Ligne d'en-tête (ligne 3) avec colonne 3 doublant colonne 1
+    ws.cell(row=3, column=1, value="Matricule")
+    ws.cell(row=3, column=2, value="Nom")
+    ws.cell(row=3, column=3, value="Matricule")  # Doublon !
+    ws.cell(row=3, column=4, value="Montant")
+
+    # Données
+    ws.cell(row=4, column=1, value="GCA-01")
+    ws.cell(row=4, column=2, value="Ahmed")
+    ws.cell(row=4, column=3, value="GCA-01")
+    ws.cell(row=4, column=4, value=250)
+
+    assert ws.max_column == 4
+
+    report = audit_and_correct_worksheet(ws, candidate_header_row=3)
+    assert report['duplicate_cols_removed'] == 1
+    assert report['status'] == 'corrected'
+    assert ws.max_column == 3
+
+    # Vérifier que les en-têtes restants sont uniques
+    headers_after = [ws.cell(row=3, column=c).value for c in range(1, ws.max_column + 1)]
+    assert headers_after == ["Matricule", "Nom", "Montant"]
+    assert len(headers_after) == len(set(headers_after))
+
+
+
 
