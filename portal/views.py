@@ -188,11 +188,11 @@ def dashboard_view(request):
     else:
         selected_month = today.month
         # Si le mois courant n'a pas encore de paiements enregistrés, basculer sur le dernier mois actif
-        if not Payment.objects.filter(Q(period_month=today.month, period_year=today.year) | Q(period_month__isnull=True, payment_date__month=today.month, payment_date__year=today.year)).exists():
-            last_pay = Payment.objects.order_by('-period_year', '-period_month', '-payment_date').first()
+        if not Payment.objects.filter(Q(period_month=today.month, period_year=today.year) | Q(period_month__isnull=True, invoice__period_month=today.month, invoice__period_year=today.year)).exists():
+            last_pay = Payment.objects.order_by('-period_year', '-period_month', '-id').first()
             if last_pay:
-                p_m = last_pay.period_month or (last_pay.payment_date.month if last_pay.payment_date else None)
-                p_y = last_pay.period_year or (last_pay.payment_date.year if last_pay.payment_date else None)
+                p_m = last_pay.period_month or (last_pay.invoice.period_month if last_pay.invoice else None)
+                p_y = last_pay.period_year or (last_pay.invoice.period_year if last_pay.invoice else None)
                 if p_m and p_y:
                     selected_month = p_m
 
@@ -204,10 +204,10 @@ def dashboard_view(request):
     total_students = Student.objects.filter(active=True).count()
     active_groups = Group.objects.count()
 
-    # 1. Recette DU MOIS SÉLECTIONNÉ SEULE (calculée uniquement pour ce mois sans le sommer avec d'autres)
+    # 1. Recette DU MOIS SÉLECTIONNÉ SEULE (calculée uniquement pour le mois concerné par les cotisations)
     month_payments = Payment.objects.filter(
         Q(period_month=selected_month, period_year=selected_year) |
-        Q(period_month__isnull=True, payment_date__month=selected_month, payment_date__year=selected_year)
+        Q(period_month__isnull=True, invoice__period_month=selected_month, invoice__period_year=selected_year)
     )
     month_revenue = month_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
@@ -255,7 +255,7 @@ def dashboard_view(request):
     for m_num, y_num in school_months_tuples:
         m_pays = Payment.objects.filter(
             Q(period_month=m_num, period_year=y_num) |
-            Q(period_month__isnull=True, payment_date__month=m_num, payment_date__year=y_num)
+            Q(period_month__isnull=True, invoice__period_month=m_num, invoice__period_year=y_num)
         )
         m_rev = m_pays.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         m_cnt = m_pays.count()
@@ -435,7 +435,7 @@ def export_paid_payments_excel_view(request):
         y_val = int(req_year) if req_year and req_year.isdigit() else date.today().year
         payments = payments.filter(
             Q(period_month=m_val, period_year=y_val) |
-            Q(period_month__isnull=True, payment_date__month=m_val, payment_date__year=y_val)
+            Q(period_month__isnull=True, invoice__period_month=m_val, invoice__period_year=y_val)
         )
         unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val)
         filename = f"GCA_Etat_Paiements_{m_val:02d}_{y_val}_{lang}.xlsx"
@@ -2225,8 +2225,7 @@ def check_duplicate_payment_ajax_view(request):
 
     month_payments = payments_qs.filter(
         Q(period_month=target_month, period_year=target_year) |
-        Q(invoice__period_month=target_month, invoice__period_year=target_year) |
-        (Q(period_month__isnull=True, payment_date__year=target_year, payment_date__month=target_month))
+        Q(period_month__isnull=True, invoice__period_month=target_month, invoice__period_year=target_year)
     ).distinct()
 
     existing_payments = []
@@ -2394,8 +2393,6 @@ def payment_create_view(request):
                 if not p.invoice:
                     from datetime import date
                     inv = Invoice.objects.filter(student=p.student, period_month=month, period_year=year).first()
-                    if not inv:
-                        inv = Invoice.objects.filter(student=p.student, status__in=['unpaid', 'partial']).first()
                     if not inv and p.student.groups.exists():
                         grp = p.student.groups.first()
                         base_fee, disc, final_fee = p.student.calculate_monthly_fee()

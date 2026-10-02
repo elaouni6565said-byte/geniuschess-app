@@ -45,7 +45,9 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
         recovery_rate = round(float((total_collected / total_expected) * 100), 1)
 
     # 3. Barometre de l'Echeance du 15 du mois
-    payments_for_month = Payment.objects.filter(invoice__in=invoices)
+    payments_for_month = Payment.objects.filter(
+        Q(invoice__in=invoices) | Q(period_month=month, period_year=year)
+    ).distinct()
 
     collected_before_15 = Decimal("0.00")
     collected_after_15 = Decimal("0.00")

@@ -1081,6 +1081,78 @@ def test_dashboard_isolated_monthly_revenue_and_breakdown():
     assert breakdown_dict.get(9) >= Decimal('500.00')
 
 
+@pytest.mark.django_db
+def test_revenue_calculation_based_strictly_on_period_month_not_payment_date():
+    """
+    Vérifie formellement que le calcul de la recette d'un mois se base EXCLUSIVEMENT
+    sur le mois concerné (period_month / period_year) et NON sur la date de paiement (payment_date).
+    - Un paiement tardif encaissé en Octobre pour le mois de Septembre doit compter dans la recette de Septembre, PAS d'Octobre.
+    - Un paiement anticipé encaissé en Octobre pour le mois de Novembre doit compter dans la recette de Novembre, PAS d'Octobre.
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    st = Student.objects.first()
+
+    # 1. Nettoyer les paiements existants pour isoler ce test
+    Payment.objects.all().delete()
+
+    # 2. Paiement tardif : Cotisation de Septembre 2026 payée le 25 Octobre 2026 (450 DH)
+    p_sept_late = Payment.objects.create(
+        student=st,
+        amount=Decimal('450.00'),
+        receipt_number='REC-SEPT-LATE',
+        period_month=9,
+        period_year=2026,
+        payment_date=date(2026, 10, 25),
+    )
+
+    # 3. Paiement anticipé : Cotisation de Novembre 2026 payée le 15 Octobre 2026 (350 DH)
+    p_nov_early = Payment.objects.create(
+        student=st,
+        amount=Decimal('350.00'),
+        receipt_number='REC-NOV-EARLY',
+        period_month=11,
+        period_year=2026,
+        payment_date=date(2026, 10, 15),
+    )
+
+    # --- Test Dashboard Septembre (?month=9) ---
+    resp_sept = client.get('/?month=9&year=2026')
+    assert resp_sept.status_code == 200
+    # La recette de Septembre DOIT inclure les 450 DH payés en retard
+    assert resp_sept.context['month_revenue'] == Decimal('450.00')
+
+    # --- Test Dashboard Octobre (?month=10) ---
+    resp_oct = client.get('/?month=10&year=2026')
+    assert resp_oct.status_code == 200
+    # La recette d'Octobre DOIT être de 0.00 DH car aucun paiement ne concerne le mois d'octobre !
+    assert resp_oct.context['month_revenue'] == Decimal('0.00')
+
+    # --- Test Dashboard Novembre (?month=11) ---
+    resp_nov = client.get('/?month=11&year=2026')
+    assert resp_nov.status_code == 200
+    # La recette de Novembre DOIT inclure les 350 DH payés en avance
+    assert resp_nov.context['month_revenue'] == Decimal('350.00')
+
+    # --- Test Récapitulatif mensuel (monthly_breakdown) ---
+    breakdown = {item['month']: item['revenue'] for item in resp_oct.context['monthly_breakdown']}
+    assert breakdown.get(9) == Decimal('450.00')
+    assert breakdown.get(10) == Decimal('0.00')
+    assert breakdown.get(11) == Decimal('350.00')
+
+    # --- Test Export Excel filtré par mois ---
+    resp_excel_sept = client.get('/payments/export-paid-excel/?month=9&year=2026')
+    assert resp_excel_sept.status_code == 200
+
+    resp_excel_oct = client.get('/payments/export-paid-excel/?month=10&year=2026')
+    assert resp_excel_oct.status_code == 200
+
+
+
 
 
 

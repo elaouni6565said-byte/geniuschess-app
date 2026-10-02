@@ -210,7 +210,7 @@ class Payment(models.Model):
         if not self.period_year:
             self.period_year = 2026
 
-        # 2. Si aucune facture n'est associée explicitement, chercher celle correspondant à l'élève et au mois
+        # 2. Si aucune facture n'est associée explicitement, chercher UNIQUEMENT celle correspondant à l'élève et au mois concerné
         if not self.invoice_id and self.student_id:
             target_inv = Invoice.objects.filter(
                 student_id=self.student_id,
@@ -219,13 +219,6 @@ class Payment(models.Model):
             ).first()
             if target_inv:
                 self.invoice = target_inv
-            else:
-                pending_inv = Invoice.objects.filter(
-                    student_id=self.student_id,
-                    status__in=['unpaid', 'partial']
-                ).order_by('due_date', 'id').first()
-                if pending_inv:
-                    self.invoice = pending_inv
 
         super().save(*args, **kwargs)
         if self.invoice:
