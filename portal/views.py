@@ -208,8 +208,12 @@ def dashboard_view(request):
     month_payments = Payment.objects.filter(
         Q(period_month=selected_month, period_year=selected_year) |
         Q(period_month__isnull=True, invoice__period_month=selected_month, invoice__period_year=selected_year)
-    )
+    ).select_related('student', 'invoice__group').prefetch_related('student__groups')
     month_revenue = month_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    # Répartition officielle : 35 DH par activité pour le centre, le reste pour le coach
+    month_centre_share = sum((p.centre_share for p in month_payments), Decimal('0.00'))
+    month_coach_share = sum((p.coach_share for p in month_payments), Decimal('0.00'))
 
     # Impayés du mois sélectionné seul
     all_billable_invoices = get_billable_unpaid_invoices_qs()
@@ -217,7 +221,10 @@ def dashboard_view(request):
     month_unpaid = sum((inv.get_balance() for inv in month_invoices), Decimal('0.00'))
 
     # Totaux globaux (toutes périodes confondues) pour information
+    all_payments = Payment.objects.select_related('student', 'invoice__group').prefetch_related('student__groups')
     total_all_revenue = Payment.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_all_centre = sum((p.centre_share for p in all_payments), Decimal('0.00'))
+    total_all_coach = sum((p.coach_share for p in all_payments), Decimal('0.00'))
     total_all_unpaid = sum((inv.get_balance() for inv in all_billable_invoices), Decimal('0.00'))
 
     # Libellé du mois sélectionné
@@ -256,9 +263,11 @@ def dashboard_view(request):
         m_pays = Payment.objects.filter(
             Q(period_month=m_num, period_year=y_num) |
             Q(period_month__isnull=True, invoice__period_month=m_num, invoice__period_year=y_num)
-        )
+        ).select_related('student', 'invoice__group').prefetch_related('student__groups')
         m_rev = m_pays.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         m_cnt = m_pays.count()
+        m_centre = sum((p.centre_share for p in m_pays), Decimal('0.00'))
+        m_coach = sum((p.coach_share for p in m_pays), Decimal('0.00'))
 
         m_invs = all_billable_invoices.filter(period_month=m_num, period_year=y_num)
         m_unp = sum((inv.get_balance() for inv in m_invs), Decimal('0.00'))
@@ -279,6 +288,8 @@ def dashboard_view(request):
                 'label_ar': m_l_ar,
                 'label': m_l_ar if lang == 'ar' else m_l_fr,
                 'revenue': m_rev,
+                'centre_share': m_centre,
+                'coach_share': m_coach,
                 'unpaid': m_unp,
                 'total_expected': m_expected,
                 'rate': m_rate,
@@ -316,8 +327,12 @@ def dashboard_view(request):
         'total_students': total_students,
         'active_groups': active_groups,
         'month_revenue': month_revenue,
+        'month_centre_share': month_centre_share,
+        'month_coach_share': month_coach_share,
         'month_unpaid': month_unpaid,
         'total_revenue': total_all_revenue,
+        'total_centre_share': total_all_centre,
+        'total_coach_share': total_all_coach,
         'total_unpaid': total_all_unpaid,
         'selected_month': selected_month,
         'selected_year': selected_year,

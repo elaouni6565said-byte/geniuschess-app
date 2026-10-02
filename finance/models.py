@@ -193,6 +193,38 @@ class Payment(models.Model):
             return self.get_period_label(lang)
         return str(getattr(self, field, ''))
 
+    def get_nb_activities(self):
+        """Retourne le nombre d'activités suivies par l'élève."""
+        st = self.student
+        if st:
+            count = st.groups.filter(subject__isnull=False).values('subject_id').distinct().count()
+            if count > 0:
+                return count
+            if self.invoice and self.invoice.group and self.invoice.group.subject_id:
+                return 1
+        return 1
+
+    def compute_shares(self):
+        """
+        Formule officielle Genius Chess Academy :
+        Pour chaque activité de chaque élève, le centre reçoit 35 DH (1 activité = 35 DH, 2 activités = 70 DH).
+        Le reste revient au coach / formateur.
+        """
+        from decimal import Decimal
+        amt = self.amount or Decimal('0.00')
+        nb = self.get_nb_activities()
+        centre_share = min(amt, Decimal('35.00') * Decimal(nb))
+        coach_share = max(Decimal('0.00'), amt - centre_share)
+        return centre_share, coach_share
+
+    @property
+    def centre_share(self):
+        return self.compute_shares()[0]
+
+    @property
+    def coach_share(self):
+        return self.compute_shares()[1]
+
     def save(self, *args, **kwargs):
         # 0. Date de paiement par défaut si non renseignée (date de saisie)
         if not self.payment_date:

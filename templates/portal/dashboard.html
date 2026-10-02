@@ -104,6 +104,62 @@
         <div class="kpi-icon green">💰</div>
     </div>
 
+    <!-- 1. KPI PART DU CENTRE (35 DH / ACTIVITÉ) -->
+    <div class="kpi-card" style="border-inline-start: 4px solid #2563EB;">
+        <div class="kpi-content">
+            <h4>
+                {% trans "dashboard.centre_share" %}
+                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                    ({{ period_label }})
+                </span>
+            </h4>
+            <div class="kpi-value" style="color: #1D4ED8;">{% money month_centre_share %}</div>
+            <div style="font-size: 0.72rem; color: #1E40AF; font-weight: 600; margin-top: 0.15rem;">
+                {% if CURRENT_LANG == 'ar' %}
+                    🏛️ 35 درهم لكل نشاط مؤدى
+                {% else %}
+                    🏛️ 35 DH / activité réglée
+                {% endif %}
+            </div>
+            <div style="margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: #2563EB;">
+                {% if CURRENT_LANG == 'ar' %}
+                    المجموع العام: <span style="font-weight: 700;">{% money total_centre_share %}</span>
+                {% else %}
+                    Cumul global: <span style="font-weight: 700;">{% money total_centre_share %}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="kpi-icon blue" style="background: #EFF6FF; color: #1D4ED8;">🏢</div>
+    </div>
+
+    <!-- 2. KPI PART DU COACH / FORMATEURS (RESTE POUR LE COACH) -->
+    <div class="kpi-card" style="border-inline-start: 4px solid #D97706;">
+        <div class="kpi-content">
+            <h4>
+                {% trans "dashboard.coach_share" %}
+                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                    ({{ period_label }})
+                </span>
+            </h4>
+            <div class="kpi-value" style="color: #B45309;">{% money month_coach_share %}</div>
+            <div style="font-size: 0.72rem; color: #92400E; font-weight: 600; margin-top: 0.15rem;">
+                {% if CURRENT_LANG == 'ar' %}
+                    ♟️ باقي المداخيل بعد اقتطاع المركز
+                {% else %}
+                    ♟️ Reste de la recette pour les coachs
+                {% endif %}
+            </div>
+            <div style="margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: #D97706;">
+                {% if CURRENT_LANG == 'ar' %}
+                    المجموع العام: <span style="font-weight: 700;">{% money total_coach_share %}</span>
+                {% else %}
+                    Cumul global: <span style="font-weight: 700;">{% money total_coach_share %}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="kpi-icon orange" style="background: #FFFBEB; color: #B45309;">♟️</div>
+    </div>
+
     <!-- KPI IMPAYÉS DU MOIS (SEULS, NON CUMULÉS) -->
     <div class="kpi-card" style="border-inline-start: 4px solid var(--danger);">
         <div class="kpi-content">
@@ -137,26 +193,42 @@
             <div>
                 <h3 class="card-title" style="margin: 0; font-size: 1.05rem;">
                     {% if CURRENT_LANG == 'ar' %}
-                        مداخيل كل شهر على حدة (مفصلة وغير مدمجة)
+                        مداخيل كل شهر على حدة (حصة المركز والمدربين مفصلة)
                     {% else %}
-                        Recettes de Chaque Mois (Affichage Individuel et Isolé)
+                        Recettes de Chaque Mois (Détail Part Centre & Coachs)
                     {% endif %}
                 </h3>
                 <small style="color: var(--text-muted); font-size: 0.8rem;">
                     {% if CURRENT_LANG == 'ar' %}
-                        عرض مستقل لمداخيل ومتأخرات كل شهر دون خلط أو جمع بين الشهور
+                        عرض مستقل لمداخيل كل شهر وحصة المركز (35 درهم/نشاط) والباقي للمدربين
                     {% else %}
-                        Affichage autonome des encaissements et des restes dus par mois, sans cumul entre les mois
+                        Affichage autonome des encaissements par mois : Part Centre (35 DH/activité) et Part Coachs
                     {% endif %}
                 </small>
             </div>
         </div>
-        <div style="font-size: 0.82rem; font-weight: 700; color: var(--primary-navy); background: #F1F5F9; padding: 0.4rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid #E2E8F0;">
-            {% if CURRENT_LANG == 'ar' %}
-                المجموع التراكمي العام : <span style="color: var(--success);">{% money total_revenue %}</span>
-            {% else %}
-                Total cumulé toutes périodes : <span style="color: var(--success);">{% money total_revenue %}</span>
-            {% endif %}
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #1D4ED8; background: #EFF6FF; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid #BFDBFE;">
+                {% if CURRENT_LANG == 'ar' %}
+                    حصة المركز الإجمالية : <span>{% money total_centre_share %}</span>
+                {% else %}
+                    Part Centre cumulée : <span>{% money total_centre_share %}</span>
+                {% endif %}
+            </div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #B45309; background: #FFFBEB; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid #FDE68A;">
+                {% if CURRENT_LANG == 'ar' %}
+                    حصة المدربين الإجمالية : <span>{% money total_coach_share %}</span>
+                {% else %}
+                    Part Coachs cumulée : <span>{% money total_coach_share %}</span>
+                {% endif %}
+            </div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--primary-navy); background: #F1F5F9; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid #E2E8F0;">
+                {% if CURRENT_LANG == 'ar' %}
+                    المجموع التراكمي العام : <span style="color: var(--success);">{% money total_revenue %}</span>
+                {% else %}
+                    Total cumulé : <span style="color: var(--success);">{% money total_revenue %}</span>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -165,8 +237,10 @@
             <thead>
                 <tr style="background: #F8FAFC;">
                     <th>{% if CURRENT_LANG == 'ar' %}الشهر والسنة{% else %}Mois & Année{% endif %}</th>
-                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المداخيل المحصلة للشهر فقط{% else %}Recette Encaissée du Mois (Seule){% endif %}</th>
-                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المتأخرات المتبقية للشهر{% else %}Reste Impayé du Mois{% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المداخيل المحصلة{% else %}Recette Encaissée{% endif %}</th>
+                    <th style="text-align: right; color: #1D4ED8;">{% if CURRENT_LANG == 'ar' %}حصة المركز (35 د/نشاط){% else %}Part Centre (35 DH/act){% endif %}</th>
+                    <th style="text-align: right; color: #B45309;">{% if CURRENT_LANG == 'ar' %}حصة المدرب{% else %}Part Coach{% endif %}</th>
+                    <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المتأخرات المتبقية{% else %}Reste Impayé{% endif %}</th>
                     <th style="text-align: right;">{% if CURRENT_LANG == 'ar' %}المجموع المستحق{% else %}Total Attendu{% endif %}</th>
                     <th style="text-align: center;">{% if CURRENT_LANG == 'ar' %}نسبة الاستخلاص{% else %}Taux Recouvrement{% endif %}</th>
                     <th style="text-align: center;">{% if CURRENT_LANG == 'ar' %}العمليات{% else %}Actions{% endif %}</th>
@@ -188,6 +262,12 @@
                     </td>
                     <td style="text-align: right; color: var(--success); font-weight: 700; font-size: 1rem;">
                         {% money mb.revenue %}
+                    </td>
+                    <td style="text-align: right; color: #1D4ED8; font-weight: 600;">
+                        {% money mb.centre_share %}
+                    </td>
+                    <td style="text-align: right; color: #B45309; font-weight: 600;">
+                        {% money mb.coach_share %}
                     </td>
                     <td style="text-align: right; color: {% if mb.unpaid > 0 %}var(--danger){% else %}var(--text-muted){% endif %}; font-weight: 600;">
                         {% money mb.unpaid %}
@@ -218,7 +298,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
                         {% if CURRENT_LANG == 'ar' %}لا توجد تسجيلات بعد{% else %}Aucun enregistrement pour le moment.{% endif %}
                     </td>
                 </tr>

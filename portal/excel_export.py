@@ -150,27 +150,13 @@ def export_students_to_excel(students_queryset, lang="fr"):
 def compute_centre_and_trainer_share(amount, nb_activities):
     """
     Règle officielle de répartition des recettes pour Genius Chess Academy :
-    - Mono-activité (1 activité) : Part centre = 35 DH (sauf tarif spécial >= 400 DH où part centre = 50 DH)
-    - Bi-activités (2 activités) : Part centre = 70 DH (sauf pack spécial >= 350 DH où part centre = 85 DH)
-    - Multi-activités (> 2 activités) : Part centre = 35 DH par activité
-    - Part profs (formateurs) = Montant total - Part du centre
+    - Pour chaque activité de chaque élève, le centre reçoit 35 DH (1 activité = 35 DH, 2 activités = 70 DH).
+    - Le reste revient au coach / formateur (Montant total - Part du centre).
     """
     amt = float(amount or 0.0)
     nb = max(1, int(nb_activities or 1))
 
-    if nb == 1:
-        part_centre = 50.0 if amt >= 400.0 else 35.0
-    elif nb == 2:
-        if amt >= 350.0:
-            part_centre = 85.0
-        elif amt <= 150.0:
-            part_centre = 35.0
-        else:
-            part_centre = 70.0
-    else:
-        part_centre = 35.0 * nb
-
-    part_centre = min(amt, part_centre)
+    part_centre = min(amt, 35.0 * nb)
     part_prof = max(0.0, amt - part_centre)
     return part_centre, part_prof
 

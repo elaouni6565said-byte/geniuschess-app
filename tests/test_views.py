@@ -1152,6 +1152,116 @@ def test_revenue_calculation_based_strictly_on_period_month_not_payment_date():
     assert resp_excel_oct.status_code == 200
 
 
+@pytest.mark.django_db
+def test_dashboard_centre_and_coach_shares():
+    """
+    Vérifie l'exactitude des calculs et de l'affichage des rubriques 'Part du Centre' et 'Part du Coach' :
+    - 35 DH par activité de chaque élève pour le centre (1 activité = 35 DH, 2 activités = 70 DH).
+    - Le reste pour le coach.
+    - Vérifie la présence des indicateurs dans le contexte, les cartes KPI, et le tableau récapitulatif mensuel.
+    """
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    from academy.models import Subject, Group
+
+    # 1. Nettoyer les paiements existants
+    Payment.objects.all().delete()
+
+    # Créer ou récupérer 2 activités distinctes
+    subj1, _ = Subject.objects.get_or_create(name_fr="Échecs", defaults={'name_ar': "شطرنج"})
+    subj2, _ = Subject.objects.get_or_create(name_fr="Robotique", defaults={'name_ar': "روبوتات"})
+
+    grp1, _ = Group.objects.get_or_create(name_fr="Groupe Échecs", defaults={'name_ar': "مجموعة الشطرنج", 'subject': subj1})
+    grp2, _ = Group.objects.get_or_create(name_fr="Groupe Robotique", defaults={'name_ar': "مجموعة الروبوتات", 'subject': subj2})
+
+    # Élève 1 : 1 seule activité (Échecs)
+    parent = Parent.objects.first()
+    st1 = Student.objects.create(
+        first_name_fr="Amine",
+        last_name_fr="Tahiri",
+        first_name_ar="أمين",
+        last_name_ar="طاهري",
+        registration_number="GCA-SHARE-001",
+        active=True,
+        parent=parent,
+    )
+    st1.groups.add(grp1)
+
+    # Élève 2 : 2 activités (Échecs + Robotique)
+    st2 = Student.objects.create(
+        first_name_fr="Sara",
+        last_name_fr="Alami",
+        first_name_ar="سارة",
+        last_name_ar="علمي",
+        registration_number="GCA-SHARE-002",
+        active=True,
+        parent=parent,
+    )
+    st2.groups.add(grp1, grp2)
+
+    # Paiement 1 : 200 DH pour Septembre 2026 -> Centre = 35 DH, Coach = 165 DH
+    pay1 = Payment.objects.create(
+        student=st1,
+        amount=Decimal('200.00'),
+        receipt_number='REC-SHARE-001',
+        period_month=9,
+        period_year=2026,
+        payment_date=date(2026, 9, 10),
+    )
+    assert pay1.centre_share == Decimal('35.00')
+    assert pay1.coach_share == Decimal('165.00')
+
+    # Paiement 2 : 300 DH pour Septembre 2026 -> 2 activités -> Centre = 70 DH, Coach = 230 DH
+    pay2 = Payment.objects.create(
+        student=st2,
+        amount=Decimal('300.00'),
+        receipt_number='REC-SHARE-002',
+        period_month=9,
+        period_year=2026,
+        payment_date=date(2026, 9, 12),
+    )
+    assert pay2.centre_share == Decimal('70.00')
+    assert pay2.coach_share == Decimal('230.00')
+
+    # Requête Dashboard Septembre 2026
+    resp = client.get('/?month=9&year=2026&lang=fr')
+    assert resp.status_code == 200
+
+    # Vérification des métriques dans le contexte
+    assert resp.context['month_revenue'] == Decimal('500.00')
+    assert resp.context['month_centre_share'] == Decimal('105.00')  # 35 + 70
+    assert resp.context['month_coach_share'] == Decimal('395.00')   # 165 + 230
+    assert resp.context['total_centre_share'] >= Decimal('105.00')
+    assert resp.context['total_coach_share'] >= Decimal('395.00')
+
+    # Vérification du tableau de répartition mensuelle
+    sept_breakdown = next((item for item in resp.context['monthly_breakdown'] if item['month'] == 9), None)
+    assert sept_breakdown is not None
+    assert sept_breakdown['centre_share'] == Decimal('105.00')
+    assert sept_breakdown['coach_share'] == Decimal('395.00')
+
+    # Vérification du rendu HTML (Cartes KPI & colonnes tableau en FR et AR)
+    content_fr = resp.content.decode('utf-8')
+    assert 'Part du Centre' in content_fr
+    assert 'Part du Coach' in content_fr
+    assert '105,00' in content_fr
+    assert '395,00' in content_fr
+
+    # Test affichage Arabe
+    resp_ar = client.get('/?month=9&year=2026&lang=ar')
+    assert resp_ar.status_code == 200
+    content_ar = resp_ar.content.decode('utf-8')
+    assert 'حصة المركز' in content_ar
+    assert 'حصة المدرب' in content_ar
+    assert '105,00' in content_ar
+    assert '395,00' in content_ar
+
+
+
 
 
 
