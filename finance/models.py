@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from decimal import Decimal
 from academy.models import Student, Group, User
 from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
@@ -127,7 +128,7 @@ class Payment(models.Model):
     period_month = models.PositiveIntegerField(null=True, blank=True, verbose_name="Mois concerné / الشهر المؤدى عنه (1-12)")
     period_year = models.PositiveIntegerField(default=2026, null=True, blank=True, verbose_name="Année concernée / السنة")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_date = models.DateField()
+    payment_date = models.DateField(default=timezone.localdate, blank=True)
     payment_method = models.CharField(max_length=20, choices=METHOD_CHOICES, default='cash')
     reference = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
@@ -193,6 +194,11 @@ class Payment(models.Model):
         return str(getattr(self, field, ''))
 
     def save(self, *args, **kwargs):
+        # 0. Date de paiement par défaut si non renseignée (date de saisie)
+        if not self.payment_date:
+            from datetime import date
+            self.payment_date = date.today()
+
         # 1. Remplir period_month et period_year par défaut si non spécifiés
         if not self.period_month:
             if self.invoice:

@@ -2167,6 +2167,10 @@ def payment_create_view(request):
         else:
             if form.is_valid():
                 p = form.save(commit=False)
+                if not p.payment_date:
+                    from datetime import date
+                    p.payment_date = date.today()
+
                 is_exemption = form.cleaned_data.get('is_exemption')
                 ex_reason = form.cleaned_data.get('exemption_reason', '').strip() or "Exonération accordée"
                 apply_discount = form.cleaned_data.get('apply_discount')

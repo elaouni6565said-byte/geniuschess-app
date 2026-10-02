@@ -528,4 +528,85 @@ def test_deferred_payment_and_accounting_regularization():
     assert len(excel_bytes) > 2000
 
 
+@pytest.mark.django_db
+def test_payment_student_search_and_default_entry_date():
+    """
+    Vérifie les deux fonctionnalités demandées :
+    1. Présence de la recherche de noms d'élèves dans le formulaire de paiement.
+    2. Affectation automatique de la date de saisie (date du jour) comme date de paiement par défaut si non renseignée.
+    """
+    from portal.forms import PaymentForm
+
+    sub = Subject.objects.create(name_fr="Robotique", name_ar="الروبوتيك")
+    grp = Group.objects.create(name_fr="Groupe Robotique", name_ar="مجموعة الروبوتيك", subject=sub, monthly_fee=Decimal("300.00"))
+    parent = Parent.objects.create(full_name_fr="Parent Test Search", phone="212633445566")
+    st = Student.objects.create(
+        registration_number="GCA-2026-SEARCH",
+        first_name_fr="Nabil",
+        last_name_fr="Bennani",
+        first_name_ar="نبيل",
+        last_name_ar="بنان",
+        parent=parent,
+        active=True
+    )
+    st.groups.add(grp)
+
+    client = Client()
+    admin_user = User.objects.create_superuser(username="admin_search_test", email="adminsearch@gca.ma", password="pass")
+    client.force_login(admin_user)
+
+    # 1. Vérifier la page GET : champs de recherche de nom et suggestions présents
+    res_get = client.get("/payments/add/")
+    assert res_get.status_code == 200
+    content = res_get.content.decode("utf-8")
+    assert "student_search_input" in content
+    assert "student_search_dropdown" in content
+    assert "student_selected_card" in content
+
+    # 2. Vérifier PaymentForm avec payment_date vide
+    form = PaymentForm(data={
+        'security_code': '6565',
+        'student': st.id,
+        'period_month': 10,
+        'period_year': 2026,
+        'amount': '300.00',
+        'payment_date': '',  # Non renseigné par l'utilisateur
+        'payment_method': 'cash',
+        'reference': '',
+        'notes': 'Test sans date',
+    })
+    assert form.is_valid(), f"Form errors: {form.errors}"
+    assert form.cleaned_data['payment_date'] == date.today()
+
+    # 3. Vérifier soumission POST via la vue payment_create_view
+    post_data = {
+        'security_code': '6565',
+        'student': st.id,
+        'period_month': 10,
+        'period_year': 2026,
+        'amount': '300.00',
+        'payment_date': '',  # Vide -> doit prendre date.today()
+        'payment_method': 'cash',
+        'reference': 'REF-NO-DATE',
+        'notes': 'Paiement sans date explicite',
+    }
+    res_post = client.post("/payments/add/", data=post_data)
+    assert res_post.status_code == 302  # Redirection vers la liste des paiements
+
+    created_pay = Payment.objects.filter(student=st, reference='REF-NO-DATE').first()
+    assert created_pay is not None
+    assert created_pay.payment_date == date.today()
+
+    # 4. Vérifier au niveau du modèle Payment.save() sans date
+    pay_model = Payment.objects.create(
+        student=st,
+        amount=Decimal("300.00"),
+        receipt_number="REC-2026-MODEL-NODATE",
+        period_month=11,
+        period_year=2026,
+    )
+    assert pay_model.payment_date == date.today()
+
+
+
 

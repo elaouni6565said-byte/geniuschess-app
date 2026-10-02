@@ -410,6 +410,15 @@ class PaymentForm(forms.ModelForm):
         from finance.models import Invoice
 
         today = date.today()
+        if not self.initial.get('payment_date'):
+            if self.instance and self.instance.payment_date:
+                self.initial['payment_date'] = self.instance.payment_date
+            else:
+                self.initial['payment_date'] = today
+
+        # Si la date n'est pas saisie, la date du jour (date de saisie) est affectée par défaut
+        self.fields['payment_date'].required = False
+
         if not self.initial.get('period_month'):
             if self.instance and self.instance.period_month:
                 self.initial['period_month'] = self.instance.period_month
@@ -437,8 +446,19 @@ class PaymentForm(forms.ModelForm):
 
         self.fields['student'].label_from_instance = format_student_option
 
+    def clean_payment_date(self):
+        val = self.cleaned_data.get('payment_date')
+        if not val:
+            from datetime import date
+            return date.today()
+        return val
+
     def clean(self):
         cleaned_data = super().clean()
+        if not cleaned_data.get('payment_date'):
+            from datetime import date
+            cleaned_data['payment_date'] = date.today()
+
         is_ex = cleaned_data.get('is_exemption')
         amt = cleaned_data.get('amount')
         if is_ex:
