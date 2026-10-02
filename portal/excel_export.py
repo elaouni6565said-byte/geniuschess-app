@@ -184,11 +184,11 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         align_data = Alignment(horizontal="right", vertical="center")
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - قائمة المقبوضات والأداءات المؤداة 2026"
         headers_paid = [
-            "رقم الإيصال", "تاريخ الأداء", "رقم التسجيل", "اسم التلميذ (بالفرنسية)", "اسم التلميذ (بالعربية)",
+            "رقم الإيصال", "تاريخ الأداء", "الشهر المؤدى عنه", "رقم التسجيل", "اسم التلميذ (بالفرنسية)", "اسم التلميذ (بالعربية)",
             "الأنشطة المستفاد منها", "الاتفاقية / سبب التخفيض", "المبلغ المؤدى (درهم)", "عدد الأنشطة", "حصة المركز", "حصة الأستاذ"
         ]
         headers_unpaid = [
-            "رقم الفاتورة", "تاريخ الاستحقاق", "رقم التسجيل", "اسم التلميذ (بالفرنسية)", "اسم التلميذ (بالعربية)",
+            "رقم الفاتورة", "تاريخ الاستحقاق", "الشهر المستحق", "رقم التسجيل", "اسم التلميذ (بالفرنسية)", "اسم التلميذ (بالعربية)",
             "الأنشطة المستفاد منها", "الاتفاقية / سبب التخفيض", "المبلغ المستحق (درهم)", "عدد الأنشطة", "حصة المركز المتوقعة", "حصة الأستاذ المتوقعة"
         ]
     elif lang == "bilingual":
@@ -197,11 +197,11 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         align_data = Alignment(horizontal="left", vertical="center")
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Encaissés (Payants) 2026"
         headers_paid = [
-            "N° Reçu", "Date Paiement", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
+            "N° Reçu", "Date Paiement", "Mois Concerné / الشهر المؤدى عنه", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Réglé (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
         headers_unpaid = [
-            "N° Facture", "Date Échéance", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
+            "N° Facture", "Date Échéance", "Mois Dû / الشهر المستحق", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Dû (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
     else: # fr
@@ -210,11 +210,11 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         align_data = Alignment(horizontal="left", vertical="center")
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Paiements Encaissés (Payants) 2026"
         headers_paid = [
-            "N° Reçu", "Date Paiement", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
+            "N° Reçu", "Date Paiement", "Mois Concerné (Période)", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Réglé (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
         headers_unpaid = [
-            "N° Facture", "Date Échéance", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
+            "N° Facture", "Date Échéance", "Mois Dû (Période)", "Matricule", "Nom Élève (FR)", "Nom Élève (AR)",
             "Activités Bénéficiées", "Motif de Réduction / Convention", "Montant Dû (DH)", "Nombre d'activitées", "Part du centre", "Part du prof"
         ]
 
@@ -286,9 +286,14 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         total_centre += part_centre
         total_prof += part_prof
 
+        period_name = p.get_period_label(lang)
+        if p.is_deferred:
+            period_name += " (Différé)" if lang != "ar" else " (مؤجل)"
+
         row_values = [
             f"#{p.receipt_number}",
             p.payment_date.strftime("%d/%m/%Y"),
+            period_name,
             st.registration_number if st else "-",
             f"{st.first_name_fr} {st.last_name_fr}".strip() if st else "-",
             f"{st.first_name_ar} {st.last_name_ar}".strip() if st else "-",
@@ -305,11 +310,11 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             cell.value = val
             cell.font = DATA_FONT
             cell.border = BORDER_THIN
-            if col_num in (8, 10, 11):
+            if col_num in (9, 11, 12):
                 cell.alignment = Alignment(horizontal="right", vertical="center")
                 cell.number_format = '#,##0.00 "DH"'
                 cell.font = BOLD_DATA_FONT
-            elif col_num == 9:
+            elif col_num == 10:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
             else:
                 cell.alignment = align_data
@@ -317,8 +322,8 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
 
     # Total Payants Row
     ws.row_dimensions[row_idx].height = 28
-    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=7)
-    for c in range(1, 8):
+    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=8)
+    for c in range(1, 9):
         ws.cell(row=row_idx, column=c).border = BORDER_TOTAL
         ws.cell(row=row_idx, column=c).fill = TOTAL_FILL
 
@@ -328,7 +333,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
     tot_label.alignment = Alignment(horizontal="right" if lang != "ar" else "left", vertical="center")
 
     # Montant total réglé
-    tot_val = ws.cell(row=row_idx, column=8)
+    tot_val = ws.cell(row=row_idx, column=9)
     tot_val.value = total_amount
     tot_val.font = TOTAL_FONT
     tot_val.fill = TOTAL_FILL
@@ -336,13 +341,13 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
     tot_val.number_format = '#,##0.00 "DH"'
     tot_val.border = BORDER_TOTAL
 
-    # Col 9 (nb_activités totalisé ou vide)
-    c9 = ws.cell(row=row_idx, column=9)
-    c9.fill = TOTAL_FILL
-    c9.border = BORDER_TOTAL
+    # Col 10 (nb_activités totalisé ou vide)
+    c10 = ws.cell(row=row_idx, column=10)
+    c10.fill = TOTAL_FILL
+    c10.border = BORDER_TOTAL
 
     # Total Part Centre
-    tot_c = ws.cell(row=row_idx, column=10)
+    tot_c = ws.cell(row=row_idx, column=11)
     tot_c.value = total_centre
     tot_c.font = TOTAL_FONT
     tot_c.fill = TOTAL_FILL
@@ -351,7 +356,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
     tot_c.border = BORDER_TOTAL
 
     # Total Part Prof
-    tot_p = ws.cell(row=row_idx, column=11)
+    tot_p = ws.cell(row=row_idx, column=12)
     tot_p.value = total_prof
     tot_p.font = TOTAL_FONT
     tot_p.fill = TOTAL_FILL
@@ -437,9 +442,12 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
 
             due_date_str = inv.due_date.strftime("%d/%m/%Y") if inv.due_date else f"15/{inv.period_month:02d}/{inv.period_year}"
 
+            period_name = inv.get_period_label(lang)
+
             row_values = [
                 f"#FACT-{inv.id:04d}",
                 due_date_str,
+                period_name,
                 st.registration_number if st else "-",
                 f"{st.first_name_fr} {st.last_name_fr}".strip() if st else "-",
                 f"{st.first_name_ar} {st.last_name_ar}".strip() if st else "-",
@@ -456,14 +464,14 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
                 cell.value = val
                 cell.font = DATA_FONT
                 cell.border = BORDER_THIN
-                if col_num in (8, 10, 11):
+                if col_num in (9, 11, 12):
                     cell.alignment = Alignment(horizontal="right", vertical="center")
                     cell.number_format = '#,##0.00 "DH"'
-                    if col_num == 8:
+                    if col_num == 9:
                         cell.font = Font(name="Segoe UI", size=10, bold=True, color="991B1B")
                     else:
                         cell.font = BOLD_DATA_FONT
-                elif col_num == 9:
+                elif col_num == 10:
                     cell.alignment = Alignment(horizontal="center", vertical="center")
                 else:
                     cell.alignment = align_data
@@ -471,8 +479,8 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
 
         # Ligne de Total des Impayés
         ws.row_dimensions[row_idx].height = 28
-        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=7)
-        for c in range(1, 8):
+        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=8)
+        for c in range(1, 9):
             ws.cell(row=row_idx, column=c).border = BORDER_TOTAL
             ws.cell(row=row_idx, column=c).fill = UNPAID_TOTAL_FILL
 
@@ -482,7 +490,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         tot_unpaid_label.alignment = Alignment(horizontal="right" if lang != "ar" else "left", vertical="center")
 
         # Montant total impayé
-        tot_u_val = ws.cell(row=row_idx, column=8)
+        tot_u_val = ws.cell(row=row_idx, column=9)
         tot_u_val.value = total_unpaid_amount
         tot_u_val.font = TOTAL_RED_FONT
         tot_u_val.fill = UNPAID_TOTAL_FILL
@@ -490,13 +498,13 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         tot_u_val.number_format = '#,##0.00 "DH"'
         tot_u_val.border = BORDER_TOTAL
 
-        # Col 9
-        c9_u = ws.cell(row=row_idx, column=9)
-        c9_u.fill = UNPAID_TOTAL_FILL
-        c9_u.border = BORDER_TOTAL
+        # Col 10
+        c10_u = ws.cell(row=row_idx, column=10)
+        c10_u.fill = UNPAID_TOTAL_FILL
+        c10_u.border = BORDER_TOTAL
 
         # Part Centre Impayée
-        tot_uc = ws.cell(row=row_idx, column=10)
+        tot_uc = ws.cell(row=row_idx, column=11)
         tot_uc.value = total_unpaid_centre
         tot_uc.font = BOLD_DATA_FONT
         tot_uc.fill = UNPAID_TOTAL_FILL
@@ -505,7 +513,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         tot_uc.border = BORDER_TOTAL
 
         # Part Prof Impayée
-        tot_up = ws.cell(row=row_idx, column=11)
+        tot_up = ws.cell(row=row_idx, column=12)
         tot_up.value = total_unpaid_prof
         tot_up.font = BOLD_DATA_FONT
         tot_up.fill = UNPAID_TOTAL_FILL
@@ -539,8 +547,8 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
 
         # Ligne Total Général
         ws.row_dimensions[row_idx].height = 30
-        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=7)
-        for c in range(1, 8):
+        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=8)
+        for c in range(1, 9):
             ws.cell(row=row_idx, column=c).border = BORDER_TOTAL
             ws.cell(row=row_idx, column=c).fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")
 
@@ -549,7 +557,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         grand_label.font = Font(name="Segoe UI", size=11, bold=True, color="047857")
         grand_label.alignment = Alignment(horizontal="right" if lang != "ar" else "left", vertical="center")
 
-        gt_val = ws.cell(row=row_idx, column=8)
+        gt_val = ws.cell(row=row_idx, column=9)
         gt_val.value = grand_total_amount
         gt_val.font = Font(name="Segoe UI", size=11, bold=True, color="047857")
         gt_val.fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")
@@ -557,11 +565,11 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         gt_val.number_format = '#,##0.00 "DH"'
         gt_val.border = BORDER_TOTAL
 
-        gt_c9 = ws.cell(row=row_idx, column=9)
-        gt_c9.fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")
-        gt_c9.border = BORDER_TOTAL
+        gt_c10 = ws.cell(row=row_idx, column=10)
+        gt_c10.fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")
+        gt_c10.border = BORDER_TOTAL
 
-        gt_centre = ws.cell(row=row_idx, column=10)
+        gt_centre = ws.cell(row=row_idx, column=11)
         gt_centre.value = grand_total_centre
         gt_centre.font = Font(name="Segoe UI", size=11, bold=True, color="047857")
         gt_centre.fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")
@@ -569,7 +577,7 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         gt_centre.number_format = '#,##0.00 "DH"'
         gt_centre.border = BORDER_TOTAL
 
-        gt_prof = ws.cell(row=row_idx, column=11)
+        gt_prof = ws.cell(row=row_idx, column=12)
         gt_prof.value = grand_total_prof
         gt_prof.font = Font(name="Segoe UI", size=11, bold=True, color="047857")
         gt_prof.fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")

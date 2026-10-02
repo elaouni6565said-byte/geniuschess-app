@@ -2042,6 +2042,9 @@ def check_duplicate_payment_ajax_view(request):
     if not student:
         return JsonResponse({'is_duplicate_risk': False, 'existing_payments': []})
 
+    month_param = request.GET.get('period_month')
+    year_param = request.GET.get('period_year')
+
     target_date = date.today()
     if date_str:
         try:
@@ -2052,32 +2055,26 @@ def check_duplicate_payment_ajax_view(request):
     target_month = target_date.month
     target_year = target_date.year
 
+    if month_param and str(month_param).isdigit():
+        target_month = int(month_param)
+        target_year = int(year_param) if year_param and str(year_param).isdigit() else target_date.year
+    elif invoice_id and str(invoice_id).isdigit():
+        inv = Invoice.objects.filter(id=int(invoice_id)).first()
+        if inv:
+            target_month = inv.period_month
+            target_year = inv.period_year
+
     # 1. Vérifier si l'élève est officiellement exonéré pour ce mois
     is_exempt, ex_reason = student.is_exempt_for_period(target_month, target_year)
 
     # 2. Chercher les paiements existants pour ce même mois / facture
     payments_qs = Payment.objects.filter(student=student).select_related('invoice')
 
-    if invoice_id and str(invoice_id).isdigit():
-        inv = Invoice.objects.filter(id=int(invoice_id)).first()
-        if inv:
-            target_month = inv.period_month
-            target_year = inv.period_year
-            month_payments = payments_qs.filter(
-                Q(invoice=inv) |
-                Q(invoice__period_month=target_month, invoice__period_year=target_year) |
-                Q(payment_date__year=target_year, payment_date__month=target_month)
-            ).distinct()
-        else:
-            month_payments = payments_qs.filter(
-                Q(invoice__period_month=target_month, invoice__period_year=target_year) |
-                Q(payment_date__year=target_year, payment_date__month=target_month)
-            ).distinct()
-    else:
-        month_payments = payments_qs.filter(
-            Q(invoice__period_month=target_month, invoice__period_year=target_year) |
-            Q(payment_date__year=target_year, payment_date__month=target_month)
-        ).distinct()
+    month_payments = payments_qs.filter(
+        Q(period_month=target_month, period_year=target_year) |
+        Q(invoice__period_month=target_month, invoice__period_year=target_year) |
+        (Q(period_month__isnull=True, payment_date__year=target_year, payment_date__month=target_month))
+    ).distinct()
 
     existing_payments = []
     total_already_paid = Decimal('0.00')
@@ -2176,12 +2173,52 @@ def payment_create_view(request):
                 disc_amount = form.cleaned_data.get('discount_amount') or Decimal('0.00')
                 conv_name = form.cleaned_data.get('convention_name', '').strip()
 
+                # Mois et année concernés par le règlement (régularisation paiements tardifs/anticipés)
+                req_month = form.cleaned_data.get('period_month')
+                req_year = form.cleaned_data.get('period_year')
+                if req_month:
+                    p.period_month = int(req_month)
+                elif p.invoice:
+                    p.period_month = p.invoice.period_month
+                else:
+                    p.period_month = p.payment_date.month
+
+                if req_year:
+                    p.period_year = int(req_year)
+                elif p.invoice:
+                    p.period_year = p.invoice.period_year
+                else:
+                    p.period_year = p.payment_date.year
+
+                month = p.period_month
+                year = p.period_year
+
+                # Lier ou créer la facture du mois concerné si non spécifiée
+                if not p.invoice:
+                    from datetime import date
+                    inv = Invoice.objects.filter(student=p.student, period_month=month, period_year=year).first()
+                    if not inv:
+                        inv = Invoice.objects.filter(student=p.student, status__in=['unpaid', 'partial']).first()
+                    if not inv and p.student.groups.exists():
+                        grp = p.student.groups.first()
+                        base_fee, disc, final_fee = p.student.calculate_monthly_fee()
+                        inv = Invoice.objects.create(
+                            student=p.student,
+                            group=grp,
+                            period_month=month,
+                            period_year=year,
+                            original_amount=base_fee,
+                            discount_amount=disc,
+                            amount_due=final_fee,
+                            amount_paid=Decimal('0.00'),
+                            status='unpaid',
+                            due_date=date(year, month, 15)
+                        )
+                    if inv:
+                        p.invoice = inv
+
                 if is_exemption:
                     from finance.models import PaymentExemption
-                    inv = p.invoice or Invoice.objects.filter(student=p.student, status__in=['unpaid', 'partial']).first()
-                    month = inv.period_month if inv else p.payment_date.month
-                    year = inv.period_year if inv else p.payment_date.year
-
                     PaymentExemption.objects.update_or_create(
                         student=p.student,
                         period_month=month,
@@ -2190,14 +2227,14 @@ def payment_create_view(request):
                     )
 
                     base_fee, _, _ = p.student.calculate_monthly_fee()
-                    if inv:
-                        inv.is_exempt = True
-                        inv.status = 'exempt'
-                        inv.original_amount = base_fee
-                        inv.discount_amount = base_fee
-                        inv.amount_due = Decimal('0.00')
-                        inv.exemption_reason = ex_reason
-                        inv.save()
+                    if p.invoice:
+                        p.invoice.is_exempt = True
+                        p.invoice.status = 'exempt'
+                        p.invoice.original_amount = base_fee
+                        p.invoice.discount_amount = base_fee
+                        p.invoice.amount_due = Decimal('0.00')
+                        p.invoice.exemption_reason = ex_reason
+                        p.invoice.save()
 
                     msg = (
                         f"✓ L'élève {p.student.get_full_name('fr')} a été enregistré(e) comme exonéré(e) de paiement pour {month}/{year} (0 DH dû)."
@@ -2209,12 +2246,10 @@ def payment_create_view(request):
 
                 # Si une réduction manuelle / convention a été demandée sur ce paiement
                 if apply_discount and disc_amount > Decimal('0.00'):
-                    inv = p.invoice or Invoice.objects.filter(student=p.student, status__in=['unpaid', 'partial']).first()
-                    if inv:
-                        inv.discount_amount = disc_amount
-                        inv.amount_due = max(Decimal('0.00'), inv.original_amount - disc_amount)
-                        inv.save()
-                        p.invoice = inv
+                    if p.invoice:
+                        p.invoice.discount_amount = disc_amount
+                        p.invoice.amount_due = max(Decimal('0.00'), p.invoice.original_amount - disc_amount)
+                        p.invoice.save()
                     if conv_name and not p.student.has_convention:
                         p.student.has_convention = True
                         p.student.convention_name = conv_name
@@ -2253,7 +2288,25 @@ def payment_create_view(request):
                 pass
 
         if request.GET.get('invoice'):
-            initial_data['invoice'] = request.GET.get('invoice')
+            inv_id = request.GET.get('invoice')
+            initial_data['invoice'] = inv_id
+            try:
+                inv_obj = Invoice.objects.get(id=int(inv_id))
+                initial_data['period_month'] = inv_obj.period_month
+                initial_data['period_year'] = inv_obj.period_year
+            except (Invoice.DoesNotExist, ValueError):
+                pass
+        if request.GET.get('month'):
+            try:
+                initial_data['period_month'] = int(request.GET.get('month'))
+            except ValueError:
+                pass
+        if request.GET.get('year'):
+            try:
+                initial_data['period_year'] = int(request.GET.get('year'))
+            except ValueError:
+                pass
+
         if request.GET.get('amount') and 'amount' not in initial_data:
             initial_data['amount'] = request.GET.get('amount')
         form = PaymentForm(initial=initial_data)

@@ -65,6 +65,39 @@
                     {{ form.invoice }}
                 </div>
 
+                <!-- OPTION PRÉCISE DU MOIS & ANNÉE CONCERNÉS (RÉGULARISATION PAIEMENT TARDIF / EN AVANCE) -->
+                <div style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius-md); padding: 1.1rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.65rem;">
+                        <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 700; color: #166534; margin: 0;">
+                            🗓️ {% if CURRENT_LANG == 'ar' %}الشهر والسنة المؤدى عنهما (تسوية المتأخرات أو الأداء المسبق) :{% else %}Mois & Année concernés par ce versement (Régularisation / Paiement tardif) :{% endif %}
+                        </label>
+                        <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700; font-size: 0.78rem; border: 1px solid #BBF7D0;">
+                            {% if CURRENT_LANG == 'ar' %}تخصيص محاسباتي دقيق{% else %}Affectation Comptable{% endif %}
+                        </span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #166534; margin-bottom: 0.25rem;">
+                                {% if CURRENT_LANG == 'ar' %}الشهر المستحق المعني بالأداء :{% else %}Mois réglé :{% endif %}
+                            </label>
+                            {{ form.period_month }}
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #166534; margin-bottom: 0.25rem;">
+                                {% if CURRENT_LANG == 'ar' %}السنة :{% else %}Année :{% endif %}
+                            </label>
+                            {{ form.period_year }}
+                        </div>
+                    </div>
+                    <small style="display: block; color: #15803D; font-size: 0.75rem; margin-top: 0.5rem; line-height: 1.4;">
+                        {% if CURRENT_LANG == 'ar' %}
+                            💡 في حالة الأداء المتأخر عن شهر سابق (مثلاً الدفع في أكتوبر عن شهر شتنبر)، حدد الشهر المعني هنا لربطه بالفاتورة الصحيحة وعدم إرباك الحسابات.
+                        {% else %}
+                            💡 En cas de paiement tardif d'un mois antérieur (ex: règlement en Octobre pour le mois de Septembre), sélectionnez expressément le mois concerné pour solder la période exacte sans perturber la comptabilité.
+                        {% endif %}
+                    </small>
+                </div>
+
                 <!-- INFOBULLE ET CONTRÔLE DYNAMIQUE DE PAIEMENT DOUBLÉ (ANTI-DOUBLON) -->
                 <div id="duplicate_alert_box" style="display: none; background: #FFFBEB; border: 2px solid #F59E0B; border-radius: var(--radius-md); padding: 1.15rem; box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.15); transition: all 0.3s ease;">
                     <div style="display: flex; align-items: flex-start; gap: 0.85rem;">
@@ -243,6 +276,8 @@
         var studentSelect = document.getElementById("id_student_select");
         var invoiceSelect = document.getElementById("id_invoice");
         var dateInput = document.getElementById("id_payment_date");
+        var periodMonthSelect = document.getElementById("id_period_month");
+        var periodYearInput = document.getElementById("id_period_year");
 
         var dupBox = document.getElementById("duplicate_alert_box");
         var dupTitle = document.getElementById("duplicate_alert_title");
@@ -264,10 +299,14 @@
             var studentId = studentSelect.value;
             var invoiceId = invoiceSelect ? invoiceSelect.value : "";
             var payDate = dateInput ? dateInput.value : "";
+            var pMonth = periodMonthSelect ? periodMonthSelect.value : "";
+            var pYear = periodYearInput ? periodYearInput.value : "";
 
             var checkUrl = "{% url 'portal:check_duplicate_payment_ajax' %}?student=" + encodeURIComponent(studentId) +
                            "&invoice=" + encodeURIComponent(invoiceId) +
-                           "&date=" + encodeURIComponent(payDate);
+                           "&date=" + encodeURIComponent(payDate) +
+                           "&period_month=" + encodeURIComponent(pMonth) +
+                           "&period_year=" + encodeURIComponent(pYear);
 
             fetch(checkUrl)
                 .then(function(response) {
@@ -326,6 +365,13 @@
         }
         if (dateInput) {
             dateInput.addEventListener("change", checkDuplicatePayment);
+        }
+        if (periodMonthSelect) {
+            periodMonthSelect.addEventListener("change", checkDuplicatePayment);
+        }
+        if (periodYearInput) {
+            periodYearInput.addEventListener("change", checkDuplicatePayment);
+            periodYearInput.addEventListener("input", checkDuplicatePayment);
         }
 
         if (btnApplyBalance) {

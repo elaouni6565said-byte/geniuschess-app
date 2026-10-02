@@ -375,11 +375,54 @@ class PaymentForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'search-input', 'id': 'id_convention_name', 'placeholder': 'Ex: Convention OCP, Club Enseignants, Fratrie...'})
     )
 
+    # Option explicite du mois / période réglé(e) (pour régularisation des paiements tardifs ou par avance)
+    MONTH_CHOICES = [
+        (1, '01 - Janvier / يناير'),
+        (2, '02 - Février / فبراير'),
+        (3, '03 - Mars / مارس'),
+        (4, '04 - Avril / أبريل'),
+        (5, '05 - Mai / ماي'),
+        (6, '06 - Juin / يونيو'),
+        (7, '07 - Juillet / يوليوز'),
+        (8, '08 - Août / غشت'),
+        (9, '09 - Septembre / شتنبر'),
+        (10, '10 - Octobre / أكتوبر'),
+        (11, '11 - Novembre / نونبر'),
+        (12, '12 - Décembre / دجنبر'),
+    ]
+    period_month = forms.TypedChoiceField(
+        choices=MONTH_CHOICES,
+        coerce=int,
+        required=False,
+        widget=forms.Select(attrs={'class': 'search-input', 'id': 'id_period_month'}),
+        label="Mois concerné par ce versement / الشهر المؤدى عنه"
+    )
+    period_year = forms.IntegerField(
+        initial=2026,
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'search-input', 'id': 'id_period_year', 'min': '2025', 'max': '2030'}),
+        label="Année / السنة"
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from datetime import date
         from finance.models import Invoice
+
+        today = date.today()
+        if not self.initial.get('period_month'):
+            if self.instance and self.instance.period_month:
+                self.initial['period_month'] = self.instance.period_month
+            else:
+                self.initial['period_month'] = today.month
+        if not self.initial.get('period_year'):
+            if self.instance and self.instance.period_year:
+                self.initial['period_year'] = self.instance.period_year
+            else:
+                self.initial['period_year'] = today.year
+
         self.fields['invoice'].required = False
-        self.fields['invoice'].empty_label = "-- Attribution automatique à la facture impayée --"
+        self.fields['invoice'].empty_label = "-- Attribution automatique à la facture impayée du mois --"
         self.fields['invoice'].queryset = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')
         self.fields['invoice'].label_from_instance = lambda obj: f"{obj.student.get_full_name('fr')} — {obj.get_period_label('fr')} (Reste: {obj.get_balance()} DH)"
 
@@ -407,12 +450,14 @@ class PaymentForm(forms.ModelForm):
     class Meta:
         from finance.models import Payment
         model = Payment
-        fields = ['student', 'invoice', 'amount', 'payment_date', 'payment_method', 'reference', 'notes']
+        fields = ['student', 'invoice', 'period_month', 'period_year', 'amount', 'payment_date', 'payment_method', 'reference', 'notes']
         widgets = {
             'student': forms.Select(attrs={'class': 'search-input', 'id': 'id_student_select'}),
-            'invoice': forms.Select(attrs={'class': 'search-input'}),
+            'invoice': forms.Select(attrs={'class': 'search-input', 'id': 'id_invoice'}),
+            'period_month': forms.Select(attrs={'class': 'search-input', 'id': 'id_period_month'}),
+            'period_year': forms.NumberInput(attrs={'class': 'search-input', 'id': 'id_period_year'}),
             'amount': forms.NumberInput(attrs={'class': 'search-input', 'step': '10', 'id': 'id_payment_amount'}),
-            'payment_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date'}),
+            'payment_date': forms.DateInput(attrs={'class': 'search-input', 'type': 'date', 'id': 'id_payment_date'}),
             'payment_method': forms.Select(attrs={'class': 'search-input'}),
             'reference': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'N° Virement, Chèque ou Réf'}),
             'notes': forms.Textarea(attrs={'class': 'search-input', 'rows': 2, 'placeholder': 'Remarques éventuelles'}),

@@ -84,7 +84,7 @@ def generate_receipt_pdf(payment, lang="fr"):
     group = invoice.group if invoice else (student.groups.first() if student.groups.exists() else None)
     subject = group.subject if group else None
     balance = invoice.get_balance() if invoice else Decimal("0.00")
-    period_str = invoice.get_period_label(lang) if invoice else "Cotisation 2026"
+    period_str = payment.get_period_label(lang)
 
     # Header texts - Organization & Academy
     academy_name = "GENIUS CHESS ACADEMY"
@@ -160,7 +160,10 @@ def generate_receipt_pdf(payment, lang="fr"):
         activity_disp = prepare_arabic_text_for_pdf(subject.get_name("ar")) if subject else prepare_arabic_text_for_pdf("الشطرنج")
         group_disp = prepare_arabic_text_for_pdf(group.get_name("ar")) if group else prepare_arabic_text_for_pdf("المجموعة العامة")
         method_disp = prepare_arabic_text_for_pdf(payment.get_method_label("ar"))
-        period_disp = prepare_arabic_text_for_pdf(period_str)
+        period_lbl_ar = payment.get_period_label("ar")
+        if payment.is_deferred:
+            period_lbl_ar = f"{period_lbl_ar} (مؤجل)"
+        period_disp = prepare_arabic_text_for_pdf(period_lbl_ar)
         lbl_student = prepare_arabic_text_for_pdf("اسم التلميذ :")
         lbl_mat = prepare_arabic_text_for_pdf("رقم التسجيل :")
         lbl_act = prepare_arabic_text_for_pdf("النشاط / المادة :")
@@ -174,7 +177,11 @@ def generate_receipt_pdf(payment, lang="fr"):
         activity_disp = f"{subject.name_fr} / {prepare_arabic_text_for_pdf(subject.name_ar)}" if subject else "Échecs"
         group_disp = f"{group.name_fr} / {prepare_arabic_text_for_pdf(group.name_ar)}" if group else "GCA"
         method_disp = f"{payment.get_method_label('fr')} / {prepare_arabic_text_for_pdf(payment.get_method_label('ar'))}"
-        period_disp = f"{invoice.get_period_label('fr') if invoice else '2026'}"
+        p_fr = payment.get_period_label('fr')
+        p_ar = prepare_arabic_text_for_pdf(payment.get_period_label('ar'))
+        period_disp = f"{p_fr} / {p_ar}"
+        if payment.is_deferred:
+            period_disp += " (Différé)"
         lbl_student = f"Élève / {prepare_arabic_text_for_pdf('التلميذ')} :"
         lbl_mat = f"Matricule / {prepare_arabic_text_for_pdf('التسجيل')} :"
         lbl_act = f"Activité / {prepare_arabic_text_for_pdf('النشاط')} :"
@@ -187,7 +194,7 @@ def generate_receipt_pdf(payment, lang="fr"):
         activity_disp = subject.name_fr if subject else "Échecs"
         group_disp = group.name_fr if group else "Groupe Général"
         method_disp = payment.get_method_label("fr")
-        period_disp = period_str
+        period_disp = period_str + (" (Règlement différé)" if payment.is_deferred else "")
         lbl_student = "Nom de l'élève :"
         lbl_mat = "Matricule :"
         lbl_act = "Activité / Matière :"

@@ -195,6 +195,7 @@
                     <th>{% trans "payments.receipt_no" %}</th>
                     <th>{% trans "payments.student" %}</th>
                     <th>{% if CURRENT_LANG == 'ar' %}الأنشطة المستفاد منها{% else %}Activités bénéficiées{% endif %}</th>
+                    <th>{% if CURRENT_LANG == 'ar' %}الشهر المؤدى عنه{% else %}Mois Concerné{% endif %}</th>
                     <th>{% trans "payments.amount" %}</th>
                     <th>{% trans "payments.payment_date" %}</th>
                     <th style="text-align: center;">Reçu PDF</th>
@@ -234,6 +235,16 @@
                                 {% endif %}
                             {% endfor %}
                         </div>
+                    </td>
+                    <td>
+                        <span style="font-weight: 700; color: #1E293B; display: block;">
+                            {% if CURRENT_LANG == 'ar' %}{{ p.period_label_ar }}{% else %}{{ p.period_label_fr }}{% endif %}
+                        </span>
+                        {% if p.is_deferred %}
+                            <span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; font-size: 0.68rem; margin-top: 2px;" title="{% if CURRENT_LANG == 'ar' %}تسوية متأخرات / أداء مؤجل عن موعده{% else %}Règlement différé / Paiement tardif régularisé{% endif %}">
+                                ⏱️ {% if CURRENT_LANG == 'ar' %}أداء مؤجل{% else %}Règlement différé{% endif %}
+                            </span>
+                        {% endif %}
                     </td>
                     <td style="font-weight: bold; color: var(--primary-blue); font-size: 1rem;">{% money p.amount %}</td>
                     <td>{% local_date p.payment_date %}</td>

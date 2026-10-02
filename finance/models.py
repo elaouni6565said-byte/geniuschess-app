@@ -124,6 +124,8 @@ class Payment(models.Model):
     receipt_number = models.CharField(max_length=50, unique=True)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='payments')
     invoice = models.ForeignKey(Invoice, on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
+    period_month = models.PositiveIntegerField(null=True, blank=True, verbose_name="Mois concerné / الشهر المؤدى عنه (1-12)")
+    period_year = models.PositiveIntegerField(default=2026, null=True, blank=True, verbose_name="Année concernée / السنة")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateField()
     payment_method = models.CharField(max_length=20, choices=METHOD_CHOICES, default='cash')
@@ -148,20 +150,77 @@ class Payment(models.Model):
     def method_label_ar(self):
         return self.get_method_label('ar')
 
+    def get_period_label(self, lang='fr'):
+        month = self.period_month
+        year = self.period_year or 2026
+        if not month and self.invoice:
+            month = self.invoice.period_month
+            year = self.invoice.period_year
+        if not month and self.payment_date:
+            month = self.payment_date.month
+            year = self.payment_date.year
+
+        if not month:
+            return "Cotisation" if lang != 'ar' else "اشتراك"
+
+        if lang == 'ar':
+            month_name = ARABIC_MONTHS.get(month, str(month))
+            return f"{month_name} {year}"
+        month_name = FRENCH_MONTHS.get(month, str(month))
+        return f"{month_name.capitalize()} {year}"
+
+    @property
+    def period_label_fr(self):
+        return self.get_period_label('fr')
+
+    @property
+    def period_label_ar(self):
+        return self.get_period_label('ar')
+
+    @property
+    def is_deferred(self):
+        """Indique si le paiement est différé / tardif (mois ou année concerné différent de la date de paiement)."""
+        if self.period_month and self.payment_date:
+            target_year = self.period_year or 2026
+            return (self.period_month != self.payment_date.month) or (target_year != self.payment_date.year)
+        return False
+
     def get_localized(self, field, lang='fr'):
         if field == 'method':
             return self.get_method_label(lang)
+        if field == 'period':
+            return self.get_period_label(lang)
         return str(getattr(self, field, ''))
 
     def save(self, *args, **kwargs):
-        # If invoice not specified, auto-link to student's pending invoice
+        # 1. Remplir period_month et period_year par défaut si non spécifiés
+        if not self.period_month:
+            if self.invoice:
+                self.period_month = self.invoice.period_month
+                self.period_year = self.invoice.period_year
+            elif self.payment_date:
+                self.period_month = self.payment_date.month
+                self.period_year = self.payment_date.year
+        if not self.period_year:
+            self.period_year = 2026
+
+        # 2. Si aucune facture n'est associée explicitement, chercher celle correspondant à l'élève et au mois
         if not self.invoice_id and self.student_id:
-            pending_inv = Invoice.objects.filter(
+            target_inv = Invoice.objects.filter(
                 student_id=self.student_id,
-                status__in=['unpaid', 'partial']
-            ).order_by('due_date', 'id').first()
-            if pending_inv:
-                self.invoice = pending_inv
+                period_month=self.period_month,
+                period_year=self.period_year
+            ).first()
+            if target_inv:
+                self.invoice = target_inv
+            else:
+                pending_inv = Invoice.objects.filter(
+                    student_id=self.student_id,
+                    status__in=['unpaid', 'partial']
+                ).order_by('due_date', 'id').first()
+                if pending_inv:
+                    self.invoice = pending_inv
+
         super().save(*args, **kwargs)
         if self.invoice:
             self.invoice.update_totals()

@@ -417,3 +417,115 @@ def test_check_duplicate_payment_ajax_view():
     assert "Convention Partenaire Gratuite" in d5["warning_msg_fr"]
 
 
+@pytest.mark.django_db
+def test_deferred_payment_and_accounting_regularization():
+    """
+    Vérifie la précision du mois concerné pour les paiements tardifs :
+    1. Élève avec une facture impayée pour Septembre (09/2026).
+    2. Règlement tardif encaissé en Octobre (15/10/2026) avec period_month=9, period_year=2026.
+    3. Vérifie que payment.is_deferred est True, le libellé de période est 'Septembre 2026'.
+    4. Vérifie que la facture de Septembre est automatiquement soldée.
+    5. Vérifie que l'API anti-doublon AJAX réagit selon le mois sélectionné (period_month=9 -> doublon détecté, period_month=10 -> pas de doublon).
+    6. Vérifie la génération du reçu PDF et de l'export Excel avec la période concernée.
+    """
+    from finance.receipt_pdf import generate_receipt_pdf
+    from portal.excel_export import export_paid_payments_to_excel
+
+    sub = Subject.objects.create(name_fr="Calcul Mental", name_ar="الحساب الذهني")
+    grp = Group.objects.create(name_fr="Groupe Soroban", name_ar="السوروبان", subject=sub, monthly_fee=Decimal("250.00"))
+    parent = Parent.objects.create(full_name_fr="Parent Test Late", phone="212622334455")
+    st = Student.objects.create(
+        registration_number="GCA-2026-999",
+        first_name_fr="Yassine",
+        last_name_fr="Chraibi",
+        first_name_ar="ياسين",
+        last_name_ar="الشرايبي",
+        parent=parent,
+        active=True
+    )
+    st.groups.add(grp)
+
+    # 1. Facture pour Septembre 2026
+    inv_sept = Invoice.objects.create(
+        student=st,
+        group=grp,
+        period_month=9,
+        period_year=2026,
+        original_amount=Decimal("250.00"),
+        amount_due=Decimal("250.00"),
+        amount_paid=Decimal("0.00"),
+        status="unpaid",
+        due_date=date(2026, 9, 15)
+    )
+
+    # 2. Facture pour Octobre 2026
+    inv_oct = Invoice.objects.create(
+        student=st,
+        group=grp,
+        period_month=10,
+        period_year=2026,
+        original_amount=Decimal("250.00"),
+        amount_due=Decimal("250.00"),
+        amount_paid=Decimal("0.00"),
+        status="unpaid",
+        due_date=date(2026, 10, 15)
+    )
+
+    # 3. Paiement effectué le 15/10/2026 pour régler SEPTEMBRE en retard
+    pay = Payment.objects.create(
+        student=st,
+        amount=Decimal("250.00"),
+        payment_date=date(2026, 10, 15),
+        period_month=9,
+        period_year=2026,
+        payment_method="cash",
+        receipt_number="REC-2026-LATE01"
+    )
+
+    # Vérifications modèle
+    assert pay.is_deferred is True
+    assert "Septembre 2026" in pay.period_label_fr
+    assert "شتنبر 2026" in pay.period_label_ar
+    assert pay.invoice == inv_sept
+
+    inv_sept.refresh_from_db()
+    assert inv_sept.status == "paid"
+    assert inv_sept.amount_paid == Decimal("250.00")
+
+    inv_oct.refresh_from_db()
+    assert inv_oct.status == "unpaid"
+
+    # 4. Vérification Anti-doublon AJAX avec period_month
+    client = Client()
+    admin_user = User.objects.create_superuser(username="admin_test_late", email="adminlate@gca.ma", password="pass")
+    client.force_login(admin_user)
+
+    # Vérifier Septembre (qui vient d'être payé tardivement) -> DOIT signaler risque de doublon
+    r_sept = client.get(f"/payments/check-duplicate/?student={st.id}&period_month=9&period_year=2026")
+    assert r_sept.status_code == 200
+    d_sept = r_sept.json()
+    assert d_sept["is_duplicate_risk"] is True
+    assert "Réglé" in d_sept["status_badge_fr"] or "Payé" in d_sept["status_badge_fr"]
+
+    # Vérifier Octobre -> NE DOIT PAS signaler de risque
+    r_oct = client.get(f"/payments/check-duplicate/?student={st.id}&period_month=10&period_year=2026")
+    assert r_oct.status_code == 200
+    d_oct = r_oct.json()
+    assert d_oct["is_duplicate_risk"] is False
+
+    # 5. Vérifier la génération du reçu PDF officiel
+    pdf_bytes = generate_receipt_pdf(pay, lang="fr")
+    assert len(pdf_bytes) > 1000
+
+    pdf_bytes_ar = generate_receipt_pdf(pay, lang="ar")
+    assert len(pdf_bytes_ar) > 1000
+
+    pdf_bytes_bi = generate_receipt_pdf(pay, lang="bilingual")
+    assert len(pdf_bytes_bi) > 1000
+
+    # 6. Vérifier l'export Excel consolidé avec la nouvelle colonne
+    excel_bytes = export_paid_payments_to_excel(Payment.objects.filter(id=pay.id), Invoice.objects.filter(id=inv_oct.id), lang="fr")
+    assert len(excel_bytes) > 2000
+
+
+
