@@ -449,15 +449,15 @@ class PaymentForm(forms.ModelForm):
     def clean_payment_date(self):
         val = self.cleaned_data.get('payment_date')
         if not val:
-            from datetime import date
-            return date.today()
+            from django.utils import timezone
+            return timezone.localdate()
         return val
 
     def clean(self):
         cleaned_data = super().clean()
         if not cleaned_data.get('payment_date'):
-            from datetime import date
-            cleaned_data['payment_date'] = date.today()
+            from django.utils import timezone
+            cleaned_data['payment_date'] = timezone.localdate()
 
         is_ex = cleaned_data.get('is_exemption')
         amt = cleaned_data.get('amount')

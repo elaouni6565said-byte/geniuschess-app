@@ -563,6 +563,9 @@ def test_payment_student_search_and_default_entry_date():
     assert "student_search_dropdown" in content
     assert "student_selected_card" in content
 
+    from django.utils import timezone
+    today_date = timezone.localdate()
+
     # 2. Vérifier PaymentForm avec payment_date vide
     form = PaymentForm(data={
         'security_code': '8081',
@@ -576,7 +579,7 @@ def test_payment_student_search_and_default_entry_date():
         'notes': 'Test sans date',
     })
     assert form.is_valid(), f"Form errors: {form.errors}"
-    assert form.cleaned_data['payment_date'] == date.today()
+    assert form.cleaned_data['payment_date'] == today_date
 
     # 3. Vérifier soumission POST via la vue payment_create_view
     post_data = {
@@ -585,7 +588,7 @@ def test_payment_student_search_and_default_entry_date():
         'period_month': 10,
         'period_year': 2026,
         'amount': '300.00',
-        'payment_date': '',  # Vide -> doit prendre date.today()
+        'payment_date': '',  # Vide -> doit prendre today_date
         'payment_method': 'cash',
         'reference': 'REF-NO-DATE',
         'notes': 'Paiement sans date explicite',
@@ -595,7 +598,7 @@ def test_payment_student_search_and_default_entry_date():
 
     created_pay = Payment.objects.filter(student=st, reference='REF-NO-DATE').first()
     assert created_pay is not None
-    assert created_pay.payment_date == date.today()
+    assert created_pay.payment_date == today_date
 
     # 4. Vérifier au niveau du modèle Payment.save() sans date
     pay_model = Payment.objects.create(
@@ -605,7 +608,7 @@ def test_payment_student_search_and_default_entry_date():
         period_month=11,
         period_year=2026,
     )
-    assert pay_model.payment_date == date.today()
+    assert pay_model.payment_date == today_date
 
 
 @pytest.mark.django_db

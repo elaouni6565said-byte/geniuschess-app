@@ -475,7 +475,7 @@ def export_unpaid_invoices_excel_view(request):
 
     unpaid_invoices = get_billable_unpaid_invoices_qs().select_related(
         'student', 'student__parent', 'group', 'group__subject'
-    ).distinct().order_by('-period_year', '-period_month', 'student__last_name_fr')
+    ).prefetch_related('student__groups__subject').distinct().order_by('-period_year', '-period_month', 'student__last_name_fr')
 
     if req_month and req_month.isdigit():
         m_val = int(req_month)

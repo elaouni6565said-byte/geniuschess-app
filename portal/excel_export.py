@@ -38,6 +38,63 @@ BORDER_TOTAL = Border(
 )
 
 
+def get_student_activities_and_count(student, invoice=None, lang="fr"):
+    """
+    Retourne : (activities_str, nb_activities, groups_str)
+    - activities_str : toutes les activités distinctes suivies par l'élève, séparées par ' + ' (ex: 'Échecs + Robotique')
+    - nb_activities : nombre total d'activités distinctes suivies (ex: 2)
+    - groups_str : tous les groupes auxquels l'élève est inscrit (ex: 'Groupe A + Groupe B')
+    """
+    if not student:
+        return "-", 1, "-"
+
+    # Collecter tous les groupes associés à l'élève
+    groups = []
+    if hasattr(student, 'groups'):
+        groups = list(student.groups.all())
+
+    # Si aucun groupe directement rattaché à l'élève mais qu'une facture en spécifie un
+    if not groups and invoice and getattr(invoice, 'group', None):
+        groups = [invoice.group]
+
+    subjects = []
+    seen_sub_ids = set()
+    for g in groups:
+        if g and g.subject and g.subject.id not in seen_sub_ids:
+            seen_sub_ids.add(g.subject.id)
+            if lang == "ar":
+                subjects.append(g.subject.get_name("ar"))
+            elif lang == "bilingual":
+                subjects.append(g.subject.get_bilingual_name())
+            else:
+                subjects.append(g.subject.get_name("fr"))
+
+    if not subjects:
+        if invoice and getattr(invoice, 'group', None) and invoice.group.subject:
+            s = invoice.group.subject
+            if lang == "ar":
+                subjects.append(s.get_name("ar"))
+            elif lang == "bilingual":
+                subjects.append(s.get_bilingual_name())
+            else:
+                subjects.append(s.get_name("fr"))
+        elif getattr(student, 'active', True):
+            default_sub = "Échecs" if lang != "ar" else "شطرنج"
+            if lang == "bilingual":
+                default_sub = "Échecs / الشطرنج"
+            subjects = [default_sub]
+
+    nb_activities = max(1, len(subjects)) if subjects else 1
+    plus_sep = " + "
+    activities_str = plus_sep.join(subjects) if subjects else "-"
+
+    group_names = [g.get_name(lang) for g in groups if g]
+    group_names = list(dict.fromkeys(group_names))
+    groups_str = plus_sep.join(group_names) if group_names else "-"
+
+    return activities_str, nb_activities, groups_str
+
+
 def export_students_to_excel(students_queryset, lang="fr"):
     """
     Generates a comprehensive bilingual Excel workbook (.xlsx) of ALL students.
@@ -54,7 +111,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - لائحة جميع التلاميذ المسجلين 2026"
         headers = [
             "رقم التسجيل", "الاسم بالعربية", "الاسم بالفرنسية", "تاريخ الازدياد",
-            "النشاط والمستوى", "المجموعة", "ولي الأمر", "الهاتف", "البريد الإلكتروني", "الحالة"
+            "الأنشطة المستفاد منها", "عدد الأنشطة", "المجموعة / المجموعات", "ولي الأمر", "الهاتف", "البريد الإلكتروني", "الحالة"
         ]
     elif lang == "bilingual":
         ws.title = "Élèves - التلاميذ"
@@ -63,7 +120,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste Complète des Élèves / لائحة التلاميذ 2026"
         headers = [
             "Matricule / التسجيل", "Nom (FR)", "الاسم (AR)", "Date Naissance",
-            "Activité / النشاط", "Groupe / المجموعة", "Parent / ولي الأمر", "Tél / الهاتف", "Email", "Statut / الحالة"
+            "Activités / الأنشطة", "Nb Activités / عدد الأنشطة", "Groupe(s) / المجموعات", "Parent / ولي الأمر", "Tél / الهاتف", "Email", "Statut / الحالة"
         ]
     else: # fr
         ws.title = "Liste des Élèves"
@@ -72,7 +129,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste Complète des Élèves Inscrits 2026"
         headers = [
             "Matricule", "Nom (Français)", "Nom (Arabe)", "Date de Naissance",
-            "Activité & Niveau", "Groupe", "Parent / Tuteur", "Téléphone", "Email", "Statut"
+            "Activités Suivies", "Nombre d'activités", "Groupe(s)", "Parent / Tuteur", "Téléphone", "Email", "Statut"
         ]
 
     # Sanitize and deduplicate headers
@@ -102,9 +159,7 @@ def export_students_to_excel(students_queryset, lang="fr"):
     row_idx = 4
     for st in students_list:
         ws.row_dimensions[row_idx].height = 22
-        group = st.groups.first()
-        subject_str = group.subject.get_bilingual_name() if group and group.subject else ("Échecs / الشطرنج" if st.active else "-")
-        group_str = group.get_name(lang) if group else "-"
+        activities_str, nb_activities, group_str = get_student_activities_and_count(st, lang=lang)
         parent_str = st.parent.get_name(lang) if st.parent else "-"
         phone_str = st.parent.phone if st.parent else "-"
         email_str = st.parent.email if (st.parent and st.parent.email) else "-"
@@ -116,7 +171,8 @@ def export_students_to_excel(students_queryset, lang="fr"):
             f"{st.first_name_ar} {st.last_name_ar}".strip(),
             f"{st.first_name_fr} {st.last_name_fr}".strip(),
             birth_str,
-            subject_str,
+            activities_str,
+            nb_activities,
             group_str,
             parent_str,
             phone_str,
@@ -133,8 +189,12 @@ def export_students_to_excel(students_queryset, lang="fr"):
             cell = ws.cell(row=row_idx, column=col_num)
             cell.value = val
             cell.font = DATA_FONT
-            cell.alignment = align_data
             cell.border = BORDER_THIN
+            if col_num == 6:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.font = BOLD_DATA_FONT
+            else:
+                cell.alignment = align_data
         row_idx += 1
 
     # Système de vérification et correction automatique de la feuille (lignes et colonnes)
@@ -248,18 +308,8 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
         ws.row_dimensions[row_idx].height = 22
         st = p.student
         
-        # Récupération des activités
-        if st:
-            subject_names = [g.subject.get_name(lang) for g in st.groups.all() if g.subject]
-            subject_names = list(dict.fromkeys(subject_names))
-            if not subject_names and p.invoice and p.invoice.group and p.invoice.group.subject:
-                subject_names = [p.invoice.group.subject.get_name(lang)]
-            separator = " ، " if lang == "ar" else ", "
-            activities_str = separator.join(subject_names) if subject_names else "-"
-            nb_activities = max(1, len(subject_names)) if subject_names else 1
-        else:
-            activities_str = "-"
-            nb_activities = 1
+        # Récupération de toutes les activités suivies et de leur nombre
+        activities_str, nb_activities, _ = get_student_activities_and_count(st, invoice=p.invoice, lang=lang)
         
         # Motif de réduction le cas échéant
         reduction_str = "-"
@@ -409,18 +459,8 @@ def export_paid_payments_to_excel(payments_queryset, unpaid_invoices_queryset=No
             ws.row_dimensions[row_idx].height = 22
             st = inv.student
             
-            # Récupération des activités
-            if st:
-                subject_names = [g.subject.get_name(lang) for g in st.groups.all() if g.subject]
-                subject_names = list(dict.fromkeys(subject_names))
-                if not subject_names and inv.group and inv.group.subject:
-                    subject_names = [inv.group.subject.get_name(lang)]
-                separator = " ، " if lang == "ar" else ", "
-                activities_str = separator.join(subject_names) if subject_names else "-"
-                nb_activities = max(1, len(subject_names)) if subject_names else 1
-            else:
-                activities_str = "-"
-                nb_activities = 1
+            # Récupération de toutes les activités suivies et de leur nombre
+            activities_str, nb_activities, _ = get_student_activities_and_count(st, invoice=inv, lang=lang)
 
             # Motif de réduction le cas échéant
             reduction_str = "-"
@@ -629,8 +669,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         align_data = Alignment(horizontal="right", vertical="center")
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - لائحة المستحقات غير المؤداة (المتأخرات) 2026"
         headers = [
-            "رقم التسجيل", "اسم التلميذ (بالعربية)", "اسم التلميذ (بالفرنسية)", "ولي الأمر",
-            "رقم الهاتف للمتابعة", "المادة / النشاط", "الشهر المعني (المستحق)", "الاتفاقية / سبب التخفيض",
+            "رقم التسجيل", "اسم التلميذ (بالفرنسية)", "اسم التلميذ (بالعربية)", "ولي الأمر",
+            "رقم الهاتف للمتابعة", "الأنشطة المستفاد منها", "عدد الأنشطة", "الشهر المعني (المستحق)", "الاتفاقية / سبب التخفيض",
             "الواجب الشهري (درهم)", "المبلغ المدفوع (درهم)", "الباقي المستحق (درهم)", "الحالة"
         ]
     elif lang == "bilingual":
@@ -640,7 +680,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Impayés / لائحة المستحقات غير المؤداة 2026"
         headers = [
             "Matricule", "Élève (FR)", "الاسم (AR)", "Parent / ولي الأمر",
-            "Tél Relance", "Activité / النشاط", "Mois Concerné / الشهر المعني", "Convention / Motif Réduction",
+            "Tél Relance", "Activités / الأنشطة", "Nb Activités / عدد الأنشطة", "Mois Concerné / الشهر المعني", "Convention / Motif Réduction",
             "Montant Dû (DH)", "Payé (DH)", "Reste Impayé (DH)", "Statut / الحالة"
         ]
     else: # fr
@@ -650,7 +690,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
         title_text = "GENIUS CHESS ACADEMY - جمعية الشطرنج القاسمي - Liste des Élèves Non-Payants & Impayés 2026"
         headers = [
             "Matricule", "Nom Élève (FR)", "Nom Élève (AR)", "Parent / Tuteur",
-            "Téléphone Relance", "Activité & Niveau", "Mois Concerné (Période)", "Convention / Motif Réduction",
+            "Téléphone Relance", "Activités Suivies", "Nombre d'activités", "Mois Concerné (Période)", "Convention / Motif Réduction",
             "Montant Dû (DH)", "Déjà Versé (DH)", "Reste Impayé (DH)", "Statut"
         ]
 
@@ -686,8 +726,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     for inv in invoices_list:
         ws.row_dimensions[row_idx].height = 22
         st = inv.student
-        group = inv.group if inv.group else (st.groups.first() if st else None)
-        subject_str = group.subject.get_name(lang) if (group and group.subject) else "-"
+        activities_str, nb_activities, _ = get_student_activities_and_count(st, invoice=inv, lang=lang)
         parent_str = st.parent.get_name(lang) if (st and st.parent) else "-"
         phone_str = st.parent.phone if (st and st.parent) else "-"
         month_str = inv.get_period_label(lang)
@@ -724,7 +763,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
             f"{st.first_name_ar} {st.last_name_ar}".strip() if st else "-",
             parent_str,
             phone_str,
-            subject_str,
+            activities_str,
+            nb_activities,
             month_str,
             reduction_str,
             amt_due,
@@ -743,20 +783,23 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
             cell.value = val
             cell.font = DATA_FONT
             cell.border = BORDER_THIN
-            if col_num in (9, 10):
+            if col_num in (10, 11):
                 cell.alignment = Alignment(horizontal="right", vertical="center")
                 cell.number_format = '#,##0.00 "DH"'
-            elif col_num == 11:
+            elif col_num == 12:
                 cell.alignment = Alignment(horizontal="right", vertical="center")
                 cell.number_format = '#,##0.00 "DH"'
                 cell.font = Font(name="Segoe UI", size=10, bold=True, color="991B1B")
+            elif col_num == 7:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.font = BOLD_DATA_FONT
             else:
                 cell.alignment = align_data
         row_idx += 1
 
     # Total Summary Row
     ws.row_dimensions[row_idx].height = 28
-    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=8)
+    ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=9)
     tot_label = ws.cell(row=row_idx, column=1)
     tot_label.value = "TOTAL DES IMPAYÉS RESTANTS / مجموع المتأخرات المتبقية :" if lang != "ar" else "مجموع المتأخرات المتبقية المستحقة :"
     tot_label.font = TOTAL_RED_FONT
@@ -764,7 +807,11 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_label.alignment = Alignment(horizontal="right" if lang != "ar" else "left", vertical="center")
     tot_label.border = BORDER_TOTAL
 
-    tot_due_cell = ws.cell(row=row_idx, column=9)
+    for c in range(1, 10):
+        ws.cell(row=row_idx, column=c).border = BORDER_TOTAL
+        ws.cell(row=row_idx, column=c).fill = UNPAID_TOTAL_FILL
+
+    tot_due_cell = ws.cell(row=row_idx, column=10)
     tot_due_cell.value = total_due
     tot_due_cell.font = BOLD_DATA_FONT
     tot_due_cell.fill = UNPAID_TOTAL_FILL
@@ -772,7 +819,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_due_cell.number_format = '#,##0.00 "DH"'
     tot_due_cell.border = BORDER_TOTAL
 
-    tot_paid_cell = ws.cell(row=row_idx, column=10)
+    tot_paid_cell = ws.cell(row=row_idx, column=11)
     tot_paid_cell.value = total_paid
     tot_paid_cell.font = BOLD_DATA_FONT
     tot_paid_cell.fill = UNPAID_TOTAL_FILL
@@ -780,7 +827,7 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_paid_cell.number_format = '#,##0.00 "DH"'
     tot_paid_cell.border = BORDER_TOTAL
 
-    tot_bal_cell = ws.cell(row=row_idx, column=11)
+    tot_bal_cell = ws.cell(row=row_idx, column=12)
     tot_bal_cell.value = total_balance
     tot_bal_cell.font = TOTAL_RED_FONT
     tot_bal_cell.fill = UNPAID_TOTAL_FILL
@@ -788,8 +835,8 @@ def export_unpaid_invoices_to_excel(invoices_queryset, lang="fr"):
     tot_bal_cell.number_format = '#,##0.00 "DH"'
     tot_bal_cell.border = BORDER_TOTAL
 
-    ws.cell(row=row_idx, column=12).border = BORDER_TOTAL
-    ws.cell(row=row_idx, column=12).fill = UNPAID_TOTAL_FILL
+    ws.cell(row=row_idx, column=13).border = BORDER_TOTAL
+    ws.cell(row=row_idx, column=13).fill = UNPAID_TOTAL_FILL
 
     # Système de vérification et correction automatique de la feuille (lignes et colonnes)
     audit_and_correct_worksheet(ws, candidate_header_row=3)

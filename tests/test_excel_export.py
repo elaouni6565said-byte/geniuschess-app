@@ -278,5 +278,131 @@ def test_excel_export_duplicate_columns_verification_and_correction():
     assert len(headers_after) == len(set(headers_after))
 
 
+@pytest.mark.django_db
+def test_excel_export_multiple_activities_and_count_column():
+    """
+    Vérifie que pour un élève suivant 2 activités (ex: Échecs et Robotique) :
+    1. Dans l'export des élèves :
+       - La colonne d'activité affiche toutes les activités suivies ('Échecs + Robotique')
+       - Une colonne dédiée 'Nombre d'activités' affiche 2.
+    2. Dans l'export des paiements encaissés :
+       - La colonne affiche 'Échecs + Robotique'
+       - La colonne 'Nombre d'activitées' affiche 2.
+    3. Dans l'export des impayés :
+       - La colonne affiche 'Échecs + Robotique'
+       - La colonne 'Nombre d'activités' affiche 2.
+    4. En version Arabe : affiche 'شطرنج + روبوتات' et 'عدد الأنشطة' = 2.
+    """
+    from decimal import Decimal
+    from datetime import date
+    from academy.models import Parent, Student, Subject, Group
+    from finance.models import Payment, Invoice
+    from portal.excel_export import (
+        export_students_to_excel,
+        export_paid_payments_to_excel,
+        export_unpaid_invoices_to_excel,
+    )
+
+    parent = Parent.objects.create(full_name_fr="Parent Multi", phone="0699887766")
+    sub1 = Subject.objects.create(name_fr="Échecs", name_ar="شطرنج")
+    sub2 = Subject.objects.create(name_fr="Robotique", name_ar="روبوتات")
+
+    grp1 = Group.objects.create(name_fr="Groupe Échecs A", name_ar="شطرنج أ", subject=sub1, monthly_fee=Decimal("200.00"))
+    grp2 = Group.objects.create(name_fr="Groupe Robotique B", name_ar="روبوتات ب", subject=sub2, monthly_fee=Decimal("250.00"))
+
+    # Élève avec 2 activités distinctes
+    st = Student.objects.create(
+        registration_number="GCA-MULTI-01",
+        first_name_fr="Karim",
+        last_name_fr="Bennani",
+        first_name_ar="كريم",
+        last_name_ar="بنسعيد",
+        parent=parent,
+        active=True
+    )
+    st.groups.add(grp1, grp2)
+
+    inv = Invoice.objects.create(
+        student=st,
+        group=grp1,
+        period_month=10,
+        period_year=2026,
+        amount_due=Decimal("450.00"),
+        amount_paid=Decimal("250.00"),
+        status="partial",
+        due_date=date(2026, 10, 15)
+    )
+
+    pay = Payment.objects.create(
+        receipt_number="REC-MULTI-888",
+        student=st,
+        invoice=inv,
+        amount=Decimal("250.00"),
+        period_month=10,
+        period_year=2026,
+        payment_date=date(2026, 10, 12)
+    )
+
+    # 1. Test Export Élèves (FR)
+    bytes_st_fr = export_students_to_excel([st], lang="fr")
+    wb_st_fr = openpyxl.load_workbook(io.BytesIO(bytes_st_fr))
+    ws_st_fr = wb_st_fr.active
+    headers_st_fr = [ws_st_fr.cell(row=3, column=c).value for c in range(1, ws_st_fr.max_column + 1)]
+    assert "Nombre d'activités" in headers_st_fr
+    assert "Activités Suivies" in headers_st_fr
+
+    # Trouver les index des colonnes
+    col_act = headers_st_fr.index("Activités Suivies") + 1
+    col_nb = headers_st_fr.index("Nombre d'activités") + 1
+
+    row4_act = ws_st_fr.cell(row=4, column=col_act).value
+    row4_nb = ws_st_fr.cell(row=4, column=col_nb).value
+    assert "Échecs" in row4_act and "Robotique" in row4_act
+    assert row4_nb == 2
+
+    # 2. Test Export Élèves (AR)
+    bytes_st_ar = export_students_to_excel([st], lang="ar")
+    wb_st_ar = openpyxl.load_workbook(io.BytesIO(bytes_st_ar))
+    ws_st_ar = wb_st_ar.active
+    headers_st_ar = [ws_st_ar.cell(row=3, column=c).value for c in range(1, ws_st_ar.max_column + 1)]
+    assert "عدد الأنشطة" in headers_st_ar
+    assert "الأنشطة المستفاد منها" in headers_st_ar
+
+    col_act_ar = headers_st_ar.index("الأنشطة المستفاد منها") + 1
+    col_nb_ar = headers_st_ar.index("عدد الأنشطة") + 1
+    assert "شطرنج" in ws_st_ar.cell(row=4, column=col_act_ar).value
+    assert "روبوتات" in ws_st_ar.cell(row=4, column=col_act_ar).value
+    assert ws_st_ar.cell(row=4, column=col_nb_ar).value == 2
+
+    # 3. Test Export Paiements (FR)
+    bytes_pay_fr = export_paid_payments_to_excel([pay], lang="fr")
+    wb_pay_fr = openpyxl.load_workbook(io.BytesIO(bytes_pay_fr))
+    ws_pay_fr = wb_pay_fr.active
+    headers_pay_fr = [ws_pay_fr.cell(row=3, column=c).value for c in range(1, ws_pay_fr.max_column + 1)]
+    assert "Nombre d'activitées" in headers_pay_fr
+    assert "Activités Bénéficiées" in headers_pay_fr
+
+    col_pay_act = headers_pay_fr.index("Activités Bénéficiées") + 1
+    col_pay_nb = headers_pay_fr.index("Nombre d'activitées") + 1
+    assert "Échecs" in ws_pay_fr.cell(row=4, column=col_pay_act).value
+    assert "Robotique" in ws_pay_fr.cell(row=4, column=col_pay_act).value
+    assert ws_pay_fr.cell(row=4, column=col_pay_nb).value == 2
+
+    # 4. Test Export Impayés (FR)
+    bytes_unp_fr = export_unpaid_invoices_to_excel([inv], lang="fr")
+    wb_unp_fr = openpyxl.load_workbook(io.BytesIO(bytes_unp_fr))
+    ws_unp_fr = wb_unp_fr.active
+    headers_unp_fr = [ws_unp_fr.cell(row=3, column=c).value for c in range(1, ws_unp_fr.max_column + 1)]
+    assert "Nombre d'activités" in headers_unp_fr
+    assert "Activités Suivies" in headers_unp_fr
+
+    col_unp_act = headers_unp_fr.index("Activités Suivies") + 1
+    col_unp_nb = headers_unp_fr.index("Nombre d'activités") + 1
+    assert "Échecs" in ws_unp_fr.cell(row=4, column=col_unp_act).value
+    assert "Robotique" in ws_unp_fr.cell(row=4, column=col_unp_act).value
+    assert ws_unp_fr.cell(row=4, column=col_unp_nb).value == 2
+
+
+
 
 
