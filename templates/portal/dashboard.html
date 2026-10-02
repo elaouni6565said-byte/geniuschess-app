@@ -56,129 +56,226 @@
     </form>
 </div>
 
-<!-- KPI Cards -->
-<div class="grid-kpi">
+<!-- Style pour garantir l'affichage strict de TOUS les KPIs sur une SEULE ligne -->
+<style>
+.dashboard-kpi-row {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 0.65rem !important;
+    margin-bottom: 1.75rem !important;
+    width: 100% !important;
+}
+
+.dashboard-kpi-row .kpi-card {
+    padding: 0.85rem 0.65rem !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.4rem !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.dashboard-kpi-row .kpi-content {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+}
+
+.dashboard-kpi-row .kpi-content h4 {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.02em !important;
+    margin-bottom: 0.2rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.2 !important;
+}
+
+.dashboard-kpi-row .kpi-content .kpi-value {
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.dashboard-kpi-row .kpi-icon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    font-size: 1.1rem !important;
+    border-radius: var(--radius-sm) !important;
+    flex-shrink: 0 !important;
+}
+
+.dashboard-kpi-row .kpi-subtext {
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    margin-top: 0.15rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.dashboard-kpi-row .kpi-link {
+    display: inline-block !important;
+    margin-top: 0.25rem !important;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    text-decoration: underline !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+}
+
+/* Sur écrans étroits / tablettes / mobiles : défilement horizontal fluide sur une seule ligne */
+@media (max-width: 1024px) {
+    .dashboard-kpi-row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        gap: 0.65rem !important;
+        padding-bottom: 0.5rem !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+    }
+    .dashboard-kpi-row .kpi-card {
+        flex: 0 0 190px !important;
+        min-width: 190px !important;
+    }
+}
+</style>
+
+<!-- KPI Cards (Tous dans une seule ligne) -->
+<div class="grid-kpi dashboard-kpi-row">
+    <!-- 1. Total Élèves -->
     <div class="kpi-card">
         <div class="kpi-content">
-            <h4>{% trans "dashboard.total_students" %}</h4>
+            <h4 title="{% trans 'dashboard.total_students' %}">{% trans "dashboard.total_students" %}</h4>
             <div class="kpi-value">{{ total_students }}</div>
-            <a href="{% url 'portal:export_students_excel' %}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--primary-blue); text-decoration: underline;">
-                📥 {% if CURRENT_LANG == 'ar' %}تصدير التلاميذ (Excel){% else %}Exporter élèves (Excel){% endif %}
+            <a href="{% url 'portal:export_students_excel' %}" class="kpi-link" style="color: var(--primary-blue);" title="{% if CURRENT_LANG == 'ar' %}تصدير التلاميذ (Excel){% else %}Exporter élèves (Excel){% endif %}">
+                📥 {% if CURRENT_LANG == 'ar' %}تصدير التلاميذ{% else %}Exporter élèves{% endif %}
             </a>
         </div>
         <div class="kpi-icon blue">🎓</div>
     </div>
 
+    <!-- 2. Groupes & Cours -->
     <div class="kpi-card">
         <div class="kpi-content">
-            <h4>{% trans "dashboard.active_groups" %}</h4>
+            <h4 title="{% trans 'dashboard.active_groups' %}">{% trans "dashboard.active_groups" %}</h4>
             <div class="kpi-value">{{ active_groups }}</div>
-            <a href="{% url 'portal:planning_pdf' %}?lang={{ CURRENT_LANG }}" target="_blank" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--primary-navy); text-decoration: underline;">
-                📄 {% if CURRENT_LANG == 'ar' %}برنامج الحصص (PDF){% else %}Planning des cours (PDF){% endif %}
+            <a href="{% url 'portal:planning_pdf' %}?lang={{ CURRENT_LANG }}" target="_blank" class="kpi-link" style="color: var(--primary-navy);" title="{% if CURRENT_LANG == 'ar' %}برنامج الحصص (PDF){% else %}Planning des cours (PDF){% endif %}">
+                📄 {% if CURRENT_LANG == 'ar' %}برنامج الحصص{% else %}Planning (PDF){% endif %}
             </a>
         </div>
         <div class="kpi-icon navy">👥</div>
     </div>
 
-    <!-- KPI RECETTE DU MOIS (SEULE, NON CUMULÉE) -->
+    <!-- 3. KPI RECETTE DU MOIS (SEULE, NON CUMULÉE) -->
     <div class="kpi-card" style="border-inline-start: 4px solid var(--success);">
         <div class="kpi-content">
-            <h4>
+            <h4 title="{% trans 'dashboard.monthly_revenue' %} ({{ period_label }})">
                 {% trans "dashboard.monthly_revenue" %}
-                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                <span style="display: block; font-size: 0.65rem; font-weight: normal; color: var(--text-muted);">
                     ({{ period_label }})
                 </span>
             </h4>
-            <div class="kpi-value" style="color: var(--success);">{% money month_revenue %}</div>
-            <div style="font-size: 0.72rem; color: #047857; font-weight: 600; margin-top: 0.15rem;">
+            <div class="kpi-value" style="color: var(--success);" title="{% money month_revenue %}">{% money month_revenue %}</div>
+            <div class="kpi-subtext" style="color: #047857;">
                 {% if CURRENT_LANG == 'ar' %}
-                    ✓ مداخيل شهر {{ period_label }} وحدها
+                    ✓ مداخيل الشهر فقط
                 {% else %}
-                    ✓ Recette de {{ period_label }} seule
+                    ✓ Recette du mois
                 {% endif %}
             </div>
-            <a href="{% url 'portal:export_paid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--success); text-decoration: underline;">
-                📥 {% if CURRENT_LANG == 'ar' %}تصدير أداءات الشهر (Excel){% else %}Exporter paiements du mois (Excel){% endif %}
+            <a href="{% url 'portal:export_paid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" class="kpi-link" style="color: var(--success);" title="{% if CURRENT_LANG == 'ar' %}تصدير أداءات الشهر (Excel){% else %}Exporter paiements du mois (Excel){% endif %}">
+                📥 {% if CURRENT_LANG == 'ar' %}تصدير الأداءات{% else %}Exporter paiements{% endif %}
             </a>
         </div>
         <div class="kpi-icon green">💰</div>
     </div>
 
-    <!-- 1. KPI PART DU CENTRE (35 DH / ACTIVITÉ) -->
+    <!-- 4. KPI PART DU CENTRE (35 DH / ACTIVITÉ) -->
     <div class="kpi-card" style="border-inline-start: 4px solid #2563EB;">
         <div class="kpi-content">
-            <h4>
+            <h4 title="{% trans 'dashboard.centre_share' %} ({{ period_label }})">
                 {% trans "dashboard.centre_share" %}
-                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                <span style="display: block; font-size: 0.65rem; font-weight: normal; color: var(--text-muted);">
                     ({{ period_label }})
                 </span>
             </h4>
-            <div class="kpi-value" style="color: #1D4ED8;">{% money month_centre_share %}</div>
-            <div style="font-size: 0.72rem; color: #1E40AF; font-weight: 600; margin-top: 0.15rem;">
+            <div class="kpi-value" style="color: #1D4ED8;" title="{% money month_centre_share %}">{% money month_centre_share %}</div>
+            <div class="kpi-subtext" style="color: #1E40AF;">
                 {% if CURRENT_LANG == 'ar' %}
-                    🏛️ 35 درهم لكل نشاط مؤدى
+                    🏛️ 35 د.م / نشاط
                 {% else %}
-                    🏛️ 35 DH / activité réglée
+                    🏛️ 35 DH / activité
                 {% endif %}
             </div>
-            <div style="margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: #2563EB;">
+            <div class="kpi-subtext" style="color: #2563EB;" title="{% if CURRENT_LANG == 'ar' %}المجموع العام{% else %}Cumul global{% endif %}: {% money total_centre_share %}">
                 {% if CURRENT_LANG == 'ar' %}
-                    المجموع العام: <span style="font-weight: 700;">{% money total_centre_share %}</span>
+                    العام: <span style="font-weight: 700;">{% money total_centre_share %}</span>
                 {% else %}
-                    Cumul global: <span style="font-weight: 700;">{% money total_centre_share %}</span>
+                    Cumul: <span style="font-weight: 700;">{% money total_centre_share %}</span>
                 {% endif %}
             </div>
         </div>
         <div class="kpi-icon blue" style="background: #EFF6FF; color: #1D4ED8;">🏢</div>
     </div>
 
-    <!-- 2. KPI PART DU COACH / FORMATEURS (RESTE POUR LE COACH) -->
+    <!-- 5. KPI PART DU COACH / FORMATEURS (RESTE POUR LE COACH) -->
     <div class="kpi-card" style="border-inline-start: 4px solid #D97706;">
         <div class="kpi-content">
-            <h4>
+            <h4 title="{% trans 'dashboard.coach_share' %} ({{ period_label }})">
                 {% trans "dashboard.coach_share" %}
-                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                <span style="display: block; font-size: 0.65rem; font-weight: normal; color: var(--text-muted);">
                     ({{ period_label }})
                 </span>
             </h4>
-            <div class="kpi-value" style="color: #B45309;">{% money month_coach_share %}</div>
-            <div style="font-size: 0.72rem; color: #92400E; font-weight: 600; margin-top: 0.15rem;">
+            <div class="kpi-value" style="color: #B45309;" title="{% money month_coach_share %}">{% money month_coach_share %}</div>
+            <div class="kpi-subtext" style="color: #92400E;">
                 {% if CURRENT_LANG == 'ar' %}
-                    ♟️ باقي المداخيل بعد اقتطاع المركز
+                    ♟️ باقي المداخيل
                 {% else %}
-                    ♟️ Reste de la recette pour les coachs
+                    ♟️ Reste recette
                 {% endif %}
             </div>
-            <div style="margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: #D97706;">
+            <div class="kpi-subtext" style="color: #D97706;" title="{% if CURRENT_LANG == 'ar' %}المجموع العام{% else %}Cumul global{% endif %}: {% money total_coach_share %}">
                 {% if CURRENT_LANG == 'ar' %}
-                    المجموع العام: <span style="font-weight: 700;">{% money total_coach_share %}</span>
+                    العام: <span style="font-weight: 700;">{% money total_coach_share %}</span>
                 {% else %}
-                    Cumul global: <span style="font-weight: 700;">{% money total_coach_share %}</span>
+                    Cumul: <span style="font-weight: 700;">{% money total_coach_share %}</span>
                 {% endif %}
             </div>
         </div>
         <div class="kpi-icon orange" style="background: #FFFBEB; color: #B45309;">♟️</div>
     </div>
 
-    <!-- KPI IMPAYÉS DU MOIS (SEULS, NON CUMULÉS) -->
+    <!-- 6. KPI IMPAYÉS DU MOIS (SEULS, NON CUMULÉS) -->
     <div class="kpi-card" style="border-inline-start: 4px solid var(--danger);">
         <div class="kpi-content">
-            <h4>
+            <h4 title="{% trans 'dashboard.unpaid_total' %} ({{ period_label }})">
                 {% trans "dashboard.unpaid_total" %}
-                <span style="display: block; font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">
+                <span style="display: block; font-size: 0.65rem; font-weight: normal; color: var(--text-muted);">
                     ({{ period_label }})
                 </span>
             </h4>
-            <div class="kpi-value" style="color: var(--danger);">{% money month_unpaid %}</div>
-            <div style="font-size: 0.72rem; color: #B91C1C; font-weight: 600; margin-top: 0.15rem;">
+            <div class="kpi-value" style="color: var(--danger);" title="{% money month_unpaid %}">{% money month_unpaid %}</div>
+            <div class="kpi-subtext" style="color: #B91C1C;">
                 {% if CURRENT_LANG == 'ar' %}
-                    ⚠️ متأخرات شهر {{ period_label }} وحدها
+                    ⚠️ متأخرات الشهر فقط
                 {% else %}
-                    ⚠️ Impayés de {{ period_label }} seuls
+                    ⚠️ Impayés du mois
                 {% endif %}
             </div>
-            <a href="{% url 'portal:export_unpaid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" style="display: inline-block; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--danger); text-decoration: underline;">
-                ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير متأخرات الشهر (Excel){% else %}Exporter impayés du mois (Excel){% endif %}
+            <a href="{% url 'portal:export_unpaid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" class="kpi-link" style="color: var(--danger);" title="{% if CURRENT_LANG == 'ar' %}تصدير متأخرات الشهر (Excel){% else %}Exporter impayés du mois (Excel){% endif %}">
+                ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير المتأخرات{% else %}Exporter impayés{% endif %}
             </a>
         </div>
         <div class="kpi-icon red">⚠️</div>
