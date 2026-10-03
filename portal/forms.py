@@ -323,13 +323,14 @@ class GroupForm(forms.ModelForm):
 class SessionScheduleForm(forms.ModelForm):
     class Meta:
         model = SessionSchedule
-        fields = ['group', 'room', 'day_of_week', 'start_time', 'end_time', 'trainer_name_fr', 'trainer_name_ar']
+        fields = ['group', 'room', 'day_of_week', 'start_time', 'end_time', 'notification_time', 'trainer_name_fr', 'trainer_name_ar']
         widgets = {
             'group': forms.Select(attrs={'class': 'search-input'}),
             'room': forms.Select(attrs={'class': 'search-input'}),
             'day_of_week': forms.Select(attrs={'class': 'search-input'}),
             'start_time': forms.TimeInput(attrs={'class': 'search-input', 'type': 'time'}),
             'end_time': forms.TimeInput(attrs={'class': 'search-input', 'type': 'time'}),
+            'notification_time': forms.TimeInput(attrs={'class': 'search-input', 'type': 'time'}),
             'trainer_name_fr': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'Ex: Hassan Alaoui'}),
             'trainer_name_ar': forms.TextInput(attrs={'class': 'search-input', 'placeholder': 'مثال: حسن العلوي', 'dir': 'rtl'}),
         }

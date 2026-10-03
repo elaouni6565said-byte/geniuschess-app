@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from decimal import Decimal
+from datetime import time, datetime, timedelta, date
 from core.i18n import FRENCH_DAYS, ARABIC_DAYS
 
 class User(AbstractUser):
@@ -256,6 +257,19 @@ class SessionSchedule(models.Model):
     ])
     start_time = models.TimeField()
     end_time = models.TimeField()
+    notification_time = models.TimeField(
+        default=time(9, 30),
+        null=True,
+        blank=True,
+        verbose_name="Heure de notification / وقت إرسال التذكير",
+        help_text="Heure d'envoi du rappel WhatsApp (ex: 09:30)"
+    )
+
+    def get_notification_time(self):
+        if self.notification_time:
+            return self.notification_time
+        dt = datetime.combine(date.today(), self.start_time) - timedelta(hours=1)
+        return dt.time()
 
     def get_day_name(self, lang="fr"):
         if lang == "ar":

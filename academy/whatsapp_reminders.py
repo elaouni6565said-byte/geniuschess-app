@@ -1,7 +1,8 @@
 import re
 import urllib.parse
-from datetime import date, datetime
+from datetime import date, datetime, time
 from django.conf import settings
+from django.db import models
 from academy.models import SessionSchedule, Student, Parent, Notification, SessionCancellation
 from core.i18n import FRENCH_DAYS, ARABIC_DAYS
 
@@ -215,6 +216,9 @@ def get_daily_sessions_reminders(target_date=None):
             encoded_cancel_msg = urllib.parse.quote(cancel_msg_text)
             cancellation_url = f"https://wa.me/{wa_phone}?text={encoded_cancel_msg}" if wa_phone else ""
 
+            notif_time = sch.get_notification_time() if hasattr(sch, 'get_notification_time') else getattr(sch, 'notification_time', None)
+            notif_time_str = notif_time.strftime('%H:%M') if notif_time else ""
+
             reminders_data.append({
                 'id': f"{sch.id}_{st.id}",
                 'schedule': sch,
@@ -222,6 +226,8 @@ def get_daily_sessions_reminders(target_date=None):
                 'parent': parent,
                 'target_date': target_date,
                 'time_str': f"{sch.start_time.strftime('%H:%M')} - {sch.end_time.strftime('%H:%M')}",
+                'notification_time': notif_time_str,
+                'notification_time_obj': notif_time,
                 'language': lang,
                 'phone_raw': phone,
                 'whatsapp_phone': wa_phone,
@@ -305,14 +311,23 @@ def send_whatsapp_via_gateway(phone, message):
         return {'success': False, 'error': str(e)}
 
 
-def dispatch_daily_whatsapp_reminders(target_date=None):
+def dispatch_daily_whatsapp_reminders(target_date=None, target_time=None):
     """
-    Automatic dispatcher executed at 13:00 daily (via cron or admin button).
+    Automatic dispatcher executed daily (via cron or admin button).
+    If target_time is given (e.g. time(9, 30) or '09:30'), only sessions scheduled to be notified
+    at or before target_time will be processed.
     Dispatches in-app notifications to parents and sends WhatsApp messages if API gateway is configured.
     Skips any session or day marked as cancelled by admin.
     """
     if target_date is None:
         target_date = date.today()
+
+    if isinstance(target_time, str):
+        try:
+            parts = [int(p) for p in target_time.strip().split(':')]
+            target_time = time(parts[0], parts[1])
+        except Exception:
+            target_time = None
 
     if is_day_cancelled(target_date):
         return {
@@ -333,6 +348,12 @@ def dispatch_daily_whatsapp_reminders(target_date=None):
         if item.get('is_cancelled'):
             continue
 
+        # If a target_time filter is requested, only notify if the session's notification_time <= target_time
+        if target_time is not None:
+            sess_notif_time = item.get('notification_time_obj')
+            if sess_notif_time and sess_notif_time > target_time:
+                continue
+
         parent = item.get('parent')
         user = parent.user if parent else None
         sch = item['schedule']
@@ -350,12 +371,14 @@ def dispatch_daily_whatsapp_reminders(target_date=None):
                 notification_type='session_reminder',
                 created_at__date=target_date,
                 message_fr__contains=st.get_full_name('fr')
+            ).filter(
+                models.Q(message_fr__contains=sch.group.name_fr) | models.Q(title_fr__contains=time_str)
             ).exists()
 
         if not existing:
             if user:
-                msg_fr = build_whatsapp_reminder_text(sch, st, lang='fr')
-                msg_ar = build_whatsapp_reminder_text(sch, st, lang='ar')
+                msg_fr = build_whatsapp_reminder_text(sch, st, lang='fr', target_date=target_date)
+                msg_ar = build_whatsapp_reminder_text(sch, st, lang='ar', target_date=target_date)
                 Notification.objects.create(
                     recipient=user,
                     title_fr=title_fr,
@@ -368,11 +391,11 @@ def dispatch_daily_whatsapp_reminders(target_date=None):
 
             # Dispatch via Gateway if configured and phone is available
             if item.get('whatsapp_phone'):
-                import time
+                import time as pytime
                 res_gateway = send_whatsapp_via_gateway(item['whatsapp_phone'], item['message_text'])
                 if res_gateway.get('success'):
                     wa_sent_via_api += 1
-                time.sleep(1)
+                pytime.sleep(1)
 
     active_items = [i for i in items if not i.get('is_cancelled')]
     return {

@@ -148,3 +148,54 @@ def test_whatsapp_unpaid_reminders_authorization_and_15th_rule():
     )
     assert resp_post_single.status_code == 302
 
+
+@pytest.mark.django_db
+def test_robotique_n3_schedule_and_sunday_0930_notification():
+    """
+    Vérifie la règle :
+    - Séance Robotique N3 : Dimanche matin 10h30 à 12h00.
+    - Heure de notification WhatsApp des parents : 09h30 chaque dimanche.
+    """
+    from datetime import time, date
+    from django.core.management import call_command
+    from academy.models import Group, SessionSchedule
+    from academy.whatsapp_reminders import get_daily_sessions_reminders, dispatch_daily_whatsapp_reminders
+
+    # Récupérer le groupe Robotique
+    grp = Group.objects.filter(name_fr__icontains='robot').first()
+    assert grp is not None
+    assert "N3" in grp.name_fr or "Robotique" in grp.name_fr
+
+    # Récupérer la séance
+    sched = SessionSchedule.objects.filter(group=grp).first()
+    assert sched is not None
+    assert sched.day_of_week == 6  # Dimanche
+    assert sched.start_time == time(10, 30)
+    assert sched.end_time == time(12, 0)
+    assert sched.notification_time == time(9, 30)
+    assert sched.get_notification_time() == time(9, 30)
+
+    # Tester un dimanche donné (par exemple le 27 Septembre 2026, qui est un dimanche : weekday=6)
+    sunday_date = date(2026, 9, 27)
+    assert sunday_date.weekday() == 6
+
+    reminders = get_daily_sessions_reminders(sunday_date)
+    robotics_reminders = [r for r in reminders if r['schedule'].group == grp]
+    assert len(robotics_reminders) > 0
+
+    for rem in robotics_reminders:
+        assert rem['time_str'] == "10:30 - 12:00"
+        assert rem['notification_time'] == "09:30"
+        assert "10:30" in rem['message_text']
+        assert "12:00" in rem['message_text']
+
+    # Tester le dispatch avec filtre horaire
+    # Avant 09h30 (ex: 09h00) : ne doit pas inclure Robotique N3
+    res_early = dispatch_daily_whatsapp_reminders(target_date=sunday_date, target_time="09:00")
+    # A 09h30 : doit être pris en compte
+    res_ontime = dispatch_daily_whatsapp_reminders(target_date=sunday_date, target_time="09:30")
+    assert res_ontime['total_reminders'] >= len(robotics_reminders)
+
+    # Tester la commande de management avec argument --time 09:30
+    call_command('send_daily_session_reminders', date='2026-09-27', time='09:30')
+

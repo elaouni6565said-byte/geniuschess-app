@@ -288,6 +288,11 @@
                         <span class="badge" style="{% if r.is_cancelled %}background: #E2E8F0; color: #64748B; text-decoration: line-through;{% else %}background: #E0F2FE; color: #0369A1;{% endif %} font-weight: 700; white-space: nowrap;">
                             🕒 {{ r.time_str }}
                         </span>
+                        {% if r.notification_time %}
+                        <div style="font-size: 0.75rem; color: #166534; font-weight: 600; margin-top: 0.25rem;">
+                            📲 {% if CURRENT_LANG == 'ar' %}تذكير :{% else %}Rappel :{% endif %} {{ r.notification_time }}
+                        </div>
+                        {% endif %}
                     </td>
                     <td>
                         <span class="badge" style="background: {{ r.group_color }}; color: white; font-weight: 700; {% if r.is_cancelled %}opacity: 0.7;{% endif %}">

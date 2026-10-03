@@ -96,12 +96,12 @@ grp_chess_sat, _ = Group.objects.get_or_create(
     }
 )
 
-grp_robotics_wed, _ = Group.objects.get_or_create(
-    name_fr="Groupe Robotique Mercredi",
+grp_robotics_n3, _ = Group.objects.get_or_create(
+    name_fr="Groupe Robotique N3",
     defaults={
-        "name_ar": "مجموعة الروبوتيك الأربعاء",
+        "name_ar": "مجموعة الروبوتيك N3",
         "subject": subj_robotics,
-        "level": lvl_int,
+        "level": lvl_adv,
         "monthly_fee": Decimal("350.00"),
     }
 )
@@ -178,7 +178,7 @@ s1, _ = Student.objects.get_or_create(
         "active": True,
     }
 )
-s1.groups.add(grp_chess_sat, grp_robotics_wed)
+s1.groups.add(grp_chess_sat, grp_robotics_n3)
 
 s2, _ = Student.objects.get_or_create(
     registration_number="GCA-2026-002",
@@ -220,7 +220,7 @@ s4, _ = Student.objects.get_or_create(
         "active": True,
     }
 )
-s4.groups.add(grp_robotics_wed)
+s4.groups.add(grp_robotics_n3)
 
 sched_chess_sat, _ = SessionSchedule.objects.get_or_create(
     group=grp_chess_sat,
@@ -228,18 +228,20 @@ sched_chess_sat, _ = SessionSchedule.objects.get_or_create(
     start_time=time(10, 0),
     defaults={
         "end_time": time(12, 0),
+        "notification_time": time(9, 0),
         "room": room_kasparov,
         "trainer_name_fr": "Maître Yassine",
         "trainer_name_ar": "الأستاذ ياسين",
     }
 )
 
-sched_robotics_wed, _ = SessionSchedule.objects.get_or_create(
-    group=grp_robotics_wed,
-    day_of_week=2,
-    start_time=time(15, 0),
+sched_robotics_sun, _ = SessionSchedule.objects.get_or_create(
+    group=grp_robotics_n3,
+    day_of_week=6,
+    start_time=time(10, 30),
     defaults={
-        "end_time": time(17, 0),
+        "end_time": time(12, 0),
+        "notification_time": time(9, 30),
         "room": room_turing,
         "trainer_name_fr": "Ingénieur Mehdi",
         "trainer_name_ar": "المهندس مهدي",
@@ -287,7 +289,7 @@ Payment.objects.get_or_create(
 
 inv2, _ = Invoice.objects.get_or_create(
     student=s1,
-    group=grp_robotics_wed,
+    group=grp_robotics_n3,
     period_month=9,
     period_year=2026,
     defaults={
@@ -339,9 +341,9 @@ Notification.objects.get_or_create(
 
 # Create sample attendances
 for i, (student, schedule) in enumerate([
-    (s1, sched_chess_sat), (s1, sched_robotics_wed),
+    (s1, sched_chess_sat), (s1, sched_robotics_sun),
     (s2, sched_math_sun), (s3, sched_chess_sat),
-    (s4, sched_robotics_wed)
+    (s4, sched_robotics_sun)
 ]):
     Attendance.objects.create(
         student=student,
