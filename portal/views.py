@@ -123,16 +123,14 @@ def is_period_overdue(year, month, today=None):
 
 def sync_invoices_with_actual_attendances():
     """
-    Synchronisation dynamique et 100% fidèle :
-    1. Réalignement des paiements et des factures associées.
-    2. Pour chaque mois concerné (ayant des présences ou des paiements) :
-       - Seuls les élèves ayant EFFECTIVEMENT assisté à au moins une séance dans ce mois (status='present')
-         ou ayant un paiement enregistré reçoivent une facture pour ce mois.
-    3. Suppression stricte des factures créées sans aucun versement ni aucune présence dans le mois concerné.
+    Rapprochement financier des règlements :
+    1. Réalignement strict des paiements orphelins et de leurs factures.
+    2. Mise à jour automatique des totaux et statuts des factures.
+    Aucune facture n'est supprimée automatiquement (la comptabilité reste souveraine).
     """
     import datetime
     from decimal import Decimal
-    from django.db.models import Exists, OuterRef, Q
+    from django.db.models import Q
     today = datetime.date.today()
     month = today.month
     year = today.year
@@ -152,60 +150,33 @@ def sync_invoices_with_actual_attendances():
         else:
             p.save()
 
-    for p in Payment.objects.filter(invoice__isnull=False).select_related('invoice'):
-        if p.period_month != p.invoice.period_month or p.period_year != p.invoice.period_year:
-            p.period_month = p.invoice.period_month
-            p.period_year = p.invoice.period_year
-            p.save(update_fields=['period_month', 'period_year'])
-            p.invoice.update_totals()
-
-    # 2. Déterminer les mois ayant des présences réelles ou des paiements enregistrés
-    sync_periods = set()
+    # 2. Pour chaque mois ayant des présences effectives, créer ou synchroniser la facture de l'élève
     for py, pm in Attendance.objects.filter(status='present').values_list('date__year', 'date__month').distinct():
-        if py and pm:
-            sync_periods.add((py, pm))
-    for py, pm in Payment.objects.values_list('period_year', 'period_month').distinct():
-        if py and pm:
-            sync_periods.add((py, pm))
+        if not (py and pm):
+            continue
+        p_due_date = datetime.date(py, pm, 15)
+        attended_students = Student.objects.filter(
+            active=True,
+            attendances__status='present',
+            attendances__date__year=py,
+            attendances__date__month=pm
+        ).distinct()
 
-    # Inclure le mois en cours
-    sync_periods.add((year, month))
-
-    for p_year, p_month in sync_periods:
-        p_due_date = datetime.date(p_year, p_month, 15)
-
-        # Élèves concernés pour ce mois précis :
-        # - Ayant assisté à au moins une séance dans ce mois
-        # - OU ayant un paiement enregistré pour ce mois
-        attended_ids = Attendance.objects.filter(
-            status='present',
-            date__year=p_year,
-            date__month=p_month
-        ).values_list('student_id', flat=True).distinct()
-
-        paid_ids = Payment.objects.filter(
-            period_year=p_year,
-            period_month=p_month
-        ).values_list('student_id', flat=True).distinct()
-
-        relevant_student_ids = set(attended_ids) | set(paid_ids)
-        students_to_bill = Student.objects.filter(id__in=relevant_student_ids, active=True)
-
-        for st in students_to_bill:
-            is_exempt, ex_reason = st.is_exempt_for_period(p_month, p_year)
+        for st in attended_students:
+            is_exempt, ex_reason = st.is_exempt_for_period(pm, py)
             base_fee, discount, final_fee = st.calculate_monthly_fee()
-            inv = Invoice.objects.filter(student=st, period_month=p_month, period_year=p_year).first()
+            inv = Invoice.objects.filter(student=st, period_month=pm, period_year=py).first()
 
             if not inv:
                 groups = st.groups.all()
                 if groups.exists():
                     first_grp = groups.first()
                     if is_exempt:
-                        new_inv = Invoice.objects.create(
+                        Invoice.objects.create(
                             student=st,
                             group=first_grp,
-                            period_month=p_month,
-                            period_year=p_year,
+                            period_month=pm,
+                            period_year=py,
                             original_amount=base_fee,
                             discount_amount=base_fee,
                             amount_due=Decimal('0.00'),
@@ -219,8 +190,8 @@ def sync_invoices_with_actual_attendances():
                         new_inv = Invoice.objects.create(
                             student=st,
                             group=first_grp,
-                            period_month=p_month,
-                            period_year=p_year,
+                            period_month=pm,
+                            period_year=py,
                             original_amount=base_fee,
                             discount_amount=discount,
                             amount_due=final_fee,
@@ -255,52 +226,30 @@ def sync_invoices_with_actual_attendances():
                         inv.save()
                     inv.update_totals()
 
-    # 3. Purger les factures créées sans aucun paiement versé pour des élèves n'ayant AUCUNE présence dans le mois concerné
-    for inv in Invoice.objects.filter(amount_paid=Decimal('0.00'), is_exempt=False):
-        has_pres_in_month = Attendance.objects.filter(
-            student_id=inv.student_id,
-            status='present',
-            date__year=inv.period_year,
-            date__month=inv.period_month
-        ).exists()
-        if not has_pres_in_month:
-            inv.delete()
-
 
 def get_billable_unpaid_invoices_qs():
     """
     Retourne fidèlement toutes les factures impayées ou partielles échues :
     - Règle stricte GCA : les impayés d'un mois ne sont calculés qu'à partir du 10 de ce mois.
       Avant le 10 du mois en cours, les cotisations du mois ne sont pas comptabilisées en impayés.
-    - Seuls les élèves ayant assisté à au moins une séance dans le mois concerné
-      (ou ayant un versement partiel) sont facturables.
-    - Exclut rigoureusement les factures exonérées et les élèves sans présence dans le mois.
+    - Seuls les élèves actifs ayant des factures non soldées sont listés.
+    - Exclut rigoureusement les factures exonérées et les élèves inactifs.
+    - Ne dépend d'aucun pointage de présence aléatoire : la facture fait foi.
     """
     import datetime
-    from decimal import Decimal
-    from django.db.models import Exists, OuterRef, Q
+    from django.db.models import Q
     sync_invoices_with_actual_attendances()
     today = datetime.date.today()
 
-    has_pres_in_month = Attendance.objects.filter(
-        student=OuterRef('student'),
-        status='present',
-        date__year=OuterRef('period_year'),
-        date__month=OuterRef('period_month')
-    )
-
     qs = Invoice.objects.filter(
         status__in=['unpaid', 'partial'],
-        is_exempt=False
-    ).annotate(
-        has_pres=Exists(has_pres_in_month)
-    ).filter(
-        Q(has_pres=True) | Q(amount_paid__gt=Decimal('0.00'))
+        is_exempt=False,
+        student__active=True
     )
 
     # Règle du 10 du mois :
     if today.day < 10:
-        # Exclure le mois en cours et les mois futurs
+        # Exclure le mois en cours et les mois futurs (avant le 10, le mois en cours n'est pas en retard)
         qs = qs.filter(
             Q(period_year__lt=today.year) |
             Q(period_year=today.year, period_month__lt=today.month)

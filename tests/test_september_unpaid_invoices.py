@@ -39,12 +39,16 @@ def test_september_unpaid_invoices_and_tenth_of_month_rule():
         active=True
     )
     st1.groups.add(grp)
-    schedule = SessionSchedule.objects.first()
-    Attendance.objects.create(
+    Invoice.objects.create(
         student=st1,
-        session=schedule,
-        date=date(2026, 9, 12),
-        status='present'
+        group=grp,
+        period_month=9,
+        period_year=2026,
+        original_amount=Decimal('300.00'),
+        amount_due=Decimal('300.00'),
+        amount_paid=Decimal('0.00'),
+        status='unpaid',
+        due_date=date(2026, 9, 15)
     )
 
     # Élève 2 : A versé 100 DH sur 300 DH -> reliquat de 200 DH d'impayé
