@@ -279,3 +279,44 @@ def test_whatsapp_absence_alerts():
     assert resp_single.status_code == 302
 
 
+@pytest.mark.django_db
+def test_attendance_wednesday_robotics_sessions_and_scan():
+    """
+    Vérifie que les 2 séances de Robotique du Mercredi (14h30-16h00 et 17h30-19h00)
+    apparaissent bien sur la feuille de présence du Mercredi et sont prêtes au scan.
+    """
+    from datetime import date
+    from academy.models import SessionSchedule
+    client = Client()
+    admin = User.objects.get(username='admin')
+    admin.set_password('CGAESA65')
+    admin.save()
+    client.login(username='admin', password='CGAESA65')
+
+    # Mercredi 23 Septembre 2026 (weekday = 2)
+    wednesday_date = date(2026, 9, 23)
+    assert wednesday_date.weekday() == 2
+
+    # 1. Vérifier la vue liste de présence du mercredi
+    resp = client.get(f'/attendance/?date=2026-09-23')
+    assert resp.status_code == 200
+    content = resp.content.decode('utf-8')
+    assert "Robotique" in content
+    assert "14:30" in content
+    assert "17:30" in content
+
+    # 2. Vérifier les deux feuilles de présence individuelles
+    wed_schedules = SessionSchedule.objects.filter(
+        group__subject__name_fr__icontains='robot',
+        day_of_week=2
+    )
+    assert wed_schedules.count() >= 2
+
+    for sch in wed_schedules:
+        resp_sheet = client.get(f'/attendance/{sch.id}/?date=2026-09-23')
+        assert resp_sheet.status_code == 200
+        sheet_content = resp_sheet.content.decode('utf-8')
+        assert "reader" in sheet_content  # Le scanner QR Code caméra
+        assert "Html5Qrcode" in sheet_content or "html5-qrcode" in sheet_content
+
+

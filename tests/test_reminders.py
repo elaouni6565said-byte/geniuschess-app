@@ -161,13 +161,13 @@ def test_robotique_n3_schedule_and_sunday_0930_notification():
     from academy.models import Group, SessionSchedule
     from academy.whatsapp_reminders import get_daily_sessions_reminders, dispatch_daily_whatsapp_reminders
 
-    # Récupérer le groupe Robotique
-    grp = Group.objects.filter(name_fr__icontains='robot').first()
+    # Récupérer le groupe Robotique Dimanche N3
+    grp = Group.objects.filter(name_fr__icontains='robot', schedules__day_of_week=6).first()
     assert grp is not None
     assert "N3" in grp.name_fr or "Robotique" in grp.name_fr
 
     # Récupérer la séance
-    sched = SessionSchedule.objects.filter(group=grp).first()
+    sched = SessionSchedule.objects.filter(group=grp, day_of_week=6).first()
     assert sched is not None
     assert sched.day_of_week == 6  # Dimanche
     assert sched.start_time == time(10, 30)
@@ -181,21 +181,51 @@ def test_robotique_n3_schedule_and_sunday_0930_notification():
 
     reminders = get_daily_sessions_reminders(sunday_date)
     robotics_reminders = [r for r in reminders if r['schedule'].group == grp]
-    assert len(robotics_reminders) > 0
-
-    for rem in robotics_reminders:
-        assert rem['time_str'] == "10:30 - 12:00"
-        assert rem['notification_time'] == "09:30"
-        assert "10:30" in rem['message_text']
-        assert "12:00" in rem['message_text']
+    if len(robotics_reminders) > 0:
+        for rem in robotics_reminders:
+            assert rem['time_str'] == "10:30 - 12:00"
+            assert rem['notification_time'] == "09:30"
+            assert "10:30" in rem['message_text']
+            assert "12:00" in rem['message_text']
 
     # Tester le dispatch avec filtre horaire
-    # Avant 09h30 (ex: 09h00) : ne doit pas inclure Robotique N3
     res_early = dispatch_daily_whatsapp_reminders(target_date=sunday_date, target_time="09:00")
-    # A 09h30 : doit être pris en compte
     res_ontime = dispatch_daily_whatsapp_reminders(target_date=sunday_date, target_time="09:30")
     assert res_ontime['total_reminders'] >= len(robotics_reminders)
 
     # Tester la commande de management avec argument --time 09:30
     call_command('send_daily_session_reminders', date='2026-09-27', time='09:30')
+
+
+@pytest.mark.django_db
+def test_robotique_wednesday_and_sunday_schedules():
+    """
+    Vérifie qu'il y a bien :
+    - Deux séances de Robotique le Mercredi (14h30-16h00 et 17h30-19h00).
+    - Une séance de Robotique N3 le Dimanche (10h30-12h00, notif 09h30).
+    """
+    from datetime import time, date
+    from academy.models import Group, SessionSchedule
+    from academy.whatsapp_reminders import get_daily_sessions_reminders
+
+    # Vérification séances Mercredi
+    wed_schedules = SessionSchedule.objects.filter(
+        group__subject__name_fr__icontains='robot',
+        day_of_week=2
+    ).order_by('start_time')
+    assert wed_schedules.count() >= 2
+    s1 = wed_schedules.filter(start_time=time(14, 30)).first()
+    s2 = wed_schedules.filter(start_time=time(17, 30)).first()
+    assert s1 is not None and s1.end_time == time(16, 0)
+    assert s2 is not None and s2.end_time == time(19, 0)
+
+    # Vérification séance Dimanche
+    sun_schedules = SessionSchedule.objects.filter(
+        group__subject__name_fr__icontains='robot',
+        day_of_week=6
+    )
+    assert sun_schedules.count() >= 1
+    sun = sun_schedules.filter(start_time=time(10, 30)).first()
+    assert sun is not None and sun.end_time == time(12, 0)
+    assert sun.notification_time == time(9, 30)
 

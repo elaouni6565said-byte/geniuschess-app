@@ -96,6 +96,28 @@ grp_chess_sat, _ = Group.objects.get_or_create(
     }
 )
 
+grp_robotics_wed_1, _ = Group.objects.get_or_create(
+    name_fr="Groupe Robotique Mercredi 1",
+    defaults={
+        "name_ar": "مجموعة الروبوتيك الأربعاء 1",
+        "subject": subj_robotics,
+        "level": lvl_beg,
+        "monthly_fee": Decimal("350.00"),
+        "color": "#3B82F6",
+    }
+)
+
+grp_robotics_wed_2, _ = Group.objects.get_or_create(
+    name_fr="Groupe Robotique Mercredi 2",
+    defaults={
+        "name_ar": "مجموعة الروبوتيك الأربعاء 2",
+        "subject": subj_robotics,
+        "level": lvl_int,
+        "monthly_fee": Decimal("350.00"),
+        "color": "#2563EB",
+    }
+)
+
 grp_robotics_n3, _ = Group.objects.get_or_create(
     name_fr="Groupe Robotique N3",
     defaults={
@@ -103,6 +125,7 @@ grp_robotics_n3, _ = Group.objects.get_or_create(
         "subject": subj_robotics,
         "level": lvl_adv,
         "monthly_fee": Decimal("350.00"),
+        "color": "#1D4ED8",
     }
 )
 
@@ -232,6 +255,32 @@ sched_chess_sat, _ = SessionSchedule.objects.get_or_create(
         "room": room_kasparov,
         "trainer_name_fr": "Maître Yassine",
         "trainer_name_ar": "الأستاذ ياسين",
+    }
+)
+
+sched_robotics_wed_1, _ = SessionSchedule.objects.get_or_create(
+    group=grp_robotics_wed_1,
+    day_of_week=2,
+    start_time=time(14, 30),
+    defaults={
+        "end_time": time(16, 0),
+        "notification_time": time(13, 30),
+        "room": room_turing,
+        "trainer_name_fr": "Ingénieur Mehdi",
+        "trainer_name_ar": "المهندس مهدي",
+    }
+)
+
+sched_robotics_wed_2, _ = SessionSchedule.objects.get_or_create(
+    group=grp_robotics_wed_2,
+    day_of_week=2,
+    start_time=time(17, 30),
+    defaults={
+        "end_time": time(19, 0),
+        "notification_time": time(16, 30),
+        "room": room_turing,
+        "trainer_name_fr": "Ingénieur Mehdi",
+        "trainer_name_ar": "المهندس مهدي",
     }
 )
 
