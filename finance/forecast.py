@@ -20,12 +20,14 @@ def get_monthly_financial_forecast(month=None, year=None, lang="fr"):
     month = int(month)
     year = int(year)
 
-    # 1. Factures du mois selectionne : réglées, partielles, exonérées OU élèves ayant commencé (présence >= 1)
+    # 1. Factures du mois selectionne : réglées, partielles, exonérées OU élèves ayant commencé ou inscrits
     invoices = Invoice.objects.filter(
         period_month=month,
         period_year=year
     ).filter(
-        Q(status__in=['paid', 'partial', 'exempt']) | Q(student__attendances__status='present')
+        Q(status__in=['paid', 'partial', 'exempt']) |
+        Q(student__attendances__status='present') |
+        Q(student__active=True, student__groups__isnull=False)
     ).distinct().select_related("student", "student__parent", "group", "group__subject")
 
     total_expected = invoices.aggregate(total=Sum("amount_due"))["total"] or Decimal("0.00")

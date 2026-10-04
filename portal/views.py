@@ -100,80 +100,105 @@ def sync_invoices_with_actual_attendances():
             p.save(update_fields=['period_month', 'period_year'])
             p.invoice.update_totals()
 
-    # 2. Pour les élèves ayant assisté à au moins une séance, créer ou synchroniser la facture
-    attended_students = Student.objects.filter(
-        active=True,
-        attendances__status='present',
-        attendances__date__year=year,
-        attendances__date__month=month
-    ).distinct()
+    # 2. Déterminer les mois à synchroniser (mois de l'année scolaire écoulés depuis Septembre + mois avec présences)
+    school_start_year = year if month >= 9 else (year - 1)
+    sync_periods = []
+    # Année scolaire : de Septembre jusqu'au mois actuel
+    if month >= 9:
+        for m in range(9, month + 1):
+            sync_periods.append((school_start_year, m))
+    else:
+        for m in range(9, 13):
+            sync_periods.append((school_start_year, m))
+        for m in range(1, month + 1):
+            sync_periods.append((school_start_year + 1, m))
 
-    for st in attended_students:
-        is_exempt, ex_reason = st.is_exempt_for_period(month, year)
-        base_fee, discount, final_fee = st.calculate_monthly_fee()
-        inv = Invoice.objects.filter(student=st, period_month=month, period_year=year).first()
-        
-        if not inv:
-            groups = st.groups.all()
-            if groups.exists():
-                first_grp = groups.first()
-                if is_exempt:
-                    Invoice.objects.create(
-                        student=st,
-                        group=first_grp,
-                        period_month=month,
-                        period_year=year,
-                        original_amount=base_fee,
-                        discount_amount=base_fee,
-                        amount_due=Decimal('0.00'),
-                        amount_paid=Decimal('0.00'),
-                        status='exempt',
-                        is_exempt=True,
-                        exemption_reason=ex_reason or "Exonération accordée",
-                        due_date=due_date
-                    )
-                else:
-                    new_inv = Invoice.objects.create(
-                        student=st,
-                        group=first_grp,
-                        period_month=month,
-                        period_year=year,
-                        original_amount=base_fee,
-                        discount_amount=discount,
-                        amount_due=final_fee,
-                        amount_paid=Decimal('0.00'),
-                        status='unpaid',
-                        is_exempt=False,
-                        exemption_reason='',
-                        due_date=due_date
-                    )
-                    new_inv.update_totals()
-        else:
-            # Synchroniser si l'élève est devenu exonéré ou a changé de convention
-            if is_exempt and not inv.is_exempt and inv.amount_paid == Decimal('0.00'):
-                inv.is_exempt = True
-                inv.status = 'exempt'
-                inv.original_amount = base_fee
-                inv.discount_amount = base_fee
-                inv.amount_due = Decimal('0.00')
-                inv.exemption_reason = ex_reason or "Exonération accordée"
-                inv.save()
-            elif not is_exempt and inv.is_exempt and inv.amount_paid == Decimal('0.00'):
-                inv.is_exempt = False
-                inv.original_amount = base_fee
-                inv.discount_amount = discount
-                inv.amount_due = final_fee
-                inv.exemption_reason = ''
-                inv.update_totals()
-            elif not inv.is_exempt and inv.status == 'unpaid' and inv.amount_paid == Decimal('0.00'):
-                if inv.amount_due != final_fee:
+    # Ajouter tout autre mois ayant des présences 'present' enregistrées
+    for py, pm in Attendance.objects.filter(status='present').values_list('date__year', 'date__month').distinct():
+        if py and pm and (py, pm) not in sync_periods:
+            sync_periods.append((py, pm))
+
+    # Pour chaque période concernée : synchroniser les factures des élèves actifs ou ayant assisté aux cours
+    for p_year, p_month in sync_periods:
+        p_due_date = datetime.date(p_year, p_month, 15)
+
+        # Élèves devant être facturés :
+        # - Ceux ayant assisté à au moins une séance dans ce mois
+        # - OU (pour l'année scolaire en cours jusqu'à aujourd'hui) les élèves actifs inscrits dans au moins un groupe
+        students_to_bill = Student.objects.filter(
+            active=True
+        ).filter(
+            Q(attendances__status='present', attendances__date__year=p_year, attendances__date__month=p_month) |
+            Q(groups__isnull=False)
+        ).distinct()
+
+        for st in students_to_bill:
+            is_exempt, ex_reason = st.is_exempt_for_period(p_month, p_year)
+            base_fee, discount, final_fee = st.calculate_monthly_fee()
+            inv = Invoice.objects.filter(student=st, period_month=p_month, period_year=p_year).first()
+
+            if not inv:
+                groups = st.groups.all()
+                if groups.exists():
+                    first_grp = groups.first()
+                    if is_exempt:
+                        new_inv = Invoice.objects.create(
+                            student=st,
+                            group=first_grp,
+                            period_month=p_month,
+                            period_year=p_year,
+                            original_amount=base_fee,
+                            discount_amount=base_fee,
+                            amount_due=Decimal('0.00'),
+                            amount_paid=Decimal('0.00'),
+                            status='exempt',
+                            is_exempt=True,
+                            exemption_reason=ex_reason or "Exonération accordée",
+                            due_date=p_due_date
+                        )
+                    else:
+                        new_inv = Invoice.objects.create(
+                            student=st,
+                            group=first_grp,
+                            period_month=p_month,
+                            period_year=p_year,
+                            original_amount=base_fee,
+                            discount_amount=discount,
+                            amount_due=final_fee,
+                            amount_paid=Decimal('0.00'),
+                            status='unpaid',
+                            is_exempt=False,
+                            exemption_reason='',
+                            due_date=p_due_date
+                        )
+                        new_inv.update_totals()
+            else:
+                # Synchroniser si l'élève est devenu exonéré ou a changé de convention
+                if is_exempt and not inv.is_exempt and inv.amount_paid == Decimal('0.00'):
+                    inv.is_exempt = True
+                    inv.status = 'exempt'
+                    inv.original_amount = base_fee
+                    inv.discount_amount = base_fee
+                    inv.amount_due = Decimal('0.00')
+                    inv.exemption_reason = ex_reason or "Exonération accordée"
+                    inv.save()
+                elif not is_exempt and inv.is_exempt and inv.amount_paid == Decimal('0.00'):
+                    inv.is_exempt = False
                     inv.original_amount = base_fee
                     inv.discount_amount = discount
                     inv.amount_due = final_fee
-                    inv.save()
+                    inv.exemption_reason = ''
+                    inv.update_totals()
+                elif not inv.is_exempt and inv.status in ['unpaid', 'partial']:
+                    if inv.amount_paid == Decimal('0.00') and inv.amount_due != final_fee:
+                        inv.original_amount = base_fee
+                        inv.discount_amount = discount
+                        inv.amount_due = final_fee
+                        inv.save()
+                    inv.update_totals()
 
-    # 3. Supprimer les factures impayées (sans aucun paiement versé) des élèves n'ayant AUCUNE présence
-    for inv in Invoice.objects.filter(status='unpaid', is_exempt=False, period_month=month, period_year=year, amount_paid=Decimal('0.00')):
+    # 3. Purger UNIQUEMENT les factures d'élèves désactivés (active=False) n'ayant aucune présence et aucun versement
+    for inv in Invoice.objects.filter(status='unpaid', is_exempt=False, amount_paid=Decimal('0.00'), student__active=False):
         has_pres = Attendance.objects.filter(student=inv.student, status='present').exists()
         if not has_pres:
             inv.delete()
@@ -181,15 +206,20 @@ def sync_invoices_with_actual_attendances():
 
 def get_billable_unpaid_invoices_qs():
     """
-    Retourne uniquement les factures impayées ou partielles des élèves ayant
-    effectivement assisté à au moins une séance de cours (status='present').
-    Exclut rigoureusement les factures exonérées et les élèves n'ayant pas commencé.
+    Retourne fidèlement toutes les factures impayées ou partielles des élèves :
+    - Élèves actifs inscrits dans un ou plusieurs groupes
+    - OU élèves ayant assisté à au moins une séance de cours (status='present')
+    - OU factures ayant déjà reçu un versement partiel (amount_paid > 0)
+    Exclut rigoureusement les factures exonérées et les élèves inactifs sans présence.
     """
     sync_invoices_with_actual_attendances()
     return Invoice.objects.filter(
         status__in=['unpaid', 'partial'],
-        is_exempt=False,
-        student__attendances__status='present'
+        is_exempt=False
+    ).filter(
+        Q(student__active=True, student__groups__isnull=False) |
+        Q(student__attendances__status='present') |
+        Q(amount_paid__gt=Decimal('0.00'))
     ).distinct()
 
 @admin_required
