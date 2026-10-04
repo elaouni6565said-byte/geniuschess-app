@@ -600,11 +600,38 @@
                 });
         }
 
+        // Catalogue des factures pour synchronisation instantanée du mois concerné et du reliquat
+        var INVOICE_LOOKUP = {
+            {% for inv in form.fields.invoice.queryset %}
+            "{{ inv.id }}": {
+                "month": {{ inv.period_month }},
+                "year": {{ inv.period_year }},
+                "balance": "{{ inv.get_balance }}",
+                "student_id": "{{ inv.student_id }}"
+            },
+            {% endfor %}
+        };
+
         if (studentSelect) {
             studentSelect.addEventListener("change", checkDuplicatePayment);
         }
         if (invoiceSelect) {
-            invoiceSelect.addEventListener("change", checkDuplicatePayment);
+            invoiceSelect.addEventListener("change", function() {
+                var invId = this.value;
+                if (invId && INVOICE_LOOKUP[invId]) {
+                    var invInfo = INVOICE_LOOKUP[invId];
+                    if (periodMonthSelect) periodMonthSelect.value = invInfo.month;
+                    if (periodYearInput) periodYearInput.value = invInfo.year;
+                    if (amtInput && (!amtInput.value || amtInput.value === "0.00" || amtInput.value === "")) {
+                        amtInput.value = invInfo.balance;
+                    }
+                    if (studentSelect && !studentSelect.value) {
+                        studentSelect.value = invInfo.student_id;
+                        studentSelect.dispatchEvent(new Event("change"));
+                    }
+                }
+                checkDuplicatePayment();
+            });
         }
         if (dateInput) {
             dateInput.addEventListener("change", checkDuplicatePayment);

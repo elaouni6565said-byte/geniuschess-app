@@ -189,9 +189,9 @@
             <div class="kpi-value" style="color: var(--success);" title="{% money month_revenue %}">{% money month_revenue %}</div>
             <div class="kpi-subtext" style="color: #047857;">
                 {% if CURRENT_LANG == 'ar' %}
-                    ✓ مداخيل الشهر فقط
+                    ✓ حسب الشهر المؤدى عنه
                 {% else %}
-                    ✓ Recette du mois
+                    ✓ Cotisations du mois concerné
                 {% endif %}
             </div>
             <a href="{% url 'portal:export_paid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" class="kpi-link" style="color: var(--success);" title="{% if CURRENT_LANG == 'ar' %}تصدير أداءات الشهر (Excel){% else %}Exporter paiements du mois (Excel){% endif %}">
@@ -426,6 +426,7 @@
                     <tr>
                         <th>{% trans "payments.receipt_no" %}</th>
                         <th>{% trans "payments.student" %}</th>
+                        <th>{% if CURRENT_LANG == 'ar' %}الشهر المؤدى عنه{% else %}Mois Concerné{% endif %}</th>
                         <th>{% trans "payments.amount" %}</th>
                         <th>{% trans "payments.payment_date" %}</th>
                         <th>{% trans "payments.method" %}</th>
@@ -437,6 +438,16 @@
                     <tr>
                         <td><b>#{{ p.receipt_number }}</b></td>
                         <td>{{ p.student|trans_field:CURRENT_LANG }}</td>
+                        <td>
+                            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-weight: 700; font-size: 0.8rem;">
+                                🗓️ {% if CURRENT_LANG == 'ar' %}{{ p.period_label_ar }}{% else %}{{ p.period_label_fr }}{% endif %}
+                            </span>
+                            {% if p.is_deferred %}
+                                <span class="badge" style="background: #FEF3C7; color: #B45309; font-size: 0.68rem; margin-inline-start: 0.2rem;" title="{% if CURRENT_LANG == 'ar' %}أداء متأخر / تسوية{% else %}Paiement différé / régularisation{% endif %}">
+                                    {% if CURRENT_LANG == 'ar' %}تسوية{% else %}Différé{% endif %}
+                                </span>
+                            {% endif %}
+                        </td>
                         <td style="font-weight: bold; color: var(--primary-blue);">{% money p.amount %}</td>
                         <td>{% local_date p.payment_date %}</td>
                         <td>{{ p|trans_field:CURRENT_LANG }}</td>
@@ -449,7 +460,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
                             {% trans "common.not_found" %}
                         </td>
                     </tr>

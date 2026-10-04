@@ -77,9 +77,28 @@ def sync_invoices_with_actual_attendances():
     year = today.year
     due_date = datetime.date(year, month, 15)
 
-    # 1. Rattachement des paiements orphelins
+    # 1. Rattachement des paiements orphelins et réalignement sur le mois de la facture
     for p in Payment.objects.filter(invoice__isnull=True).select_related('student'):
-        p.save()
+        target_inv = Invoice.objects.filter(
+            student=p.student,
+            period_month=p.period_month or (p.payment_date.month if p.payment_date else month),
+            period_year=p.period_year or (p.payment_date.year if p.payment_date else year)
+        ).first()
+        if target_inv:
+            p.invoice = target_inv
+            p.period_month = target_inv.period_month
+            p.period_year = target_inv.period_year
+            p.save()
+        else:
+            p.save()
+
+    # Réalignement strict de period_month/year sur la facture pour tous les paiements liés
+    for p in Payment.objects.filter(invoice__isnull=False).select_related('invoice'):
+        if p.period_month != p.invoice.period_month or p.period_year != p.invoice.period_year:
+            p.period_month = p.invoice.period_month
+            p.period_year = p.invoice.period_year
+            p.save(update_fields=['period_month', 'period_year'])
+            p.invoice.update_totals()
 
     # 2. Pour les élèves ayant assisté à au moins une séance, créer ou synchroniser la facture
     attended_students = Student.objects.filter(
@@ -179,7 +198,7 @@ def dashboard_view(request):
     sync_invoices_with_actual_attendances()
     today = date.today()
 
-    # Gestion du mois et année d'observation (par défaut mois en cours ou dernier mois actif)
+    # Gestion du mois et année d'observation (par défaut mois en cours ou dernier mois avec cotisations)
     if 'month' in request.GET:
         try:
             selected_month = int(request.GET.get('month'))
@@ -187,27 +206,35 @@ def dashboard_view(request):
             selected_month = today.month
     else:
         selected_month = today.month
-        # Si le mois courant n'a pas encore de paiements enregistrés, basculer sur le dernier mois actif
-        if not Payment.objects.filter(Q(period_month=today.month, period_year=today.year) | Q(period_month__isnull=True, invoice__period_month=today.month, invoice__period_year=today.year)).exists():
-            last_pay = Payment.objects.order_by('-period_year', '-period_month', '-id').first()
+        # Si le mois courant n'a pas encore de paiements enregistrés pour sa période, basculer sur le dernier mois actif
+        current_has_payments = Payment.objects.filter(
+            Q(invoice__period_month=today.month, invoice__period_year=today.year) |
+            Q(invoice__isnull=True, period_month=today.month, period_year=today.year)
+        ).exists()
+        if not current_has_payments:
+            last_pay = Payment.objects.select_related('invoice').order_by('-period_year', '-period_month', '-id').first()
             if last_pay:
-                p_m = last_pay.period_month or (last_pay.invoice.period_month if last_pay.invoice else None)
-                p_y = last_pay.period_year or (last_pay.invoice.period_year if last_pay.invoice else None)
+                p_m = (last_pay.invoice.period_month if last_pay.invoice else None) or last_pay.period_month
+                p_y = (last_pay.invoice.period_year if last_pay.invoice else None) or last_pay.period_year
                 if p_m and p_y:
                     selected_month = p_m
+                    selected_year = p_y
 
-    try:
-        selected_year = int(request.GET.get('year', today.year))
-    except (ValueError, TypeError):
+    if 'year' in request.GET:
+        try:
+            selected_year = int(request.GET.get('year'))
+        except (ValueError, TypeError):
+            selected_year = today.year
+    elif 'selected_year' not in locals():
         selected_year = today.year
 
     total_students = Student.objects.filter(active=True).count()
     active_groups = Group.objects.count()
 
-    # 1. Recette DU MOIS SÉLECTIONNÉ SEULE (calculée uniquement pour le mois concerné par les cotisations)
+    # 1. Recette DU MOIS SÉLECTIONNÉ SEULE (Strictement basée sur le mois concerné par les cotisations, NON sur la date de versement)
     month_payments = Payment.objects.filter(
-        Q(period_month=selected_month, period_year=selected_year) |
-        Q(period_month__isnull=True, invoice__period_month=selected_month, invoice__period_year=selected_year)
+        Q(invoice__period_month=selected_month, invoice__period_year=selected_year) |
+        Q(invoice__isnull=True, period_month=selected_month, period_year=selected_year)
     ).select_related('student', 'invoice__group').prefetch_related('student__groups')
     month_revenue = month_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
@@ -261,8 +288,8 @@ def dashboard_view(request):
     monthly_breakdown = []
     for m_num, y_num in school_months_tuples:
         m_pays = Payment.objects.filter(
-            Q(period_month=m_num, period_year=y_num) |
-            Q(period_month__isnull=True, invoice__period_month=m_num, invoice__period_year=y_num)
+            Q(invoice__period_month=m_num, invoice__period_year=y_num) |
+            Q(invoice__isnull=True, period_month=m_num, period_year=y_num)
         ).select_related('student', 'invoice__group').prefetch_related('student__groups')
         m_rev = m_pays.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         m_cnt = m_pays.count()
@@ -449,8 +476,8 @@ def export_paid_payments_excel_view(request):
         m_val = int(req_month)
         y_val = int(req_year) if req_year and req_year.isdigit() else date.today().year
         payments = payments.filter(
-            Q(period_month=m_val, period_year=y_val) |
-            Q(period_month__isnull=True, invoice__period_month=m_val, invoice__period_year=y_val)
+            Q(invoice__period_month=m_val, invoice__period_year=y_val) |
+            Q(invoice__isnull=True, period_month=m_val, period_year=y_val)
         ).distinct()
         unpaid_invoices = unpaid_invoices.filter(period_month=m_val, period_year=y_val).distinct()
         filename = f"GCA_Etat_Paiements_{m_val:02d}_{y_val}_{lang}.xlsx"
@@ -2384,22 +2411,22 @@ def payment_create_view(request):
                 disc_amount = form.cleaned_data.get('discount_amount') or Decimal('0.00')
                 conv_name = form.cleaned_data.get('convention_name', '').strip()
 
-                # Mois et année concernés par le règlement (régularisation paiements tardifs/anticipés)
-                req_month = form.cleaned_data.get('period_month')
-                req_year = form.cleaned_data.get('period_year')
-                if req_month:
-                    p.period_month = int(req_month)
-                elif p.invoice:
+                # Si une facture est sélectionnée, le mois concerné est OBLIGATOIREMENT celui de la facture
+                if p.invoice:
                     p.period_month = p.invoice.period_month
-                else:
-                    p.period_month = p.payment_date.month
-
-                if req_year:
-                    p.period_year = int(req_year)
-                elif p.invoice:
                     p.period_year = p.invoice.period_year
                 else:
-                    p.period_year = p.payment_date.year
+                    req_month = form.cleaned_data.get('period_month')
+                    req_year = form.cleaned_data.get('period_year')
+                    if req_month:
+                        p.period_month = int(req_month)
+                    else:
+                        p.period_month = p.payment_date.month if p.payment_date else date.today().month
+
+                    if req_year:
+                        p.period_year = int(req_year)
+                    else:
+                        p.period_year = p.payment_date.year if p.payment_date else date.today().year
 
                 month = p.period_month
                 year = p.period_year
@@ -2542,20 +2569,30 @@ def payment_edit_view(request, payment_id):
         authorized, error_msg = check_financial_auth(request, entered_code)
         if authorized:
             if form.is_valid():
-                updated_payment = form.save()
+                old_inv = payment.invoice
+                updated_payment = form.save(commit=False)
+
+                # Priorité absolue au mois de la facture
+                if updated_payment.invoice:
+                    updated_payment.period_month = updated_payment.invoice.period_month
+                    updated_payment.period_year = updated_payment.invoice.period_year
+                else:
+                    req_month = form.cleaned_data.get('period_month')
+                    req_year = form.cleaned_data.get('period_year')
+                    if req_month:
+                        updated_payment.period_month = int(req_month)
+                    if req_year:
+                        updated_payment.period_year = int(req_year)
+
+                updated_payment.save()
                 
+                # Recalcul de l'ancienne facture si elle a changé
+                if old_inv and old_inv.id != (updated_payment.invoice.id if updated_payment.invoice else None):
+                    old_inv.update_totals()
+
                 # Mise à jour de la facture associée si présente
                 if updated_payment.invoice:
-                    inv = updated_payment.invoice
-                    total_paid = inv.payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-                    inv.amount_paid = total_paid
-                    if inv.amount_paid >= inv.amount_due:
-                        inv.status = 'paid'
-                    elif inv.amount_paid > Decimal('0.00'):
-                        inv.status = 'partial'
-                    else:
-                        inv.status = 'unpaid'
-                    inv.save()
+                    updated_payment.invoice.update_totals()
 
                 msg = (
                     f"✓ Reçu #{updated_payment.receipt_number} modifié avec succès."

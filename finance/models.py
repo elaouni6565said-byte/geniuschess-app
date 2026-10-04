@@ -231,14 +231,25 @@ class Payment(models.Model):
             from datetime import date
             self.payment_date = date.today()
 
-        # 1. Remplir period_month et period_year par défaut si non spécifiés
-        if not self.period_month:
-            if self.invoice:
-                self.period_month = self.invoice.period_month
-                self.period_year = self.invoice.period_year
-            elif self.payment_date:
-                self.period_month = self.payment_date.month
-                self.period_year = self.payment_date.year
+        # 1. Si une facture est associée, le mois et l'année concernés sont STRICTEMENT ceux de la facture
+        if self.invoice_id:
+            if not hasattr(self, '_invoice_cache') or self._invoice_cache is None:
+                inv = Invoice.objects.filter(id=self.invoice_id).first()
+            else:
+                inv = self.invoice
+            if inv:
+                self.period_month = inv.period_month
+                self.period_year = inv.period_year
+        else:
+            if not self.period_month:
+                if self.payment_date:
+                    self.period_month = self.payment_date.month
+                    self.period_year = self.payment_date.year
+                else:
+                    from datetime import date
+                    self.period_month = date.today().month
+                    self.period_year = date.today().year
+
         if not self.period_year:
             self.period_year = 2026
 
@@ -251,6 +262,8 @@ class Payment(models.Model):
             ).first()
             if target_inv:
                 self.invoice = target_inv
+                self.period_month = target_inv.period_month
+                self.period_year = target_inv.period_year
 
         super().save(*args, **kwargs)
         if self.invoice:
