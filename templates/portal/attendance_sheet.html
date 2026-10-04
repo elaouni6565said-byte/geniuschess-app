@@ -66,6 +66,40 @@
     </div>
 </div>
 
+<!-- GRAND BANDEAU POPUP DE CONFIRMATION (FEEDBACK DERNIER SCAN) -->
+<div id="bigScanBanner" style="display: none; margin-bottom: 1.25rem; border-radius: var(--radius-md); padding: 1.25rem 1.5rem; background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%); border: 2px solid #22C55E; box-shadow: 0 10px 15px -3px rgba(34, 197, 94, 0.25); animation: pulse 0.3s ease;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: #16A34A; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; box-shadow: 0 4px 6px rgba(22, 163, 74, 0.3);">
+                ✓
+            </div>
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <h3 id="scannedStudentName" style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #14532D;">
+                        Nom de l'élève
+                    </h3>
+                    <span id="scannedRegNumber" class="badge" style="background: white; color: #166534; font-weight: 700;">
+                        GCA-2026-000
+                    </span>
+                </div>
+                <div style="font-size: 0.9rem; color: #166534; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <span>👥 {{ schedule.group|trans_field:CURRENT_LANG }}</span>
+                    <span>•</span>
+                    <span id="scannedTime">🕒 00:00</span>
+                    <span id="scannedWaNotice" class="badge" style="display: none; background: #16A34A; color: white; font-weight: 700; font-size: 0.75rem;">
+                        📲 {% if CURRENT_LANG == 'ar' %}تم إرسال واتساب للولي{% else %}WhatsApp envoyé au parent{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div style="text-align: end;">
+            <span id="scannedStatusBadge" class="badge" style="background: #16A34A; color: white; font-size: 0.95rem; font-weight: 800; padding: 0.4rem 0.85rem;">
+                🟢 {% if CURRENT_LANG == 'ar' %}حاضر في الحصة{% else %}Présent en cours{% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
 <!-- SECTION DOUBLE BLOC : SCANNER CAMÉRA + POINTAGE RAPIDE (CARTES OUBLIÉES) -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-bottom: 1.75rem;">
     
@@ -213,6 +247,10 @@
                             {% endif %}
                         </span>
 
+                        <div id="time-status-{{ st.id }}" style="font-size: 0.75rem; color: #475569; margin-top: 0.25rem; font-weight: 700; font-family: monospace;">
+                            {% if item.scanned_at %}🕒 {{ item.scanned_at|time:"H:i" }}{% endif %}
+                        </div>
+
                         {% if item.status == 'absent' %}
                         <div style="margin-top: 0.35rem; display: flex; gap: 0.25rem; justify-content: center; align-items: center; flex-wrap: wrap;">
                             {% if item.alert_sent %}
@@ -299,23 +337,82 @@ let isCameraRunning = false;
 let lastScannedCode = null;
 let lastScanTime = 0;
 
-// Bip Audio de validation (Web Audio API)
+// Bip Audio de validation (Web Audio API à double tonalité) + Vibration Haptique
 function playSuccessBeep() {
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Note La5 (880 Hz)
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.18);
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 0.18);
+        
+        // Note 1: La 880Hz
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain1.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.12);
+
+        // Note 2: Mi 1320Hz (jingle ascendant cristallin)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(1320, audioCtx.currentTime + 0.10);
+        gain2.gain.setValueAtTime(0.25, audioCtx.currentTime + 0.10);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.28);
+        osc2.start(audioCtx.currentTime + 0.10);
+        osc2.stop(audioCtx.currentTime + 0.28);
     } catch (e) {
         console.log("Audio not allowed yet", e);
     }
+
+    // Vibration haptique sur smartphone
+    if (navigator.vibrate) {
+        try {
+            navigator.vibrate([100, 50, 100]);
+        } catch (e) {}
+    }
+}
+
+// Grand bandeau popup de confirmation (Axe 4)
+function displayBigBanner(data) {
+    const banner = document.getElementById("bigScanBanner");
+    const nameEl = document.getElementById("scannedStudentName");
+    const regEl = document.getElementById("scannedRegNumber");
+    const timeEl = document.getElementById("scannedTime");
+    const waEl = document.getElementById("scannedWaNotice");
+    const badgeEl = document.getElementById("scannedStatusBadge");
+
+    if (!banner) return;
+
+    if (nameEl) nameEl.innerText = data.student_name || "Élève";
+    if (regEl) regEl.innerText = data.registration_number || "";
+    if (timeEl) timeEl.innerText = "🕒 " + (data.scanned_at || data.time || "");
+
+    if (badgeEl) {
+        let icon = "🟢";
+        if (data.status === "absent") icon = "🔴";
+        else if (data.status === "late") icon = "🟠";
+        else if (data.status === "justified") icon = "🔵";
+        badgeEl.innerText = icon + " " + (data.status_label || "Présent");
+    }
+
+    if (waEl) {
+        if (data.whatsapp_sent) {
+            waEl.style.display = "inline-block";
+        } else {
+            waEl.style.display = "none";
+        }
+    }
+
+    banner.style.display = "block";
+    clearTimeout(banner._hideTimer);
+    banner._hideTimer = setTimeout(() => {
+        banner.style.display = "none";
+    }, 4500);
 }
 
 // Fonction de mise à jour AJAX du statut de présence
@@ -336,7 +433,8 @@ function setStudentStatus(studentId, codeOrRegistration, status) {
     .then(data => {
         if (data.success) {
             playSuccessBeep();
-            updateRowUI(data.student_id, data.status, data.status_label, data.time);
+            displayBigBanner(data);
+            updateRowUI(data.student_id, data.status, data.status_label, data.scanned_at || data.time);
             recalculateCounters();
 
             // Flash Feedback
@@ -354,6 +452,7 @@ function setStudentStatus(studentId, codeOrRegistration, status) {
 function updateRowUI(studentId, status, statusLabel, timeStr) {
     const badge = document.getElementById("badge-status-" + studentId);
     const row = document.getElementById("att-row-" + studentId);
+    const timeEl = document.getElementById("time-status-" + studentId);
 
     if (badge) {
         let bg = "#F1F5F9", color = "#64748B", icon = "⏳";
@@ -364,7 +463,16 @@ function updateRowUI(studentId, status, statusLabel, timeStr) {
 
         badge.style.background = bg;
         badge.style.color = color;
-        badge.innerHTML = icon + " " + statusLabel + (timeStr ? " (" + timeStr + ")" : "");
+        badge.innerHTML = icon + " " + statusLabel;
+    }
+
+    if (timeEl) {
+        if (timeStr && (status === "present" || status === "late")) {
+            timeEl.innerText = "🕒 " + timeStr;
+            timeEl.style.display = "block";
+        } else {
+            timeEl.innerText = "";
+        }
     }
 
     if (row) {

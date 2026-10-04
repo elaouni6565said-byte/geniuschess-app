@@ -2857,10 +2857,11 @@ def attendance_sheet_view(request, session_id):
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'mark_all_present':
+            now_t = datetime.now().time()
             for st in students:
                 Attendance.objects.update_or_create(
                     student=st, session=schedule, date=target_date,
-                    defaults={'status': 'present'}
+                    defaults={'status': 'present', 'scanned_at': now_t}
                 )
             messages.success(
                 request,
@@ -2917,6 +2918,7 @@ def attendance_sheet_view(request, session_id):
             'student': st,
             'attendance': att,
             'status': status,
+            'scanned_at': att.scanned_at if att else None,
             'notes': att.notes if att else '',
             'alert_sent': alert_sent,
             'whatsapp_url': wa_url,
@@ -2997,19 +2999,26 @@ def attendance_scan_ajax_view(request, session_id):
         }, status=404)
 
     # Vérifier s'il est inscrit dans ce groupe
-    in_group = schedule.group.students.filter(id=student.id).exists()
+    in_group = student.groups.filter(id=schedule.group.id).exists()
+
+    # Enregistrement de la présence avec horodatage exact (Axe 3)
+    now_dt = datetime.now()
+    now_time = now_dt.strftime('%H:%M')
+    scanned_at_time = now_dt.time() if status in ('present', 'late') else None
+
+    defaults_dict = {
+        'status': status,
+        'notes': notes,
+    }
+    if scanned_at_time:
+        defaults_dict['scanned_at'] = scanned_at_time
 
     att, created = Attendance.objects.update_or_create(
         student=student,
         session=schedule,
         date=target_date,
-        defaults={
-            'status': status,
-            'notes': notes,
-        }
+        defaults=defaults_dict
     )
-
-    now_time = datetime.now().strftime('%H:%M')
     status_label = att.get_status_label(lang)
     wa_result = None
 
@@ -3035,6 +3044,7 @@ def attendance_scan_ajax_view(request, session_id):
         'status': status,
         'status_label': status_label,
         'time': now_time,
+        'scanned_at': now_time,
         'in_group': in_group,
         'whatsapp_sent': wa_sent,
         'whatsapp_result': wa_result,
@@ -3177,18 +3187,26 @@ def quick_scan_ajax_view(request):
                     'error': f"⚠️ {student.get_full_name('fr')} n'a aucun cours programmé ce jour ({student_groups})."
                 }, status=400)
 
-    # Enregistrement de la présence
-    in_group = schedule.group.students.filter(id=student.id).exists()
+    # Enregistrement de la présence avec horodatage exact (Axe 3)
+    now_dt = datetime.now()
+    now_time = now_dt.strftime('%H:%M')
+    scanned_at_time = now_dt.time() if status in ('present', 'late') else None
+
+    defaults_dict = {
+        'status': status,
+    }
+    if scanned_at_time:
+        defaults_dict['scanned_at'] = scanned_at_time
+
+    in_group = student.groups.filter(id=schedule.group.id).exists()
+
     att, created = Attendance.objects.update_or_create(
         student=student,
         session=schedule,
         date=target_date,
-        defaults={
-            'status': status,
-        }
+        defaults=defaults_dict
     )
 
-    now_time = datetime.now().strftime('%H:%M')
     status_label = att.get_status_label(lang)
 
     # Notification WhatsApp de présence si Présent
@@ -3222,6 +3240,7 @@ def quick_scan_ajax_view(request):
         'status': status,
         'status_label': status_label,
         'time': now_time,
+        'scanned_at': now_time,
         'in_group': in_group,
         'whatsapp_sent': wa_sent,
         'message': msg,

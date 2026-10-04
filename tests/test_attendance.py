@@ -370,4 +370,53 @@ def test_quick_scan_views_and_local_library():
     assert 'GCA-2026' in res_data['registration_number']
 
 
+@pytest.mark.django_db
+def test_attendance_scanned_at_and_visual_feedback():
+    """
+    Valide l'Axe 3 & 4 :
+    1. Horodatage exact scanned_at enregistré dans Attendance lors du scan.
+    2. scanned_at retourné dans le JSON AJAX (attendance_scan_ajax et quick_scan_ajax).
+    3. Présence de bigScanBanner et de time-status dans attendance_sheet.html.
+    """
+    from academy.models import Student, SessionSchedule, Attendance
+    client = Client()
+    admin = User.objects.get(username='admin')
+    client.force_login(admin)
+
+    student = Student.objects.first()
+    sch = SessionSchedule.objects.first()
+    today_str = '2026-10-04'
+
+    # Pointage via attendance_scan_ajax
+    resp = client.post(
+        f'/attendance/{sch.id}/scan/',
+        data={
+            'code': student.registration_number,
+            'status': 'present',
+            'date': today_str
+        },
+        content_type='application/json'
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert 'scanned_at' in data
+    assert data['scanned_at'] is not None
+
+    # Vérification en base de données
+    att = Attendance.objects.get(student=student, session=sch, date=today_str)
+    assert att.status == 'present'
+    assert att.scanned_at is not None
+    assert att.get_scanned_time_display() != "—"
+
+    # Vérification de l'affichage dans attendance_sheet.html
+    resp_sheet = client.get(f'/attendance/{sch.id}/?date={today_str}')
+    assert resp_sheet.status_code == 200
+    html = resp_sheet.content.decode('utf-8')
+    assert "bigScanBanner" in html
+    assert f"time-status-{student.id}" in html
+    assert att.get_scanned_time_display() in html
+
+
+
 

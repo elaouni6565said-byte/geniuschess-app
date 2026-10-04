@@ -294,7 +294,13 @@ class Attendance(models.Model):
     session = models.ForeignKey(SessionSchedule, on_delete=models.CASCADE)
     date = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="present")
+    scanned_at = models.TimeField(null=True, blank=True, verbose_name="Heure de pointage / وقت التسجيل")
     notes = models.TextField(blank=True)
+
+    def get_scanned_time_display(self):
+        if self.scanned_at:
+            return self.scanned_at.strftime('%H:%M')
+        return ""
 
     def get_status_label(self, lang="fr"):
         labels = {
