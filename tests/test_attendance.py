@@ -320,3 +320,54 @@ def test_attendance_wednesday_robotics_sessions_and_scan():
         assert "Html5Qrcode" in sheet_content or "html5-qrcode" in sheet_content
 
 
+@pytest.mark.django_db
+def test_quick_scan_views_and_local_library():
+    """
+    Valide l'Axe 1 & 2 :
+    1. /attendance/scan/ (quick_scan_view) retourne 200 et charge html5-qrcode.min.js en local.
+    2. /attendance/quick-scan/ajax/ traite le scan instantané avec détection intelligente de séance.
+    3. Fichier static/js/vendor/html5-qrcode.min.js existe physiquement sur le disque (> 100 Ko).
+    """
+    import os
+    from django.conf import settings
+    from academy.models import Student, SessionSchedule
+    client = Client()
+    admin = User.objects.get(username='admin')
+    client.force_login(admin)
+
+    # 1. Vérification présence physique du script local
+    static_file = os.path.join(settings.BASE_DIR, 'static', 'js', 'vendor', 'html5-qrcode.min.js')
+    assert os.path.exists(static_file)
+    assert os.path.getsize(static_file) > 100000
+
+    # 2. Test GET /attendance/scan/
+    resp = client.get('/attendance/scan/')
+    assert resp.status_code == 200
+    content = resp.content.decode('utf-8')
+    assert "html5-qrcode.min.js" in content
+    assert "bigScanBanner" in content
+
+    # 3. Test POST /attendance/quick-scan/ajax/
+    student = Student.objects.first()
+    assert student is not None
+    sch = SessionSchedule.objects.first()
+
+    resp_ajax = client.post(
+        '/attendance/quick-scan/ajax/',
+        data={
+            'code': f'GCA:STU:{student.registration_number}',
+            'session_id': sch.id,
+            'status': 'present',
+            'date': '2026-10-04'
+        },
+        content_type='application/json'
+    )
+    assert resp_ajax.status_code == 200
+    res_data = resp_ajax.json()
+    assert res_data['success'] is True
+    assert res_data['student_id'] == student.id
+    assert res_data['status'] == 'present'
+    assert 'GCA-2026' in res_data['registration_number']
+
+
+

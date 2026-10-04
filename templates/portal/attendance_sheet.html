@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load gca_tags %}
+{% load gca_tags static %}
 
 {% block title %}
     {% if CURRENT_LANG == 'ar' %}ورقة الحضور — {{ schedule.group|trans_field:CURRENT_LANG }}{% else %}Feuille d'Appel — {{ schedule.group|trans_field:CURRENT_LANG }}{% endif %}
@@ -280,8 +280,13 @@
     </div>
 </div>
 
-<!-- SCRIPTS DU SCANNER CAMÉRA HTML5 & GESTION DU POINTAGE AJAX -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<!-- SCRIPTS DU SCANNER CAMÉRA HTML5 (LOCAL EN PRIORITÉ + FALLBACK CDN) -->
+<script src="{% static 'js/vendor/html5-qrcode.min.js' %}"></script>
+<script>
+    if (typeof Html5Qrcode === 'undefined') {
+        document.write('<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"><\/script>');
+    }
+</script>
 
 <script>
 const CSRF_TOKEN = "{{ csrf_token }}";

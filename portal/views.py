@@ -3043,6 +3043,192 @@ def attendance_scan_ajax_view(request, session_id):
 
 
 @trainer_or_admin_required
+def quick_scan_view(request):
+    """
+    Vue de Scan Rapide Universel :
+    Permet de scanner en continu les badges QR Code des élèves.
+    Détecte automatiquement la séance de l'élève pour la journée en cours
+    ou permet au coach de verrouiller une séance spécifique.
+    """
+    from datetime import date, datetime
+    from core.i18n import FRENCH_DAYS, ARABIC_DAYS
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    today = date.today()
+    current_weekday = today.weekday()
+    now_time = datetime.now().time()
+
+    # Récupérer toutes les séances du jour
+    today_sessions = SessionSchedule.objects.filter(
+        day_of_week=current_weekday
+    ).select_related('group', 'group__subject', 'room').order_by('start_time')
+
+    # Séance pré-sélectionnée passée en paramètre GET ou séance en cours
+    selected_session_id = request.GET.get('session')
+    active_session = None
+    if selected_session_id:
+        try:
+            active_session = today_sessions.filter(id=int(selected_session_id)).first()
+        except (ValueError, TypeError):
+            active_session = None
+
+    if not active_session and today_sessions.exists():
+        # Trouver la séance dont l'horaire est le plus proche de maintenant
+        for s in today_sessions:
+            if s.start_time <= now_time <= s.end_time:
+                active_session = s
+                break
+        if not active_session:
+            active_session = today_sessions.first()
+
+    context = {
+        'today': today,
+        'today_sessions': today_sessions,
+        'active_session': active_session,
+        'day_name': FRENCH_DAYS.get(current_weekday) if lang != 'ar' else ARABIC_DAYS.get(current_weekday),
+    }
+    return render(request, 'portal/quick_scan.html', context)
+
+
+@trainer_or_admin_required
+def quick_scan_ajax_view(request):
+    """
+    Pointage AJAX pour le Scan Rapide Universel :
+    Supporte :
+    1. Scan avec séance spécifiée
+    2. Scan universel avec détection automatique de la séance du jour de l'élève
+    """
+    import json
+    from datetime import date, datetime
+
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    today = date.today()
+
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        data = request.POST
+
+    code = str(data.get('code', '')).strip()
+    session_id = data.get('session_id')
+    status = str(data.get('status', 'present')).strip()
+    date_str = str(data.get('date', '')).strip()
+
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = today
+    else:
+        target_date = today
+
+    if not code:
+        return JsonResponse({'success': False, 'error': 'Code manquant / رمز مفقود'}, status=400)
+
+    # Nettoyage du préfixe GCA:STU:
+    clean_code = code
+    if clean_code.upper().startswith('GCA:STU:'):
+        clean_code = clean_code[8:].strip()
+
+    # Recherche de l'élève
+    student = None
+    if clean_code.isdigit():
+        student = Student.objects.filter(id=int(clean_code)).first()
+    if not student:
+        student = Student.objects.filter(registration_number__iexact=clean_code).first()
+
+    if not student:
+        return JsonResponse({
+            'success': False,
+            'error': f"Élève introuvable pour le code « {clean_code} »" if lang == 'fr' else f"لم يتم العثور على التلميذ للرمز « {clean_code} »"
+        }, status=404)
+
+    # Résolution de la séance
+    schedule = None
+    if session_id and str(session_id) not in ('', 'auto', 'null', 'None'):
+        try:
+            schedule = SessionSchedule.objects.filter(id=int(session_id)).first()
+        except (ValueError, TypeError):
+            schedule = None
+
+    if not schedule:
+        # Détection intelligente : chercher la séance de l'élève pour le jour concerné
+        student_day_schedules = SessionSchedule.objects.filter(
+            day_of_week=target_date.weekday(),
+            group__students=student
+        ).select_related('group', 'room').order_by('start_time')
+
+        if student_day_schedules.exists():
+            now_t = datetime.now().time()
+            for s in student_day_schedules:
+                if s.start_time <= now_t <= s.end_time:
+                    schedule = s
+                    break
+            if not schedule:
+                schedule = student_day_schedules.first()
+        else:
+            today_any = SessionSchedule.objects.filter(day_of_week=target_date.weekday()).first()
+            if today_any:
+                schedule = today_any
+            else:
+                student_groups = ", ".join([g.name_fr for g in student.groups.all()]) or "Aucun groupe"
+                return JsonResponse({
+                    'success': False,
+                    'student_name': student.get_bilingual_full_name(),
+                    'error': f"⚠️ {student.get_full_name('fr')} n'a aucun cours programmé ce jour ({student_groups})."
+                }, status=400)
+
+    # Enregistrement de la présence
+    in_group = schedule.group.students.filter(id=student.id).exists()
+    att, created = Attendance.objects.update_or_create(
+        student=student,
+        session=schedule,
+        date=target_date,
+        defaults={
+            'status': status,
+        }
+    )
+
+    now_time = datetime.now().strftime('%H:%M')
+    status_label = att.get_status_label(lang)
+
+    # Notification WhatsApp de présence si Présent
+    wa_result = None
+    if status == 'present':
+        from academy.whatsapp_absence import send_presence_notification_to_parent
+        wa_result = send_presence_notification_to_parent(att)
+
+    wa_sent = bool(wa_result and wa_result.get('success'))
+    wa_tag = " (📲 WhatsApp envoyé)" if wa_sent else ""
+
+    grp_label = schedule.group.name_ar if lang == 'ar' else schedule.group.name_fr
+    msg = (
+        f"✓ {student.get_full_name('fr')} — {grp_label} : {status_label} à {now_time}{wa_tag}"
+        if lang == 'fr' else
+        f"✓ تم تسجيل {student.get_full_name('ar')} — {grp_label} : {status_label} في {now_time}{wa_tag}"
+    )
+
+    return JsonResponse({
+        'success': True,
+        'student_id': student.id,
+        'student_name': student.get_bilingual_full_name(),
+        'student_name_fr': student.get_full_name('fr'),
+        'student_name_ar': student.get_full_name('ar'),
+        'registration_number': student.registration_number,
+        'session_id': schedule.id,
+        'group_name': schedule.group.name_fr,
+        'group_name_ar': schedule.group.name_ar,
+        'group_color': schedule.group.get_color(),
+        'time_str': f"{schedule.start_time.strftime('%H:%M')} - {schedule.end_time.strftime('%H:%M')}",
+        'status': status,
+        'status_label': status_label,
+        'time': now_time,
+        'in_group': in_group,
+        'whatsapp_sent': wa_sent,
+        'message': msg,
+    })
+
+
+@trainer_or_admin_required
 @require_POST
 def attendance_notify_absents_view(request, session_id):
     """

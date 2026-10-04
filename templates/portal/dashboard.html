@@ -517,11 +517,47 @@
 
     <!-- Quick Actions & Dynamic Activities -->
     <div>
+        <!-- Carte Séances du Jour -->
+        <div class="card" style="border-inline-start: 4px solid #2563EB; margin-bottom: 1.5rem;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="card-title">📅 {% if CURRENT_LANG == 'ar' %}حصص اليوم{% else %}Séances d'Aujourd'hui{% endif %}</h3>
+                <a href="{% url 'portal:attendance_list' %}" class="btn btn-outline btn-sm" style="font-size: 0.75rem;">
+                    {% trans "common.all" %} →
+                </a>
+            </div>
+            {% if today_sessions %}
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    {% for s in today_sessions %}
+                    <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <div>
+                            <span class="badge" style="background: {{ s.group.get_color }}; color: white; font-weight: 700; font-size: 0.75rem;">
+                                👥 {{ s.group|trans_field:CURRENT_LANG }}
+                            </span>
+                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--primary-navy); margin-top: 0.2rem;">
+                                🕒 {{ s.start_time|time:'H:i' }} - {{ s.end_time|time:'H:i' }}
+                            </div>
+                        </div>
+                        <a href="{% url 'portal:attendance_sheet' s.id %}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.65rem; background: #2563EB;">
+                            📲 {% if CURRENT_LANG == 'ar' %}مسح ورقة الحصة{% else %}Pointer / Scanner{% endif %}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; text-align: center; padding: 1rem 0;">
+                    ☕ {% if CURRENT_LANG == 'ar' %}لا توجد حصص مبرمجة اليوم.{% else %}Aucun cours régulier programmé ce jour.{% endif %}
+                </p>
+            {% endif %}
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">⚡ {% trans "dashboard.quick_actions" %}</h3>
             </div>
             <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <a href="{% url 'portal:quick_scan' %}" class="btn btn-primary" style="background: #2563EB; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.4rem; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);">
+                    📷 {% if CURRENT_LANG == 'ar' %}ماسح الحضور السريع (QR Code){% else %}Scanner Présence Rapide (QR Code){% endif %}
+                </a>
                 <a href="{% url 'portal:students' %}" class="btn btn-secondary">
                     🎓 {% trans "students.title" %}
                 </a>

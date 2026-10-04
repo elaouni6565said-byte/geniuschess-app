@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% load gca_tags static %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}مسح الحضور السريع — أكاديمية جينيوس{% else %}Scanner Présence Rapide — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.25rem;">
+    <div class="page-header-titles">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+            <a href="{% url 'portal:attendance_list' %}" class="btn btn-outline btn-sm" style="font-weight: 600;">
+                ← {% if CURRENT_LANG == 'ar' %}أوراق الحضور{% else %}Toutes les présences{% endif %}
+            </a>
+            <span class="badge" style="background: #2563EB; color: white; font-weight: 700;">
+                📷 {% if CURRENT_LANG == 'ar' %}الماسح السريع الذكي{% else %}Scanner Rapide QR{% endif %}
+            </span>
+            <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700;">
+                📅 {{ day_name }} — {% local_date today %}
+            </span>
+        </div>
+        <h2>
+            📷 {% if CURRENT_LANG == 'ar' %}ماسح بطاقات الحضور المباشر (QR Code){% else %}Scanner de Présence Direct — Badges QR Code{% endif %}
+        </h2>
+        <p style="margin: 0; color: var(--text-muted); font-size: 0.88rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                وجّه بطاقة التلميذ أمام الكاميرا لتسجيل حضوره فورياً مع تنبيه صوتي وإرسال إشعار واتساب تلقائي لولي أمره.
+            {% else %}
+                Passez le badge de l'élève devant la caméra pour pointer sa présence instantanément (Bip sonore + notification WhatsApp envoyée au parent).
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="{% url 'portal:dashboard' %}" class="btn btn-secondary btn-sm">
+            🏠 {% trans "nav.dashboard" %}
+        </a>
+        <a href="{% url 'portal:attendance_list' %}" class="btn btn-outline btn-sm">
+            📋 {% trans "nav.attendance" %}
+        </a>
+    </div>
+</div>
+
+<!-- GRAND BANDEAU POPUP DE CONFIRMATION (FEEDBACK DERNIER SCAN) -->
+<div id="bigScanBanner" style="display: none; margin-bottom: 1.25rem; border-radius: var(--radius-md); padding: 1.25rem 1.5rem; background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%); border: 2px solid #22C55E; box-shadow: 0 10px 15px -3px rgba(34, 197, 94, 0.25); animation: pulse 0.3s ease;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: #16A34A; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; box-shadow: 0 4px 6px rgba(22, 163, 74, 0.3);">
+                ✓
+            </div>
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <h3 id="scannedStudentName" style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #14532D;">
+                        Nom de l'élève
+                    </h3>
+                    <span id="scannedRegNumber" class="badge" style="background: white; color: #166534; font-weight: 700;">
+                        GCA-2026-000
+                    </span>
+                </div>
+                <div style="font-size: 0.9rem; color: #166534; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <span id="scannedGroupName">👥 Groupe</span>
+                    <span>•</span>
+                    <span id="scannedTime">🕒 00:00</span>
+                    <span id="scannedWaNotice" class="badge" style="background: #16A34A; color: white; font-weight: 700; font-size: 0.75rem;">
+                        📲 WhatsApp envoyé
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div style="text-align: end;">
+            <span class="badge" style="background: #16A34A; color: white; font-size: 0.95rem; font-weight: 800; padding: 0.4rem 0.85rem;">
+                🟢 {% if CURRENT_LANG == 'ar' %}حاضر في الحصة{% else %}Présent en cours{% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- GRILLE PRINCIPALE : SCANNER + CARTES OUBLIÉES -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+
+    <!-- 1. BLOC SCANNER CAMÉRA -->
+    <div class="card" style="border: 2px solid #2563EB; background: linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.3rem;">📹</span>
+                <h4 style="margin: 0; color: #1E40AF; font-size: 1.05rem; font-weight: 700;">
+                    {% if CURRENT_LANG == 'ar' %}كاميرا المسح المباشر{% else %}Caméra de Scan en Direct{% endif %}
+                </h4>
+            </div>
+
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                <button type="button" id="btnToggleCamera" onclick="toggleCameraScanner()" class="btn btn-primary btn-sm" style="font-weight: 700; font-size: 0.82rem; background: #2563EB;">
+                    ▶️ {% if CURRENT_LANG == 'ar' %}تشغيل الكاميرا{% else %}Activer Caméra{% endif %}
+                </button>
+                <label class="btn btn-outline btn-sm" style="margin: 0; cursor: pointer; font-size: 0.82rem; background: white; font-weight: 600; border-color: #93C5FD; color: #1E40AF;" title="Scanner depuis une image enregistrée">
+                    📁 {% if CURRENT_LANG == 'ar' %}صورة QR{% else %}Photo QR{% endif %}
+                    <input type="file" id="qr-file-input" accept="image/*" style="display: none;" onchange="handleFileScan(this)">
+                </label>
+            </div>
+        </div>
+
+        <!-- SÉLECTEUR DE SÉANCE : AUTOMATIQUE OU FORCÉE -->
+        <div style="margin-bottom: 0.85rem; background: white; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid #BFDBFE;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E40AF; margin-bottom: 0.35rem;">
+                🎯 {% if CURRENT_LANG == 'ar' %}تخصيص الحصة :{% else %}Séance ciblée :{% endif %}
+            </label>
+            <select id="selectTargetSession" class="search-input" style="width: 100%; font-size: 0.85rem; padding: 0.4rem 0.65rem;">
+                <option value="auto" selected>
+                    🔄 {% if CURRENT_LANG == 'ar' %}كشف ذكي تلقائي (حسب حصة التلميذ اليوم){% else %}Détection intelligente (Selon le cours de l'élève aujourd'hui){% endif %}
+                </option>
+                {% for s in today_sessions %}
+                    <option value="{{ s.id }}" {% if active_session and active_session.id == s.id %}data-current="true"{% endif %}>
+                        👥 {{ s.group|trans_field:CURRENT_LANG }} ({{ s.start_time|time:'H:i' }} - {{ s.end_time|time:'H:i' }}) — 🏛️ {{ s.room|trans_field:CURRENT_LANG|default:"Salle principale" }}
+                    </option>
+                {% endfor %}
+            </select>
+            {% if not today_sessions %}
+                <p style="font-size: 0.78rem; color: #B45309; margin: 0.4rem 0 0 0;">
+                    ℹ️ {% if CURRENT_LANG == 'ar' %}لا توجد حصص مبرمجة في الجدول العادي لهذا اليوم، سيتم كشف المجموعة مباشرة عند المسح.{% else %}Aucune séance n'est planifiée dans le calendrier habituel ce jour.{% endif %}
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- FENÊTRE VIDÉO DU SCANNER -->
+        <div id="reader-container" style="display: none; position: relative; border-radius: var(--radius-sm); overflow: hidden; background: #000; margin-bottom: 0.75rem; min-height: 240px;">
+            <div id="reader" style="width: 100%;"></div>
+        </div>
+
+        <p style="font-size: 0.8rem; color: #1E3A8A; margin: 0;">
+            💡 {% if CURRENT_LANG == 'ar' %}ضع رمز QR المقابل لبطاقة التلميذ أمام الكاميرا لمسحه فورياً.{% else %}Maintenez le badge QR Code à 15-20 cm de la caméra.{% endif %}
+        </p>
+    </div>
+
+    <!-- 2. BLOC CARTES OUBLIÉES & SAISIE MANUELLE DIRECTE -->
+    <div class="card" style="border: 1px solid var(--border-color); background: white;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem;">
+            <span style="font-size: 1.3rem;">🔍</span>
+            <h4 style="margin: 0; color: var(--primary-navy); font-size: 1.05rem; font-weight: 700;">
+                {% if CURRENT_LANG == 'ar' %}البطاقات المنسية / بحث وتصحيح يدوي{% else %}Cartes Oubliées / Pointage Manuel Rapide{% endif %}
+            </h4>
+        </div>
+
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                إذا نسي التلميذ بطاقته في المنزل، اكتب رقم تسجيله (مثل 001) أو اسمه واضغط على «تسجيل الحضور» :
+            {% else %}
+                L'élève a oublié sa carte ? Tapez son matricule (ex: GCA-2026-001 ou 1) ou son nom et validez :
+            {% endif %}
+        </p>
+
+        <form onsubmit="handleManualSubmit(event)" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+            <input type="text" id="manualCodeInput" class="search-input" placeholder="{% if CURRENT_LANG == 'ar' %}مثال: GCA-2026-001 أو رقم 1...{% else %}Ex: GCA-2026-001 ou numéro d'élève...{% endif %}" style="flex: 1; padding: 0.6rem 0.85rem; font-size: 0.95rem;">
+            <button type="submit" class="btn btn-primary" style="font-weight: 700; white-space: nowrap; padding: 0.6rem 1rem;">
+                ✅ {% if CURRENT_LANG == 'ar' %}تسجيل الحضور{% else %}Valider Présent{% endif %}
+            </button>
+        </form>
+
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
+            <h5 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--primary-navy);">
+                ⚡ {% if CURRENT_LANG == 'ar' %}مزايا الماسح السريع الذكي :{% else %}Avantages du Scan Rapide :{% endif %}
+            </h5>
+            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.3rem;">
+                <li>{% if CURRENT_LANG == 'ar' %}يعمل بدون انقطاع وبسرعة فائقة لجميع الحصص.{% else %}Pointage continu ultra-rapide pour tous les cours.{% endif %}</li>
+                <li>{% if CURRENT_LANG == 'ar' %}تنبيه صوتي واهتزاز للهاتف عند كل مسح ناجح.{% else %}Bip sonore et vibration mobile à chaque scan réussi.{% endif %}</li>
+                <li>{% if CURRENT_LANG == 'ar' %}إرسال إشعار واتساب التلقائي لولي الأمر لإخباره بوصول ابنه.{% else %}Envoi automatique d'une confirmation WhatsApp au parent.{% endif %}</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- 3. HISTORIQUE DES DERNIERS SCANS EN DIRECT -->
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="card-title">
+            📋 {% if CURRENT_LANG == 'ar' %}سجل عمليات المسح الأخيرة في هذه الجلسة{% else %}Derniers Émargements de la Session (En Direct){% endif %}
+        </h3>
+        <span id="liveScanCount" class="badge" style="background: #EFF6FF; color: #1D4ED8; font-weight: 700;">
+            0 {% if CURRENT_LANG == 'ar' %}تلميذ مسجل{% else %}élève pointé{% endif %}
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="gca-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Heure</th>
+                    <th>{% trans "students.name" %}</th>
+                    <th>Matricule</th>
+                    <th>{% trans "planning_crud.group" %}</th>
+                    <th>Statut</th>
+                    <th>WhatsApp</th>
+                </tr>
+            </thead>
+            <tbody id="scanHistoryBody">
+                <tr id="emptyHistoryRow">
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                        {% if CURRENT_LANG == 'ar' %}
+                            لم يتم مسح أي تلميذ بعد في هذه الجلسة. ابدأ بتشغيل الكاميرا لمسح البطاقات.
+                        {% else %}
+                            Aucun badge scanné pour le moment dans cette session. Activez la caméra pour commencer.
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SCRIPTS DU SCANNER CAMÉRA HTML5 (LOCAL EN PRIORITÉ + FALLBACK CDN) -->
+<script src="{% static 'js/vendor/html5-qrcode.min.js' %}"></script>
+<script>
+    if (typeof Html5Qrcode === 'undefined') {
+        document.write('<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"><\/script>');
+    }
+</script>
+
+<script>
+const CSRF_TOKEN = "{{ csrf_token }}";
+const QUICK_SCAN_AJAX_URL = "{% url 'portal:quick_scan_ajax' %}";
+const TARGET_DATE = "{{ today|date:'Y-m-d' }}";
+const CURRENT_LANG = "{{ CURRENT_LANG }}";
+
+let html5QrCode = null;
+let isCameraRunning = false;
+let lastScannedCode = null;
+let lastScanTime = 0;
+let scannedCount = 0;
+
+// Bip Audio de validation (Web Audio API)
+function playSuccessBeep() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880 Hz
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.2);
+
+        // Vibration sur smartphone si supportée
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+        }
+    } catch (e) {
+        console.log("Audio/Vibrate notice:", e);
+    }
+}
+
+// Bip d'erreur
+function playErrorBeep() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.35);
+
+        if (navigator.vibrate) {
+            navigator.vibrate(300);
+        }
+    } catch (e) {}
+}
+
+// Fonction centrale d'envoi du code scanné au serveur
+function processScanCode(code) {
+    if (!code) return;
+    const targetSession = document.getElementById("selectTargetSession").value;
+
+    fetch(QUICK_SCAN_AJAX_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": CSRF_TOKEN,
+        },
+        body: JSON.stringify({
+            code: code,
+            session_id: targetSession,
+            status: "present",
+            date: TARGET_DATE
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            playSuccessBeep();
+            displayBigBanner(data);
+            addScanToHistory(data);
+        } else {
+            playErrorBeep();
+            alert(data.error || "Erreur de pointage");
+        }
+    })
+    .catch(err => {
+        console.error("Erreur AJAX Scan", err);
+        playErrorBeep();
+        alert("Erreur de connexion au serveur.");
+    });
+}
+
+// Affichage du grand bandeau de confirmation
+function displayBigBanner(data) {
+    const banner = document.getElementById("bigScanBanner");
+    const nameEl = document.getElementById("scannedStudentName");
+    const regEl = document.getElementById("scannedRegNumber");
+    const grpEl = document.getElementById("scannedGroupName");
+    const timeEl = document.getElementById("scannedTime");
+    const waEl = document.getElementById("scannedWaNotice");
+
+    const stName = CURRENT_LANG === 'ar' && data.student_name_ar ? data.student_name_ar : (data.student_name_fr || data.student_name);
+    const grpName = CURRENT_LANG === 'ar' && data.group_name_ar ? data.group_name_ar : data.group_name;
+
+    nameEl.innerText = stName;
+    regEl.innerText = data.registration_number;
+    grpEl.innerText = "👥 " + grpName + (data.time_str ? " (" + data.time_str + ")" : "");
+    timeEl.innerText = "🕒 " + data.time;
+
+    if (data.whatsapp_sent) {
+        waEl.style.display = "inline-block";
+        waEl.innerText = CURRENT_LANG === 'ar' ? "📲 تم إرسال واتساب للولي" : "📲 WhatsApp envoyé au parent";
+    } else {
+        waEl.style.display = "none";
+    }
+
+    banner.style.display = "block";
+    clearTimeout(banner._hideTimer);
+    banner._hideTimer = setTimeout(() => {
+        banner.style.display = "none";
+    }, 4500);
+}
+
+// Ajout d'une ligne dans le tableau d'historique en direct
+function addScanToHistory(data) {
+    const emptyRow = document.getElementById("emptyHistoryRow");
+    if (emptyRow) emptyRow.style.display = "none";
+
+    const tbody = document.getElementById("scanHistoryBody");
+    const tr = document.createElement("tr");
+    tr.style.background = "#F0FDF4";
+    tr.style.animation = "fadeIn 0.3s ease";
+
+    const stName = CURRENT_LANG === 'ar' && data.student_name_ar ? data.student_name_ar : (data.student_name_fr || data.student_name);
+    const grpName = CURRENT_LANG === 'ar' && data.group_name_ar ? data.group_name_ar : data.group_name;
+
+    tr.innerHTML = `
+        <td><b style="color: var(--primary-blue); font-family: monospace;">${data.time}</b></td>
+        <td><b>${stName}</b></td>
+        <td><span class="badge" style="background: #F1F5F9; color: var(--text-dark);">${data.registration_number}</span></td>
+        <td><span class="badge" style="background: ${data.group_color || '#2563EB'}; color: white; font-weight: 700;">👥 ${grpName}</span></td>
+        <td><span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700;">🟢 ${data.status_label || 'Présent'}</span></td>
+        <td>${data.whatsapp_sent ? '<span class="badge" style="background: #22C55E; color: white;">📲 OK</span>' : '<span style="color: var(--text-muted); font-size: 0.8rem;">—</span>'}</td>
+    `;
+
+    tbody.insertBefore(tr, tbody.firstChild);
+
+    scannedCount++;
+    const countEl = document.getElementById("liveScanCount");
+    if (countEl) {
+        countEl.innerText = `${scannedCount} ` + (CURRENT_LANG === 'ar' ? 'تلميذ مسجل' : 'élève(s) pointé(s)');
+    }
+}
+
+// Validation manuelle par formulaire
+function handleManualSubmit(e) {
+    e.preventDefault();
+    const input = document.getElementById("manualCodeInput");
+    const val = input.value.trim();
+    if (!val) return;
+    processScanCode(val);
+    input.value = "";
+}
+
+// Démarrage / Arrêt de la Caméra
+function toggleCameraScanner() {
+    const container = document.getElementById("reader-container");
+    const btn = document.getElementById("btnToggleCamera");
+
+    if (isCameraRunning) {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                container.style.display = "none";
+                btn.innerHTML = "▶️ {% if CURRENT_LANG == 'ar' %}تشغيل الكاميرا{% else %}Activer Caméra{% endif %}";
+                btn.style.background = "#2563EB";
+                isCameraRunning = false;
+            });
+        }
+    } else {
+        container.style.display = "block";
+        btn.innerHTML = "⏸️ {% if CURRENT_LANG == 'ar' %}إيقاف الكاميرا{% else %}Arrêter Caméra{% endif %}";
+        btn.style.background = "#DC2626";
+
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            onScanSuccess,
+            onScanFailure
+        ).then(() => {
+            isCameraRunning = true;
+        }).catch(err => {
+            console.error("Camera start error", err);
+            alert("Impossible d'accéder à la caméra : " + err);
+            container.style.display = "none";
+            btn.innerHTML = "▶️ Activer Caméra";
+            btn.style.background = "#2563EB";
+            isCameraRunning = false;
+        });
+    }
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+    const now = Date.now();
+    // Éviter les scans en boucle du même badge en moins de 3 secondes
+    if (decodedText === lastScannedCode && now - lastScanTime < 3000) {
+        return;
+    }
+    lastScannedCode = decodedText;
+    lastScanTime = now;
+
+    processScanCode(decodedText);
+}
+
+function onScanFailure(error) {
+    // Scan en cours
+}
+
+function handleFileScan(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const scanner = html5QrCode || new Html5Qrcode("reader");
+    scanner.scanFile(file, true)
+        .then(decodedText => {
+            processScanCode(decodedText);
+        })
+        .catch(err => {
+            alert("Aucun QR Code lisible n'a été détecté dans cette image.");
+        });
+    input.value = "";
+}
+</script>
+{% endblock %}
