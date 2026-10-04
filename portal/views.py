@@ -767,16 +767,52 @@ def planning_view(request):
 def payments_list_view(request):
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     sync_invoices_with_actual_attendances()
+    today = date.today()
+
     payments = Payment.objects.select_related('student', 'invoice', 'invoice__group').prefetch_related('student__groups__subject').order_by('-payment_date', '-id')
     unpaid_invoices = get_billable_unpaid_invoices_qs().select_related('student', 'group')
     exempted_invoices = Invoice.objects.filter(
         Q(is_exempt=True) | Q(status='exempt')
     ).select_related('student', 'group', 'student__parent').order_by('-period_year', '-period_month', 'student__last_name_fr')
+
+    # Bilan de Réconciliation (Total Élèves = Payés + Impayés + Exonérés)
+    # Par défaut Septembre si avant le 10 octobre
+    try:
+        reconcile_month = int(request.GET.get('reconcile_month', 9 if (today.month == 10 and today.day < 10) else (today.month if today.day >= 10 else (today.month - 1 if today.month > 1 else 12))))
+    except (ValueError, TypeError):
+        reconcile_month = 9
+    try:
+        reconcile_year = int(request.GET.get('reconcile_year', today.year if not (today.month == 1 and today.day < 10) else today.year - 1))
+    except (ValueError, TypeError):
+        reconcile_year = today.year
+
+    from core.i18n import FRENCH_MONTHS, ARABIC_MONTHS
+    reconcile_month_label = FRENCH_MONTHS.get(reconcile_month, str(reconcile_month)).capitalize()
+    reconcile_month_label_ar = ARABIC_MONTHS.get(reconcile_month, str(reconcile_month))
+
+    total_active_students_count = Student.objects.filter(active=True).count()
+    month_invs = Invoice.objects.filter(period_month=reconcile_month, period_year=reconcile_year, student__active=True)
+
+    reconcile_paid_count = month_invs.filter(status='paid', is_exempt=False).values('student').distinct().count()
+    reconcile_unpaid_count = month_invs.filter(status__in=['unpaid', 'partial'], is_exempt=False).values('student').distinct().count()
+    reconcile_exempt_count = month_invs.filter(Q(is_exempt=True) | Q(status='exempt')).values('student').distinct().count()
+
+    reconcile_sum = reconcile_paid_count + reconcile_unpaid_count + reconcile_exempt_count
+    reconcile_is_perfect = (reconcile_sum == total_active_students_count)
     
     context = {
         'payments': payments,
         'unpaid_invoices': unpaid_invoices,
         'exempted_invoices': exempted_invoices,
+        'reconcile_month': reconcile_month,
+        'reconcile_year': reconcile_year,
+        'reconcile_month_label': reconcile_month_label_ar if lang == 'ar' else reconcile_month_label,
+        'total_active_students_count': total_active_students_count,
+        'reconcile_paid_count': reconcile_paid_count,
+        'reconcile_unpaid_count': reconcile_unpaid_count,
+        'reconcile_exempt_count': reconcile_exempt_count,
+        'reconcile_sum': reconcile_sum,
+        'reconcile_is_perfect': reconcile_is_perfect,
     }
     return render(request, 'portal/payments.html', context)
 

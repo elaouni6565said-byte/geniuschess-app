@@ -28,6 +28,57 @@
     </div>
 </div>
 
+<!-- Bilan de Réconciliation Complète des Cotisations (Payés + Impayés + Exonérés = Total Actifs) -->
+<div class="card" style="border-inline-start: 4px solid {% if reconcile_is_perfect %}#10B981{% else %}#F59E0B{% endif %}; background: #F8FAFC; margin-bottom: 1.5rem; padding: 1.1rem 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h4 style="margin: 0 0 0.25rem 0; font-size: 1.02rem; color: var(--primary-navy);">
+                📊 {% if CURRENT_LANG == 'ar' %}ميزان المطابقة الشاملة لشهر {{ reconcile_month_label }} {{ reconcile_year }}{% else %}Bilan de Réconciliation Complète — {{ reconcile_month_label }} {{ reconcile_year }}{% endif %}
+            </h4>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">
+                {% if CURRENT_LANG == 'ar' %}
+                    معادلة التحقق : إجمالي التلاميذ النشطين = المؤدون (Payés) + غير المؤدين (Impayés) + المعفون (Exonérés)
+                {% else %}
+                    Équation de contrôle : Total Élèves Actifs = Élèves Payés + Élèves Impayés + Élèves Exonérés
+                {% endif %}
+            </div>
+        </div>
+        <div>
+            {% if reconcile_is_perfect %}
+                <span class="badge" style="background: #DCFCE7; color: #15803D; font-size: 0.82rem; font-weight: 700; padding: 0.4rem 0.75rem;">
+                    ✓ {% if CURRENT_LANG == 'ar' %}مطابقة تامة 100% (كل التلاميذ مشمولون){% else %}Réconciliation 100% Conforme (Tous les élèves sont réconciliés){% endif %}
+                </span>
+            {% else %}
+                <span class="badge" style="background: #FEF3C7; color: #B45309; font-size: 0.82rem; font-weight: 700; padding: 0.4rem 0.75rem;">
+                    ⚠️ {% if CURRENT_LANG == 'ar' %}فارق : توجد تسجيلات تحتاج تدقيقاً{% else %}Écart détecté : des élèves actifs n'ont pas encore de statut{% endif %}
+                </span>
+            {% endif %}
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.65rem; margin-top: 0.85rem;">
+        <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">{% if CURRENT_LANG == 'ar' %}إجمالي التلاميذ النشطين{% else %}Total Élèves Actifs{% endif %}</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary-navy);">{{ total_active_students_count }}</div>
+        </div>
+        <div style="background: white; border: 1px solid #BBF7D0; border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: #15803D; font-weight: 600;">✅ {% if CURRENT_LANG == 'ar' %}المؤدون (Payés){% else %}Élèves Payés{% endif %}</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #15803D;">{{ reconcile_paid_count }}</div>
+        </div>
+        <div style="background: white; border: 1px solid #FECACA; border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: #B91C1C; font-weight: 600;">⚠️ {% if CURRENT_LANG == 'ar' %}غير المؤدين (Impayés){% else %}Élèves Impayés{% endif %}</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #B91C1C;">{{ reconcile_unpaid_count }}</div>
+        </div>
+        <div style="background: white; border: 1px solid #DDD6FE; border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: #6D28D9; font-weight: 600;">🌟 {% if CURRENT_LANG == 'ar' %}المعفون (Exonérés){% else %}Élèves Exonérés{% endif %}</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #6D28D9;">{{ reconcile_exempt_count }}</div>
+        </div>
+        <div style="background: white; border: 2px solid {% if reconcile_is_perfect %}#10B981{% else %}#F59E0B{% endif %}; border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">{% if CURRENT_LANG == 'ar' %}المجموع (P + I + E){% else %}Somme (P + I + E){% endif %}</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: {% if reconcile_is_perfect %}#10B981{% else %}#F59E0B{% endif %};">{{ reconcile_sum }} / {{ total_active_students_count }}</div>
+        </div>
+    </div>
+</div>
+
 <!-- Unpaid Dues Notice / Impayés (47.7 & 47.11) -->
 {% if unpaid_invoices %}
 <div class="card" style="border-inline-start: 4px solid var(--danger);">
