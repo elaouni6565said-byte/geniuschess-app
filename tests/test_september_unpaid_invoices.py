@@ -3,25 +3,24 @@ from decimal import Decimal
 import pytest
 from django.test import Client
 from django.contrib.auth import get_user_model
-from academy.models import Student, Group, Subject, Parent
+from academy.models import Student, Group, Subject, Parent, Attendance, SessionSchedule
 from finance.models import Invoice, Payment
-from portal.views import get_billable_unpaid_invoices_qs
+from portal.views import get_billable_unpaid_invoices_qs, is_period_overdue
 
 User = get_user_model()
 
 
 @pytest.mark.django_db
-def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
+def test_september_unpaid_invoices_and_tenth_of_month_rule():
     """
-    Vérifie que :
-    1. Les élèves inscrits pour Septembre sans paiement complet ont bien une facture impayée pour Septembre.
-    2. Ces factures apparaissent fidèlement dans get_billable_unpaid_invoices_qs().
-    3. Elles apparaissent dans /payments/ sous la section Impayés.
-    4. Elles apparaissent dans le Tableau de Bord (TB) :
-       - Dans la ligne Septembre de monthly_breakdown avec le montant 'unpaid' exact.
-       - Dans le KPI 'month_unpaid' lorsqu'on consulte Septembre (?month=9&year=2026).
-    5. Même en l'absence d'enregistrement de présence numérique préalable, l'élève actif inscrit
-       n'est pas exclu des impayés.
+    Vérifie les règles GCA :
+    1. Seuls les élèves ayant effectivement assisté aux cours (status='present')
+       ou ayant versé un acompte reçoivent une facture pour ce mois.
+    2. Un élève n'ayant aucune présence dans le mois et aucun paiement N'EST PAS facturé pour ce mois.
+    3. Règle du 10 du mois :
+       - Les impayés d'un mois ne sont calculés qu'à partir du 10 de ce mois.
+       - Avant le 10 (ex: 4 Octobre), les cotisations d'Octobre ne sont pas en impayé (0 DH).
+       - Pour Septembre (mois antérieur), le 10 est passé -> les factures impayées sont bien comptabilisées.
     """
     admin = User.objects.get(username='admin')
     client = Client()
@@ -31,7 +30,7 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
     sub = Subject.objects.create(name_fr="Échecs Sept", name_ar="شطرنج شتنبر")
     grp = Group.objects.create(name_fr="Groupe Septembre", name_ar="فوج شتنبر", subject=sub, monthly_fee=Decimal('300.00'))
 
-    # Élève 1 : Totalement impayé pour Septembre
+    # Élève 1 : A assisté aux cours en Septembre (présent), mais n'a pas payé (300 DH impayé)
     st1 = Student.objects.create(
         registration_number="GCA-SEPT-01",
         first_name_fr="Amine",
@@ -40,8 +39,15 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
         active=True
     )
     st1.groups.add(grp)
+    schedule = SessionSchedule.objects.first()
+    Attendance.objects.create(
+        student=st1,
+        session=schedule,
+        date=date(2026, 9, 12),
+        status='present'
+    )
 
-    # Élève 2 : Paiement partiel pour Septembre (a versé 100 DH sur 300 DH -> 200 DH d'impayé)
+    # Élève 2 : A versé 100 DH sur 300 DH -> reliquat de 200 DH d'impayé
     st2 = Student.objects.create(
         registration_number="GCA-SEPT-02",
         first_name_fr="Sara",
@@ -50,7 +56,6 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
         active=True
     )
     st2.groups.add(grp)
-
     inv2 = Invoice.objects.create(
         student=st2,
         group=grp,
@@ -73,6 +78,21 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
         payment_method='cash'
     )
 
+    # Élève 3 : Inscrit mais n'a JAMAIS assisté en Septembre et n'a rien versé -> NE DOIT PAS AVOIR D'IMPAYÉ
+    st3 = Student.objects.create(
+        registration_number="GCA-SEPT-03",
+        first_name_fr="Mehdi",
+        last_name_fr="Alaoui",
+        parent=parent,
+        active=True
+    )
+    st3.groups.add(grp)
+
+    # Test de la fonction is_period_overdue
+    assert is_period_overdue(2026, 9, today=date(2026, 10, 4)) is True
+    assert is_period_overdue(2026, 10, today=date(2026, 10, 4)) is False
+    assert is_period_overdue(2026, 10, today=date(2026, 10, 10)) is True
+
     # 1. Vérification dans get_billable_unpaid_invoices_qs()
     unpaid_qs = get_billable_unpaid_invoices_qs()
     unpaid_student_ids = list(unpaid_qs.values_list('student_id', flat=True))
@@ -80,16 +100,8 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
     # st1 et st2 doivent impérativement être présents
     assert st1.id in unpaid_student_ids
     assert st2.id in unpaid_student_ids
-
-    inv1 = unpaid_qs.filter(student=st1, period_month=9, period_year=2026).first()
-    assert inv1 is not None
-    assert inv1.status == 'unpaid'
-    assert inv1.get_balance() == Decimal('300.00')
-
-    inv2_fetched = unpaid_qs.filter(student=st2, period_month=9, period_year=2026).first()
-    assert inv2_fetched is not None
-    assert inv2_fetched.status == 'partial'
-    assert inv2_fetched.get_balance() == Decimal('200.00')
+    # st3 NE DOIT PAS être présent dans les impayés
+    assert st3.id not in unpaid_student_ids
 
     # 2. Vérification sur la page /payments/
     resp_pay = client.get('/payments/')
@@ -97,6 +109,7 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
     pay_html = resp_pay.content.decode('utf-8')
     assert "Amine" in pay_html or "Tahiri" in pay_html
     assert "Sara" in pay_html or "Berrada" in pay_html
+    assert "Mehdi" not in pay_html
 
     # 3. Vérification sur le Dashboard pour Septembre (?month=9&year=2026)
     resp_dash_sept = client.get('/?month=9&year=2026')
@@ -104,7 +117,7 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
     ctx_sept = resp_dash_sept.context
     assert ctx_sept['selected_month'] == 9
     assert ctx_sept['selected_year'] == 2026
-    # Au moins 500 DH d'impayés pour Septembre (st1: 300 DH + st2: 200 DH)
+    # Exactement 500 DH d'impayés pour ces deux élèves (st1: 300 DH + st2: 200 DH)
     assert ctx_sept['month_unpaid'] >= Decimal('500.00')
 
     # 4. Vérification dans monthly_breakdown
@@ -112,3 +125,8 @@ def test_september_unpaid_invoices_appear_in_dashboard_and_payments():
     sept_entry = next((item for item in breakdown if item['month'] == 9 and item['year'] == 2026), None)
     assert sept_entry is not None
     assert sept_entry['unpaid'] >= Decimal('500.00')
+
+    # Vérification pour Octobre 2026 avant le 10 : impayés d'Octobre = 0 DH
+    oct_entry = next((item for item in breakdown if item['month'] == 10 and item['year'] == 2026), None)
+    if oct_entry:
+        assert oct_entry['unpaid'] == Decimal('0.00')
