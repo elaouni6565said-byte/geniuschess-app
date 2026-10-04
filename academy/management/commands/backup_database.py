@@ -36,8 +36,19 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        dest_dir = Path(options['dest'])
-        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_dir = Path(options['dest']).resolve()
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            test_file = dest_dir / '.write_test'
+            test_file.touch()
+            test_file.unlink()
+        except (PermissionError, OSError) as e:
+            raise CommandError(
+                f"Permission refusee dans le dossier de sauvegarde : {dest_dir}\n"
+                f"Solution : executez la commande suivante sur le serveur :\n"
+                f"sudo chown -R $USER:www-data {dest_dir} && sudo chmod -R 775 {dest_dir}"
+            )
+
         keep_days = options['keep_days']
         prefix = options['prefix']
 
