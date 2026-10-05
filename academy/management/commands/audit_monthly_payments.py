@@ -87,6 +87,19 @@ class Command(BaseCommand):
                     'status': inv.status
                 })
 
+        # 3.b Détection automatique des doublons de paiement
+        month_payments = Payment.objects.filter(
+            Q(invoice__period_month=month, invoice__period_year=year) |
+            Q(invoice__isnull=True, period_month=month, period_year=year)
+        ).select_related('student')
+        seen_pays = {}
+        duplicates_found = []
+        for p in month_payments:
+            if p.student_id in seen_pays:
+                duplicates_found.append((seen_pays[p.student_id], p))
+            else:
+                seen_pays[p.student_id] = p
+
         # 4. Vérifier s'il y a des paiements pour des élèves sans facture rattachée
         orphan_month_pays = Payment.objects.filter(
             period_month=month,
@@ -179,6 +192,18 @@ class Command(BaseCommand):
         self.stdout.write(f"  * [EXONERE] Eleves EXONERES (0 DH)         : {count_exempt:2d} eleves")
         self.stdout.write(f"--------------------------------------------------------")
         self.stdout.write(f"2. Somme des listes (Payes + Impayes + Exoneres) : {total_accounted} eleves")
+
+        # Alerte Doublons
+        if duplicates_found:
+            self.stdout.write(self.style.ERROR(f"\n--- [!] ALERTE SYSTEME : {len(duplicates_found)} doublon(s) de paiement detecte(s) faussant le total ! ---"))
+            for p1, p2 in duplicates_found:
+                st = p2.student
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"  * [{st.registration_number}] {st.first_name_fr} {st.last_name_fr} : "
+                        f"Reçu #{p1.receipt_number} ({p1.amount} DH) et Reçu #{p2.receipt_number} ({p2.amount} DH)"
+                    )
+                )
 
         # Détail des élèves impayés
         if unpaid_students:

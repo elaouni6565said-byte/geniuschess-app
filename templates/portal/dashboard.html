@@ -56,6 +56,41 @@
     </form>
 </div>
 
+<!-- BANNIÈRE DU SYSTÈME DE CONTRÔLE COMPTABLE (DÉTECTION AUTOMATIQUE DES ANOMALIES & DOUBLONS) -->
+{% if accounting_alerts %}
+<div style="background: #FEF2F2; border: 2px solid #EF4444; border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+            <span style="font-size: 1.6rem; line-height: 1;">🚨</span>
+            <div>
+                <h4 style="margin: 0 0 0.35rem 0; color: #991B1B; font-size: 0.95rem; font-weight: 800;">
+                    {% if CURRENT_LANG == 'ar' %}نظام المراقبة المحاسبية : تم اكتشاف أداءات مكررة تؤثر على المجموع !{% else %}Système de Contrôle Comptable : Paiements en double détectés faussant le total !{% endif %}
+                </h4>
+                <div style="font-size: 0.85rem; color: #B91C1C; line-height: 1.5;">
+                    {% for alt in accounting_alerts %}
+                        <div style="margin-bottom: 0.35rem;">
+                            • <b>{{ alt.student_name }}</b> ({{ alt.registration_number }}) : 
+                            {% if CURRENT_LANG == 'ar' %}
+                                تم تسجيل وصلين لهذا الشهر : الوصل <b>#{{ alt.receipt_1 }}</b> ({% money alt.amount_1 %}) والوصل <b>#{{ alt.receipt_2 }}</b> ({% money alt.amount_2 %}).
+                            {% else %}
+                                2 reçus enregistrés pour ce mois : Reçu <b>#{{ alt.receipt_1 }}</b> ({% money alt.amount_1 %}) et Reçu <b>#{{ alt.receipt_2 }}</b> ({% money alt.amount_2 %}).
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div>
+            {% for alt in accounting_alerts %}
+                <a href="{% url 'portal:payment_delete' alt.payment_id_to_delete %}" class="btn btn-sm btn-danger" style="background: #DC2626; color: white; border: none; font-weight: 700; padding: 0.45rem 0.85rem; box-shadow: 0 2px 4px rgba(220, 38, 38, 0.25);">
+                    🗑️ {% if CURRENT_LANG == 'ar' %}حذف الوصل المكرر #{{ alt.receipt_2 }}{% else %}Supprimer le reçu doublon #{{ alt.receipt_2 }}{% endif %}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Style pour garantir l'affichage strict de TOUS les KPIs sur une SEULE ligne -->
 <style>
 .dashboard-kpi-row {
@@ -410,9 +445,16 @@
     <!-- Recent Payments Card -->
     <div class="card">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-            <h3 class="card-title">💳 {% trans "dashboard.recent_payments" %}</h3>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <h3 class="card-title" style="margin: 0;">
+                    💳 {% if CURRENT_LANG == 'ar' %}لائحة أداءات شهر {{ period_label }}{% else %}Détail des Paiements de {{ period_label }}{% endif %}
+                </h3>
+                <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 0.8rem; font-weight: 700; border: 1px solid #BFDBFE;">
+                    {{ dashboard_payments_count }} {% if CURRENT_LANG == 'ar' %}أداء مسجل{% else %}reçu(s) enregistré(s){% endif %}
+                </span>
+            </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                <a href="{% url 'portal:export_paid_excel' %}" class="btn btn-secondary btn-sm" style="font-weight: 600;">
+                <a href="{% url 'portal:export_paid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-secondary btn-sm" style="font-weight: 600;">
                     📥 {% if CURRENT_LANG == 'ar' %}تصدير لائحة الأداءات (Excel){% else %}Exporter l'état de paiement (Excel){% endif %}
                 </a>
                 <a href="{% url 'portal:payments' %}" class="btn btn-outline btn-sm">
@@ -427,17 +469,17 @@
                         <th>{% trans "payments.receipt_no" %}</th>
                         <th>{% trans "payments.student" %}</th>
                         <th>{% if CURRENT_LANG == 'ar' %}الشهر المؤدى عنه{% else %}Mois Concerné{% endif %}</th>
-                        <th>{% trans "payments.amount" %}</th>
+                        <th style="text-align: right;">{% trans "payments.amount" %}</th>
                         <th>{% trans "payments.payment_date" %}</th>
                         <th>{% trans "payments.method" %}</th>
-                        <th>PDF</th>
+                        <th style="text-align: center;">PDF</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in recent_payments %}
+                    {% for p in dashboard_payments %}
                     <tr>
                         <td><b>#{{ p.receipt_number }}</b></td>
-                        <td>{{ p.student|trans_field:CURRENT_LANG }}</td>
+                        <td><b>{{ p.student|trans_field:CURRENT_LANG }}</b></td>
                         <td>
                             <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-weight: 700; font-size: 0.8rem;">
                                 🗓️ {% if CURRENT_LANG == 'ar' %}{{ p.period_label_ar }}{% else %}{{ p.period_label_fr }}{% endif %}
@@ -448,10 +490,10 @@
                                 </span>
                             {% endif %}
                         </td>
-                        <td style="font-weight: bold; color: var(--primary-blue);">{% money p.amount %}</td>
+                        <td style="font-weight: 800; color: var(--success); text-align: right;">{% money p.amount %}</td>
                         <td>{% local_date p.payment_date %}</td>
                         <td>{{ p|trans_field:CURRENT_LANG }}</td>
-                        <td>
+                        <td style="text-align: center;">
                             <a href="{% url 'portal:receipt_pdf' p.id %}?lang={{ CURRENT_LANG }}" 
                                target="_blank" class="btn btn-outline btn-sm" title="Télécharger">
                                 📄 PDF
@@ -466,6 +508,27 @@
                     </tr>
                     {% endfor %}
                 </tbody>
+                {% if dashboard_payments %}
+                <tfoot>
+                    <tr style="background: #F8FAFC; border-top: 2px solid #CBD5E1; font-weight: 800;">
+                        <td colspan="3" style="text-align: right; font-size: 0.95rem; color: var(--primary-navy);">
+                            {% if CURRENT_LANG == 'ar' %}
+                                مجموع أداءات شهر {{ period_label }} :
+                            {% else %}
+                                Total des règlements de {{ period_label }} :
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right; color: var(--success); font-size: 1.15rem; font-weight: 900;">
+                            {% money month_revenue %}
+                        </td>
+                        <td colspan="3">
+                            <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700;">
+                                ✓ {% if CURRENT_LANG == 'ar' %}مطابق 100% للمؤشر أعلاه{% else %}Strictement Conforme au Total affiché{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                </tfoot>
+                {% endif %}
             </table>
         </div>
     </div>

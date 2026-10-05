@@ -338,6 +338,26 @@ def dashboard_view(request):
     else:
         period_label = f"{month_name_fr} {selected_year}"
 
+    # Contrôle de cohérence comptable & détection automatique des doublons
+    accounting_alerts = []
+    seen_students_in_month = {}
+    for p in month_payments:
+        st_id = p.student_id
+        if st_id in seen_students_in_month:
+            prev_p = seen_students_in_month[st_id]
+            accounting_alerts.append({
+                'type': 'duplicate',
+                'student_name': p.student.get_full_name(lang),
+                'registration_number': p.student.registration_number,
+                'receipt_1': prev_p.receipt_number,
+                'amount_1': prev_p.amount,
+                'receipt_2': p.receipt_number,
+                'amount_2': p.amount,
+                'payment_id_to_delete': p.id,
+            })
+        else:
+            seen_students_in_month[st_id] = p
+
     # 2. Recette de CHAQUE MOIS affichée seule (détail mensuel distinct)
     base_year = selected_year if selected_month >= 9 else (selected_year - 1)
     school_months_tuples = [
@@ -424,6 +444,7 @@ def dashboard_view(request):
     today_sessions = SessionSchedule.objects.filter(day_of_week=today_weekday).select_related('group', 'room')
 
     recent_payments = Payment.objects.select_related('student', 'invoice').order_by('-payment_date', '-id')[:6]
+    dashboard_payments = list(month_payments)
     recent_parent_visits = ParentVisitLog.objects.select_related('parent', 'student').order_by('-timestamp')[:8]
     activities = Subject.objects.all()
 
@@ -447,8 +468,11 @@ def dashboard_view(request):
         'attendance_rate': att_rate,
         'today_sessions': today_sessions,
         'recent_payments': recent_payments,
+        'dashboard_payments': dashboard_payments,
+        'dashboard_payments_count': len(dashboard_payments),
         'recent_parent_visits': recent_parent_visits,
         'activities': activities,
+        'accounting_alerts': accounting_alerts,
     }
     return render(request, 'portal/dashboard.html', context)
 
@@ -2605,6 +2629,25 @@ def payment_create_view(request):
                         p.student.discount_type = 'fixed_discount'
                         p.student.discount_value = disc_amount
                         p.student.save()
+
+                # VÉRIFICATION DE CONTRÔLE COMPTABLE ANTI-DOUBLON
+                if p.invoice:
+                    remaining_balance = p.invoice.get_balance()
+                    if remaining_balance <= Decimal('0.00'):
+                        existing_p = p.invoice.payments.first()
+                        rec_txt = f"(Reçu #{existing_p.receipt_number} de {existing_p.amount} DH)" if existing_p else ""
+                        error_msg = (
+                            f"Contrôle anti-erreur : La facture de {p.student.get_full_name('fr')} pour le mois {month}/{year} est DÉJÀ soldée à 100% {rec_txt}. L'enregistrement d'un second paiement en double a été bloqué pour protéger vos calculs."
+                            if lang == 'fr' else
+                            f"مراقبة الحسابات : وصل التلميذ(ة) {p.student.get_full_name('ar')} لشهر {month}/{year} مؤدى مسبقاً بالكامل {rec_txt}. تم حظر تسجيل أداء مكرر لحماية دقة الحسابات."
+                        )
+                        context = {
+                            'form': form,
+                            'error_msg': error_msg,
+                            'is_financial_session_unlocked': True,
+                            'title': get_translation('payments.add', lang=lang),
+                        }
+                        return render(request, 'portal/payment_form.html', context)
 
                 count = Payment.objects.count() + 1
                 rec_no = f"REC-2026-{count:04d}"
