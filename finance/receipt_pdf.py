@@ -226,9 +226,19 @@ def generate_receipt_pdf(payment, lang="fr"):
             [Paragraph(f"<b>{bal_str}</b>", cell_bold), Paragraph(lbl_bal, cell_style),
              Paragraph(f"<b>{amt_str}</b>", amt_style), Paragraph(lbl_amt, cell_style)],
         ]
+        disc_val_display = Decimal('0.00')
+        if invoice and invoice.discount_amount > Decimal('0.00'):
+            disc_val_display = invoice.discount_amount
+        elif student.has_convention:
+            _, disc_calc, _ = student.calculate_monthly_fee()
+            if disc_calc > Decimal('0.00'):
+                disc_val_display = disc_calc
+
         if student.has_convention:
             conv_lbl = prepare_arabic_text_for_pdf("اتفاقية الشراكة :")
             conv_val = prepare_arabic_text_for_pdf(student.convention_name or "اتفاقية خاصة")
+            if disc_val_display > Decimal('0.00'):
+                conv_val = f"{conv_val} (-{disc_val_display} DH)"
             details_data.append([
                 Paragraph("", cell_style), Paragraph("", cell_style),
                 Paragraph(f"<b>{conv_val}</b>", cell_bold), Paragraph(conv_lbl, cell_style),
@@ -245,12 +255,20 @@ def generate_receipt_pdf(payment, lang="fr"):
             [Paragraph(lbl_amt, cell_style), Paragraph(f"<b>{amt_str}</b>", amt_style),
              Paragraph(lbl_bal, cell_style), Paragraph(f"<b>{bal_str}</b>", cell_bold)],
         ]
+        disc_val_display = Decimal('0.00')
+        if invoice and invoice.discount_amount > Decimal('0.00'):
+            disc_val_display = invoice.discount_amount
+        elif student.has_convention:
+            _, disc_calc, _ = student.calculate_monthly_fee()
+            if disc_calc > Decimal('0.00'):
+                disc_val_display = disc_calc
+
         if student.has_convention:
             conv_lbl = "Convention :" if lang != "bilingual" else f"Convention / {prepare_arabic_text_for_pdf('اتفاقية')} :"
             conv_name = student.convention_name or "Convention Partenaire"
             discount_note = f" (Tarif conventionné)"
-            if invoice and invoice.discount_amount > 0:
-                discount_note = f" (-{invoice.discount_amount} DH)"
+            if disc_val_display > Decimal('0.00'):
+                discount_note = f" (-{disc_val_display} DH)"
             details_data.append([
                 Paragraph(conv_lbl, cell_style), Paragraph(f"<b>{conv_name}</b>{discount_note}", cell_bold),
                 Paragraph("", cell_style), Paragraph("", cell_style),

@@ -442,6 +442,25 @@ class PaymentForm(forms.ModelForm):
             else:
                 self.initial['period_year'] = today.year
 
+        # Pré-remplissage des champs de convention et exonération lors de la modification d'un paiement
+        if self.instance and self.instance.pk:
+            st = getattr(self.instance, 'student', None)
+            inv = getattr(self.instance, 'invoice', None)
+            if inv:
+                if inv.is_exempt:
+                    self.initial.setdefault('is_exemption', True)
+                    self.initial.setdefault('exemption_reason', inv.exemption_reason)
+                if inv.discount_amount > Decimal('0.00'):
+                    self.initial.setdefault('apply_discount', True)
+                    self.initial.setdefault('discount_amount', inv.discount_amount)
+                    self.initial.setdefault('convention_name', st.convention_name if st else '')
+            if st and st.has_convention and not self.initial.get('apply_discount'):
+                _, st_disc, _ = st.calculate_monthly_fee()
+                if st_disc > Decimal('0.00'):
+                    self.initial.setdefault('apply_discount', True)
+                    self.initial.setdefault('discount_amount', st_disc)
+                    self.initial.setdefault('convention_name', st.convention_name)
+
         self.fields['invoice'].required = False
         self.fields['invoice'].empty_label = "-- Attribution automatique à la facture impayée du mois --"
         self.fields['invoice'].queryset = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')

@@ -2774,6 +2774,30 @@ def payment_edit_view(request, payment_id):
                     if req_year:
                         updated_payment.period_year = int(req_year)
 
+                is_ex = form.cleaned_data.get('is_exemption')
+                ex_reason = form.cleaned_data.get('exemption_reason', '').strip()
+                apply_disc = form.cleaned_data.get('apply_discount')
+                disc_amount = form.cleaned_data.get('discount_amount') or Decimal('0.00')
+                conv_name = form.cleaned_data.get('convention_name', '').strip()
+
+                if updated_payment.invoice:
+                    if is_ex:
+                        updated_payment.invoice.is_exempt = True
+                        updated_payment.invoice.exemption_reason = ex_reason or "Exonération accordée"
+                        updated_payment.invoice.amount_due = Decimal('0.00')
+                        updated_payment.invoice.save()
+                    elif apply_disc and disc_amount > Decimal('0.00'):
+                        updated_payment.invoice.discount_amount = disc_amount
+                        updated_payment.invoice.amount_due = max(Decimal('0.00'), updated_payment.invoice.original_amount - disc_amount)
+                        updated_payment.invoice.save()
+
+                if conv_name and not updated_payment.student.has_convention:
+                    updated_payment.student.has_convention = True
+                    updated_payment.student.convention_name = conv_name
+                    updated_payment.student.discount_type = 'fixed_discount'
+                    updated_payment.student.discount_value = disc_amount
+                    updated_payment.student.save()
+
                 updated_payment.save()
                 
                 # Recalcul de l'ancienne facture si elle a changé
