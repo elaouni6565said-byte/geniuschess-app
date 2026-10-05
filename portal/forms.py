@@ -211,9 +211,13 @@ class StudentForm(forms.ModelForm):
                     defaults={'reason': reason}
                 )
 
-            # Mettre à jour les factures existantes de l'élève pour l'année 2026
+            # Mettre à jour les factures existantes de l'élève pour toutes les périodes
+            try:
+                student.refresh_from_db()
+            except Exception:
+                pass
             base_fee, discount, final_fee = student.calculate_monthly_fee()
-            for inv in Invoice.objects.filter(student=student, period_year=2026):
+            for inv in Invoice.objects.filter(student=student):
                 if inv.period_month in selected_months:
                     inv.is_exempt = True
                     inv.status = 'exempt'
@@ -229,12 +233,19 @@ class StudentForm(forms.ModelForm):
                     inv.amount_due = final_fee
                     inv.exemption_reason = ''
                     inv.update_totals()
-                elif not inv.is_exempt and inv.status == 'unpaid' and inv.amount_paid == Decimal('0.00'):
+                elif not inv.is_exempt and inv.amount_paid == Decimal('0.00'):
                     # Recalculer le tarif selon la convention
                     inv.original_amount = base_fee
                     inv.discount_amount = discount
                     inv.amount_due = final_fee
                     inv.save()
+                    inv.update_totals()
+                elif not inv.is_exempt and inv.amount_paid > Decimal('0.00') and inv.amount_paid < final_fee:
+                    inv.original_amount = base_fee
+                    inv.discount_amount = discount
+                    inv.amount_due = final_fee
+                    inv.save()
+                    inv.update_totals()
 
         return student
 

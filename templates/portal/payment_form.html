@@ -313,35 +313,82 @@
     document.addEventListener("DOMContentLoaded", function() {
         var exCheck = document.getElementById("id_is_exemption");
         var exWrap = document.getElementById("exemption_reason_wrapper");
+        var exReasonField = document.getElementById("id_exemption_reason");
         var discCheck = document.getElementById("id_apply_discount");
         var discWrap = document.getElementById("discount_details_wrapper");
+        var discAmtField = document.getElementById("id_discount_amount");
+        var convNameField = document.getElementById("id_convention_name");
         var amtInput = document.getElementById("id_payment_amount");
 
-        if (exCheck && exWrap) {
-            function toggleEx() {
-                if (exCheck.checked) {
-                    exWrap.style.display = "block";
-                    if (amtInput) {
-                        amtInput.value = "0.00";
-                    }
-                } else {
-                    exWrap.style.display = "none";
+        var currentBaseAmount = null;
+
+        function recalcAmountWithDiscount() {
+            if (exCheck && exCheck.checked) {
+                if (amtInput) amtInput.value = "0.00";
+                return;
+            }
+            if (currentBaseAmount === null && amtInput) {
+                var parsedCur = parseFloat(amtInput.value || "0");
+                if (!isNaN(parsedCur) && parsedCur > 0) {
+                    currentBaseAmount = parsedCur;
                 }
             }
+            if (currentBaseAmount !== null) {
+                var base = currentBaseAmount;
+                var discount = 0;
+                if (discCheck && discCheck.checked && discAmtField) {
+                    discount = parseFloat(discAmtField.value || "0");
+                    if (isNaN(discount)) discount = 0;
+                }
+                var net = Math.max(0, base - discount);
+                if (amtInput && !isNaN(net)) {
+                    amtInput.value = net.toFixed(2);
+                }
+            }
+        }
+
+        function toggleEx() {
+            if (exCheck && exCheck.checked) {
+                if (exWrap) exWrap.style.display = "block";
+                if (amtInput) amtInput.value = "0.00";
+            } else {
+                if (exWrap) exWrap.style.display = "none";
+                recalcAmountWithDiscount();
+            }
+        }
+
+        function toggleDisc() {
+            if (discCheck && discCheck.checked) {
+                if (discWrap) discWrap.style.display = "grid";
+            } else {
+                if (discWrap) discWrap.style.display = "none";
+            }
+            recalcAmountWithDiscount();
+        }
+
+        if (exCheck && exWrap) {
             exCheck.addEventListener("change", toggleEx);
             toggleEx();
         }
 
         if (discCheck && discWrap) {
-            function toggleDisc() {
-                if (discCheck.checked) {
-                    discWrap.style.display = "grid";
-                } else {
-                    discWrap.style.display = "none";
-                }
-            }
             discCheck.addEventListener("change", toggleDisc);
             toggleDisc();
+        }
+
+        if (discAmtField) {
+            discAmtField.addEventListener("input", recalcAmountWithDiscount);
+        }
+
+        if (amtInput) {
+            amtInput.addEventListener("change", function() {
+                if ((!discCheck || !discCheck.checked) && (!exCheck || !exCheck.checked)) {
+                    var val = parseFloat(this.value || "0");
+                    if (!isNaN(val) && val > 0) {
+                        currentBaseAmount = val;
+                    }
+                }
+            });
         }
 
         // ==========================================
@@ -556,7 +603,67 @@
                     return response.json();
                 })
                 .then(function(data) {
-                    if (data && data.is_duplicate_risk) {
+                    if (!data) return;
+
+                    // Mise à jour de la base tarifaire
+                    if (data.base_fee) {
+                        var bFee = parseFloat(data.base_fee);
+                        if (!isNaN(bFee) && bFee > 0) {
+                            currentBaseAmount = bFee;
+                        }
+                    }
+
+                    // Traitement de l'exonération (0 DH)
+                    if (data.is_exempt) {
+                        if (exCheck) {
+                            exCheck.checked = true;
+                            toggleEx();
+                        }
+                        if (exReasonField && data.exemption_reason) {
+                            exReasonField.value = data.exemption_reason;
+                        }
+                        if (amtInput) {
+                            amtInput.value = "0.00";
+                        }
+                    } else {
+                        // Traitement de la réduction / convention
+                        if (data.has_convention && parseFloat(data.discount_amount || "0") > 0) {
+                            if (discCheck) {
+                                discCheck.checked = true;
+                                if (discWrap) discWrap.style.display = "grid";
+                            }
+                            if (discAmtField) {
+                                discAmtField.value = parseFloat(data.discount_amount).toFixed(2);
+                            }
+                            if (convNameField && data.convention_name && (!convNameField.value || convNameField.value.trim() === "")) {
+                                convNameField.value = data.convention_name;
+                            }
+                        }
+
+                        // Pré-remplissage du montant à payer net
+                        if (amtInput) {
+                            var finalFee = parseFloat(data.final_fee || "0");
+                            var bal = parseFloat(data.balance_remaining || "0");
+                            var curVal = parseFloat(amtInput.value || "0");
+                            var baseVal = parseFloat(data.base_fee || "0");
+
+                            if (!amtInput.value || amtInput.value === "0.00" || amtInput.value === "") {
+                                if (!data.existing_payments || data.existing_payments.length === 0) {
+                                    amtInput.value = finalFee.toFixed(2);
+                                } else if (bal > 0) {
+                                    amtInput.value = bal.toFixed(2);
+                                }
+                            } else if (data.has_convention && parseFloat(data.discount_amount || "0") > 0) {
+                                // Si le champ avait encore l'ancien tarif plein, on bascule vers le tarif net conventionné
+                                if (curVal === baseVal && finalFee > 0) {
+                                    amtInput.value = finalFee.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+
+                    // Alertes de risque de doublon / solde existant
+                    if (data.is_duplicate_risk) {
                         var isAr = "{{ CURRENT_LANG }}" === "ar";
                         if (dupTitle) dupTitle.textContent = isAr ? data.warning_title_ar : data.warning_title_fr;
                         if (dupBadge) dupBadge.textContent = isAr ? data.status_badge_ar : data.status_badge_fr;
@@ -607,7 +714,10 @@
                 "month": {{ inv.period_month }},
                 "year": {{ inv.period_year }},
                 "balance": "{{ inv.get_balance }}",
-                "student_id": "{{ inv.student_id }}"
+                "student_id": "{{ inv.student_id }}",
+                "discount_amount": "{{ inv.discount_amount }}",
+                "original_amount": "{{ inv.original_amount }}",
+                "convention_name": "{{ inv.student.convention_name|default:''|escapejs }}"
             },
             {% endfor %}
         };
@@ -622,10 +732,30 @@
                     var invInfo = INVOICE_LOOKUP[invId];
                     if (periodMonthSelect) periodMonthSelect.value = invInfo.month;
                     if (periodYearInput) periodYearInput.value = invInfo.year;
-                    if (amtInput && (!amtInput.value || amtInput.value === "0.00" || amtInput.value === "")) {
+
+                    var orig = parseFloat(invInfo.original_amount || "0");
+                    if (!isNaN(orig) && orig > 0) {
+                        currentBaseAmount = orig;
+                    }
+
+                    var dAmt = parseFloat(invInfo.discount_amount || "0");
+                    if (!isNaN(dAmt) && dAmt > 0) {
+                        if (discCheck) {
+                            discCheck.checked = true;
+                            if (discWrap) discWrap.style.display = "grid";
+                        }
+                        if (discAmtField) {
+                            discAmtField.value = dAmt.toFixed(2);
+                        }
+                        if (convNameField && invInfo.convention_name) {
+                            convNameField.value = invInfo.convention_name;
+                        }
+                    }
+
+                    if (amtInput) {
                         amtInput.value = invInfo.balance;
                     }
-                    if (studentSelect && !studentSelect.value) {
+                    if (studentSelect && (!studentSelect.value || studentSelect.value != invInfo.student_id)) {
                         studentSelect.value = invInfo.student_id;
                         studentSelect.dispatchEvent(new Event("change"));
                     }

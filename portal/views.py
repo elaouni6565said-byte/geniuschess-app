@@ -219,12 +219,31 @@ def sync_invoices_with_actual_attendances():
                     inv.exemption_reason = ''
                     inv.update_totals()
                 elif not inv.is_exempt and inv.status in ['unpaid', 'partial']:
-                    if inv.amount_paid == Decimal('0.00') and inv.amount_due != final_fee:
+                    if inv.amount_paid == Decimal('0.00') and (inv.amount_due != final_fee or inv.discount_amount != discount or inv.original_amount != base_fee):
                         inv.original_amount = base_fee
                         inv.discount_amount = discount
                         inv.amount_due = final_fee
                         inv.save()
                     inv.update_totals()
+
+    # 3. Synchronisation globale des conventions & remises pour TOUS les élèves actifs
+    for st_conv in Student.objects.filter(active=True, has_convention=True).prefetch_related('groups'):
+        base_fee, discount, final_fee = st_conv.calculate_monthly_fee()
+        for inv_c in Invoice.objects.filter(student=st_conv, status__in=['unpaid', 'partial'], is_exempt=False):
+            if inv_c.amount_paid == Decimal('0.00'):
+                if inv_c.discount_amount != discount or inv_c.amount_due != final_fee or inv_c.original_amount != base_fee:
+                    inv_c.original_amount = base_fee
+                    inv_c.discount_amount = discount
+                    inv_c.amount_due = final_fee
+                    inv_c.save()
+                    inv_c.update_totals()
+            elif inv_c.amount_paid > Decimal('0.00') and inv_c.amount_paid < final_fee:
+                if inv_c.discount_amount != discount or inv_c.original_amount != base_fee:
+                    inv_c.original_amount = base_fee
+                    inv_c.discount_amount = discount
+                    inv_c.amount_due = final_fee
+                    inv_c.save()
+                    inv_c.update_totals()
 
 
 def get_billable_unpaid_invoices_qs():
@@ -2465,6 +2484,12 @@ def check_duplicate_payment_ajax_view(request):
         'is_duplicate_risk': is_duplicate_risk,
         'is_exempt': is_exempt,
         'exemption_reason': ex_reason if is_exempt else '',
+        'has_convention': getattr(student, 'has_convention', False),
+        'convention_name': getattr(student, 'convention_name', '') or '',
+        'discount_type': getattr(student, 'discount_type', 'custom_fee'),
+        'discount_amount': f"{discount:.2f}",
+        'base_fee': f"{base_fee:.2f}",
+        'final_fee': f"{final_fee:.2f}",
         'period_label_fr': period_label_fr,
         'period_label_ar': period_label_ar,
         'total_already_paid': f"{total_already_paid:.2f}",
@@ -2623,7 +2648,16 @@ def payment_create_view(request):
                         p.invoice.discount_amount = disc_amount
                         p.invoice.amount_due = max(Decimal('0.00'), p.invoice.original_amount - disc_amount)
                         p.invoice.save()
-                    if conv_name and not p.student.has_convention:
+                        # Si le montant saisi correspond au montant d'origine sans déduction de la remise,
+                        # appliquer automatiquement la remise pour que le reçu reflète le tarif net réel !
+                        if p.amount == p.invoice.original_amount:
+                            p.amount = p.invoice.amount_due
+                    else:
+                        base_fee, _, _ = p.student.calculate_monthly_fee()
+                        if p.amount == base_fee:
+                            p.amount = max(Decimal('0.00'), base_fee - disc_amount)
+
+                    if conv_name:
                         p.student.has_convention = True
                         p.student.convention_name = conv_name
                         p.student.discount_type = 'fixed_discount'
