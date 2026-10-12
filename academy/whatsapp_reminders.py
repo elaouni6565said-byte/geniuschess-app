@@ -375,27 +375,69 @@ def dispatch_daily_whatsapp_reminders(target_date=None, target_time=None):
                 models.Q(message_fr__contains=sch.group.name_fr) | models.Q(title_fr__contains=time_str)
             ).exists()
 
-        if not existing:
-            if user:
-                msg_fr = build_whatsapp_reminder_text(sch, st, lang='fr', target_date=target_date)
-                msg_ar = build_whatsapp_reminder_text(sch, st, lang='ar', target_date=target_date)
-                Notification.objects.create(
-                    recipient=user,
-                    title_fr=title_fr,
-                    title_ar=title_ar,
-                    message_fr=msg_fr,
-                    message_ar=msg_ar,
-                    notification_type='session_reminder'
-                )
-                created_notifs += 1
+        # Vérifier si déjà délivré sur WhatsApp via WhatsAppDispatchLog
+        wa_already_sent = False
+        try:
+            from academy.models import WhatsAppDispatchLog
+            wa_already_sent = WhatsAppDispatchLog.objects.filter(
+                student=st,
+                session_schedule=sch,
+                target_date=target_date,
+                message_type='session_reminder',
+                status='sent'
+            ).exists()
+        except Exception:
+            wa_already_sent = False
 
-            # Dispatch via Gateway if configured and phone is available
-            if item.get('whatsapp_phone'):
-                import time as pytime
-                res_gateway = send_whatsapp_via_gateway(item['whatsapp_phone'], item['message_text'])
-                if res_gateway.get('success'):
-                    wa_sent_via_api += 1
-                pytime.sleep(1)
+        if not existing and user:
+            msg_fr = build_whatsapp_reminder_text(sch, st, lang='fr', target_date=target_date)
+            msg_ar = build_whatsapp_reminder_text(sch, st, lang='ar', target_date=target_date)
+            Notification.objects.create(
+                recipient=user,
+                title_fr=title_fr,
+                title_ar=title_ar,
+                message_fr=msg_fr,
+                message_ar=msg_ar,
+                notification_type='session_reminder'
+            )
+            created_notifs += 1
+
+        # Dispatch via Gateway if configured and phone is available and not yet delivered
+        if item.get('whatsapp_phone') and not wa_already_sent:
+            import time as pytime
+            res_gateway = send_whatsapp_via_gateway(item['whatsapp_phone'], item['message_text'])
+            success = res_gateway.get('success', False)
+            if success:
+                wa_sent_via_api += 1
+
+            try:
+                from academy.models import WhatsAppDispatchLog
+                from django.utils import timezone
+                log_entry, _ = WhatsAppDispatchLog.objects.get_or_create(
+                    student=st,
+                    session_schedule=sch,
+                    target_date=target_date,
+                    message_type='session_reminder',
+                    defaults={
+                        'parent': parent,
+                        'phone': item['whatsapp_phone'],
+                        'message_text': item['message_text'],
+                        'attempt_count': 0
+                    }
+                )
+                log_entry.attempt_count += 1
+                if success:
+                    log_entry.status = 'sent'
+                    log_entry.sent_at = timezone.now()
+                    log_entry.last_error = ''
+                else:
+                    log_entry.status = 'retrying'
+                    log_entry.last_error = str(res_gateway.get('error', 'Échec passerelle'))
+                log_entry.save()
+            except Exception:
+                pass
+
+            pytime.sleep(1)
 
     active_items = [i for i in items if not i.get('is_cancelled')]
     return {

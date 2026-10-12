@@ -2922,6 +2922,20 @@ def whatsapp_reminders_view(request):
                 messages.success(request, msg)
             return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
 
+        elif action == 'run_watchdog':
+            from academy.whatsapp_watchdog import run_reminders_watchdog_loop
+            res = run_reminders_watchdog_loop(target_date)
+            w_status = res['waha_initial_health'].get('status', 'OK') if res['waha_initial_health'] else 'OK'
+            msg = (
+                f"🛡️ Contrôle Watchdog exécuté : {res['newly_sent']} nouveau(x) envoi(s), "
+                f"{res['already_delivered']} déjà livré(s), Passerelle WAHA : {w_status}."
+                if lang == 'fr' else
+                f"🛡️ تم تشغيل المراقبة التلقائية : تم إرسال {res['newly_sent']} رسالة جديدة، "
+                f"و {res['already_delivered']} تم تسليمها مسبقاً (حالة الواتساب: {w_status})."
+            )
+            messages.info(request, msg)
+            return redirect(f"{request.path}?date={target_date.strftime('%Y-%m-%d')}")
+
         elif action == 'cancel_day':
             cancel_day(target_date)
             messages.warning(
@@ -2995,6 +3009,14 @@ def whatsapp_reminders_view(request):
     day_name = ARABIC_DAYS.get(target_date.weekday(), '') if lang == 'ar' else FRENCH_DAYS.get(target_date.weekday(), '')
     day_cancelled = is_day_cancelled(target_date)
 
+    waha_health = None
+    if has_gateway:
+        try:
+            from academy.whatsapp_watchdog import check_waha_health
+            waha_health = check_waha_health()
+        except Exception:
+            waha_health = None
+
     context = {
         'target_date': target_date,
         'day_name': day_name,
@@ -3004,6 +3026,7 @@ def whatsapp_reminders_view(request):
         'cancelled_count': len([r for r in reminders if r.get('is_cancelled')]),
         'is_today': target_date == date.today(),
         'has_gateway': has_gateway,
+        'waha_health': waha_health,
         'day_cancelled': day_cancelled,
     }
     return render(request, 'portal/whatsapp_reminders.html', context)

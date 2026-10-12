@@ -40,18 +40,30 @@
                 </h4>
                 <p style="font-size: 0.85rem; color: #15803D; margin: 0;">
                     {% if CURRENT_LANG == 'ar' %}
-                        النظام جاهز لإرسال رسائل الواتساب الفعلية إلى هواتف أولياء الأمور تلقائياً.
+                        النظام جاهز لإرسال رسائل الواتساب الفعلية إلى هواتف أولياء الأمور تلقائياً مع مراقبة ذاتية مستمرة.
                     {% else %}
-                        Le serveur est configuré pour transmettre directement les messages WhatsApp aux téléphones des parents sans intervention.
+                        Le serveur est configuré pour transmettre directement les messages WhatsApp avec surveillance et auto-réparation active.
                     {% endif %}
                 </p>
+                {% if waha_health %}
+                <div style="margin-top: 0.35rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <span class="badge" style="background: {% if waha_health.healthy %}#DCFCE7; color: #166534; border: 1px solid #86EFAC;{% else %}#FEE2E2; color: #991B1B; border: 1px solid #FCA5A5;{% endif %} font-weight: 700; font-size: 0.78rem;">
+                        WAHA : {{ waha_health.status }}
+                    </span>
+                    <span style="font-size: 0.75rem; color: #166534;">
+                        🛡️ {{ waha_health.detail }}
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
 
-        <form method="POST">
+        <form method="POST" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
             {% csrf_token %}
-            <input type="hidden" name="action" value="dispatch_all">
-            <button type="submit" class="btn btn-primary" style="background: #15803D; border-color: #15803D; white-space: nowrap; box-shadow: var(--shadow-sm);">
+            <button type="submit" name="action" value="run_watchdog" class="btn btn-secondary" style="background: #0284C7; border-color: #0284C7; color: white; white-space: nowrap;">
+                🛡️ {% if CURRENT_LANG == 'ar' %}فحص وإصلاح المراقبة (Watchdog){% else %}Contrôle & Auto-Réparation{% endif %}
+            </button>
+            <button type="submit" name="action" value="dispatch_all" class="btn btn-primary" style="background: #15803D; border-color: #15803D; white-space: nowrap; box-shadow: var(--shadow-sm);">
                 ⚡ {% if CURRENT_LANG == 'ar' %}إرسال جميع رسائل واتساب الآن{% else %}Envoyer tous les WhatsApp via l'API{% endif %}
             </button>
         </form>

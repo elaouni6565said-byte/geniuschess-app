@@ -406,3 +406,46 @@ class GroupMessage(models.Model):
         return f"[{self.group.name_fr}] {self.title or self.content[:30]}"
 
 
+class WhatsAppDispatchLog(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'En attente / في الانتظار'),
+        ('sent', 'Envoyé avec succès / تم الإرسال بنجاح'),
+        ('failed', 'Échec définitif / فشل الإرسال'),
+        ('retrying', 'En cours de ré-essai / جاري إعادة المحاولة'),
+    ]
+    MESSAGE_TYPES = [
+        ('session_reminder', 'Rappel de séance / تذكير بحصة'),
+        ('session_cancellation', 'Annulation de séance / إلغاء حصة'),
+        ('unpaid_reminder', 'Relance impayé / تذكير بالواجبات'),
+        ('admin_alert', 'Alerte administrateur / تنبيه للإدارة'),
+        ('custom', 'Message libre / رسالة مخصصة'),
+    ]
+
+    student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True, related_name="whatsapp_logs")
+    parent = models.ForeignKey(Parent, on_delete=models.SET_NULL, null=True, blank=True, related_name="whatsapp_logs")
+    session_schedule = models.ForeignKey(SessionSchedule, on_delete=models.SET_NULL, null=True, blank=True, related_name="whatsapp_logs")
+    phone = models.CharField(max_length=35, verbose_name="Numéro WhatsApp")
+    message_type = models.CharField(max_length=30, choices=MESSAGE_TYPES, default='session_reminder')
+    target_date = models.DateField(default=date.today)
+    message_text = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+    response_payload = models.TextField(blank=True, default='')
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Journal WhatsApp"
+        verbose_name_plural = "Journaux WhatsApp"
+        indexes = [
+            models.Index(fields=['target_date', 'message_type', 'status']),
+            models.Index(fields=['student', 'target_date']),
+        ]
+
+    def __str__(self):
+        return f"[{self.target_date}] {self.phone} - {self.get_status_display()} ({self.attempt_count} essais)"
+
+
