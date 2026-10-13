@@ -19,15 +19,49 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 def get_drive_service():
     """
     Initialise et retourne le client Google Drive API authentifié
-    via le compte de service Google Cloud.
+    via OAuth2 (Compte personnel Google One avec 5 To) en priorité,
+    ou via Compte de service en fallback.
     """
     try:
-        from google.oauth2 import service_account
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
     except ImportError as e:
         logger.error(f"Bibliothèques Google manquantes : {e}")
         raise RuntimeError("Les packages 'google-api-python-client' et 'google-auth' ne sont pas installés.")
 
+    # 1. Utilisation prioritaire du compte Google One personnel (5 To) via fichier OAuth JSON ou settings
+    oauth_file = getattr(settings, 'GOOGLE_DRIVE_OAUTH_FILE', None)
+    client_id = getattr(settings, 'GOOGLE_DRIVE_CLIENT_ID', None)
+    client_secret = getattr(settings, 'GOOGLE_DRIVE_CLIENT_SECRET', None)
+    refresh_token = getattr(settings, 'GOOGLE_DRIVE_REFRESH_TOKEN', None)
+
+    if oauth_file and os.path.exists(oauth_file):
+        try:
+            import json
+            with open(oauth_file, 'r', encoding='utf-8') as f:
+                oauth_data = json.load(f)
+                client_id = client_id or oauth_data.get('client_id')
+                client_secret = client_secret or oauth_data.get('client_secret')
+                refresh_token = refresh_token or oauth_data.get('refresh_token')
+        except Exception as e:
+            logger.warning(f"Impossible de lire le fichier OAuth Google Drive: {e}")
+
+    if client_id and client_secret and refresh_token:
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=SCOPES
+        )
+        if not creds.valid:
+            creds.refresh(Request())
+        return build('drive', 'v3', credentials=creds, cache_discovery=False)
+
+    # 2. Fallback compte de service
+    from google.oauth2 import service_account
     credentials_path = getattr(settings, 'GOOGLE_DRIVE_CREDENTIALS_FILE', None)
     if not credentials_path or not os.path.exists(credentials_path):
         raise FileNotFoundError(f"Fichier d'identifiants Google introuvable : {credentials_path}")

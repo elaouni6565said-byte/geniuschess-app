@@ -17,4 +17,5 @@ staticfiles/
 media/
 backups/
 google_drive_credentials.json
+google_drive_oauth.json
 *.json.secret
