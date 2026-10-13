@@ -460,4 +460,142 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- ========================================================================= -->
+<!-- SECTION GALERIE PHOTOS & VIDÉOS DES SÉANCES (GOOGLE DRIVE 5 TO)          -->
+<!-- ========================================================================= -->
+<div class="card" style="margin-top: 1.5rem;" id="parentMediaGallery">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+            📸 {% if CURRENT_LANG == 'ar' %}معرض صور وفيديوهات الحصص والأنشطة{% else %}Galerie Photos & Vidéos des Séances{% endif %}
+            {% if medias_count %}
+                <span style="font-size: 0.75rem; background: #DBEAFE; color: #1E40AF; padding: 0.15rem 0.55rem; border-radius: 9999px; font-weight: 700;">{{ medias_count }}</span>
+            {% endif %}
+        </h3>
+        <span style="font-size: 0.8rem; color: #64748B;">
+            {% if CURRENT_LANG == 'ar' %}تصفح سريع وبث فوري عالي الدقة{% else %}Visionnage fluide HD (Google Drive){% endif %}
+        </span>
+    </div>
+
+    {% if medias %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; padding: 0.5rem 0;">
+        {% for m in medias %}
+        <div style="background: #fff; border-radius: 10px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
+            
+            <!-- Vignette média -->
+            <div style="position: relative; height: 160px; background: #0F172A; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;"
+                 onclick="openMediaModal('{{ m.media_type }}', '{{ m.get_embed_url }}', '{{ m.google_drive_web_link }}', '{{ m.title|escapejs }}');">
+                {% if m.media_type == 'photo' %}
+                    <img src="{{ m.get_thumbnail_url }}" alt="{{ m.title }}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                {% else %}
+                    <!-- Vidéo preview -->
+                    <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #1E293B, #0F172A); color: #fff;">
+                        <span style="font-size: 2.75rem;">▶️</span>
+                        <span style="font-size: 0.75rem; font-weight: 700; margin-top: 0.2rem; color: #CBD5E1;">{% if CURRENT_LANG == 'ar' %}مشاهدة الفيديو{% else %}Lancer la vidéo{% endif %}</span>
+                    </div>
+                {% endif %}
+
+                <!-- Badge type -->
+                <span style="position: absolute; top: 6px; {% if CURRENT_LANG == 'ar' %}right: 6px;{% else %}left: 6px;{% endif %} background: rgba(0,0,0,0.65); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px;">
+                    {% if m.media_type == 'photo' %}📷 Photo{% else %}🎥 Vidéo{% endif %}
+                </span>
+            </div>
+
+            <!-- Titre et date -->
+            <div style="padding: 0.65rem 0.75rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <strong style="font-size: 0.88rem; color: #1E293B; display: block; line-height: 1.3; margin-bottom: 0.25rem;">
+                        {{ m.title }}
+                    </strong>
+                    <span style="font-size: 0.75rem; color: #64748B;">
+                        📅 {{ m.session_date|date:"d/m/Y" }}
+                        {% if m.group %}
+                            • <span style="color: #2563EB; font-weight: 600;">{{ m.group|trans_field:CURRENT_LANG }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div style="margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center;">
+                    <button type="button" onclick="openMediaModal('{{ m.media_type }}', '{{ m.get_embed_url }}', '{{ m.google_drive_web_link }}', '{{ m.title|escapejs }}');"
+                            style="background: none; border: none; color: #2563EB; font-size: 0.8rem; font-weight: 700; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 0.25rem;">
+                        👁️ {% if CURRENT_LANG == 'ar' %}تكبير وعرض{% else %}Agrandir{% endif %}
+                    </button>
+                    <a href="{{ m.google_drive_web_link }}" target="_blank" rel="noopener noreferrer" style="font-size: 0.75rem; color: #64748B; text-decoration: none;">
+                        ↗️ Drive
+                    </a>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 2rem 1rem; color: #64748B;">
+        <span style="font-size: 2.5rem; display: block; margin-bottom: 0.35rem;">📷</span>
+        <p style="font-size: 0.9rem; margin: 0;">
+            {% if CURRENT_LANG == 'ar' %}
+                لا توجد صور أو فيديوهات منشورة حالياً لمجموعات أبنائك. سيتم إشعاركم فور نشر جديد الأنشطة والبطولات !
+            {% else %}
+                Aucune photo ou vidéo n'a encore été partagée pour les groupes de vos enfants. Les souvenirs des séances et tournois apparaîtront ici dès leur publication !
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Popup pour visualisation en grand écran / Streaming vidéo -->
+<div id="gcaMediaModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+    <div style="position: relative; width: 100%; max-width: 900px; max-height: 90vh; background: #0F172A; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.25rem; background: #1E293B; border-bottom: 1px solid #334155;">
+            <h4 id="modalMediaTitle" style="color: #fff; font-size: 0.95rem; margin: 0; font-weight: 700;"></h4>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <a id="modalMediaDriveLink" href="#" target="_blank" style="color: #60A5FA; font-size: 0.8rem; text-decoration: none; font-weight: 600;">
+                    ↗️ Ouvrir sur Google Drive
+                </a>
+                <button type="button" onclick="closeMediaModal()" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; line-height: 1;">
+                    ✕
+                </button>
+            </div>
+        </div>
+        <div id="modalMediaContainer" style="flex: 1; min-height: 400px; display: flex; align-items: center; justify-content: center; background: #000;">
+            <!-- Contenu dynamique injecté en JS (iframe preview ou image plein écran) -->
+        </div>
+    </div>
+</div>
+
+<script>
+function openMediaModal(type, embedUrl, driveLink, title) {
+    const modal = document.getElementById('gcaMediaModal');
+    const container = document.getElementById('modalMediaContainer');
+    const titleEl = document.getElementById('modalMediaTitle');
+    const driveLinkEl = document.getElementById('modalMediaDriveLink');
+
+    titleEl.textContent = title;
+    driveLinkEl.href = driveLink;
+
+    if (type === 'video') {
+        container.innerHTML = `
+            <iframe src="${embedUrl}" style="width: 100%; height: 500px; border: none;" allow="autoplay" allowfullscreen></iframe>
+        `;
+    } else {
+        container.innerHTML = `
+            <img src="${embedUrl.replace('/preview', '/view')}" style="max-width: 100%; max-height: 75vh; object-fit: contain;" onerror="this.src='${driveLink}';">
+        `;
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeMediaModal() {
+    const modal = document.getElementById('gcaMediaModal');
+    const container = document.getElementById('modalMediaContainer');
+    container.innerHTML = '';
+    modal.style.display = 'none';
+}
+
+// Fermer avec la touche Echap
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeMediaModal();
+});
+</script>
 {% endblock %}

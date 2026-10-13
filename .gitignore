@@ -16,3 +16,5 @@ db.sqlite3
 staticfiles/
 media/
 backups/
+google_drive_credentials.json
+*.json.secret

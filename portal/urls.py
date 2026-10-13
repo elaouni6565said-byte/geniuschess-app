@@ -82,4 +82,9 @@ urlpatterns = [
     path('manifest.webmanifest', views.pwa_manifest_view, name='pwa_manifest'),
     path('manifest.json', views.pwa_manifest_view, name='pwa_manifest_json'),
     path('service-worker.js', views.pwa_service_worker_view, name='pwa_service_worker'),
+
+    # Espace Médias Photos & Vidéos (Google Drive 5 To)
+    path('medias/', views.session_media_list_view, name='session_media_list'),
+    path('medias/upload/', views.session_media_upload_view, name='session_media_upload'),
+    path('medias/<int:media_id>/delete/', views.session_media_delete_view, name='session_media_delete'),
 ]

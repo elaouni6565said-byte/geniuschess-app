@@ -87,6 +87,9 @@
                     <li class="nav-item {% if request.resolver_match.url_name == 'payments' %}active{% endif %}">
                         <a href="{% url 'portal:payments' %}">💳 {% trans "nav.payments" %}</a>
                     </li>
+                    <li class="nav-item {% if 'media' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:session_media_list' %}">📸 {% if CURRENT_LANG == 'ar' %}الصور والفيديو{% else %}Photos & Vidéos{% endif %}</a>
+                    </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'trainer_space' %}active{% endif %}">
                         <a href="{% url 'portal:trainer_space' %}">👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدربين{% else %}Espace Formateur{% endif %}</a>
                     </li>
@@ -95,6 +98,9 @@
                         <a href="{% url 'portal:quick_scan' %}" style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 700; color: #2563EB !important; background: rgba(37, 99, 235, 0.08); border-radius: var(--radius-sm); padding: 0.35rem 0.65rem;">
                             📷 <span>{% if CURRENT_LANG == 'ar' %}مسح الحضور{% else %}Scanner{% endif %}</span>
                         </a>
+                    </li>
+                    <li class="nav-item {% if 'media' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'portal:session_media_list' %}">📸 {% if CURRENT_LANG == 'ar' %}الصور والفيديو{% else %}Photos & Vidéos{% endif %}</a>
                     </li>
                     <li class="nav-item {% if request.resolver_match.url_name == 'trainer_space' %}active{% endif %}">
                         <a href="{% url 'portal:trainer_space' %}">👨‍🏫 {% if CURRENT_LANG == 'ar' %}فضاء المدربين{% else %}Espace Formateur{% endif %}</a>

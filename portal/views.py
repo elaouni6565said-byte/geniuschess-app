@@ -1,7 +1,7 @@
 import os
 from datetime import date, datetime
 from decimal import Decimal
-from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm, GroupMessageForm
+from portal.forms import StudentForm, ParentForm, SubjectForm, GroupForm, SessionScheduleForm, PaymentForm, GroupMessageForm, SessionMediaUploadForm
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
@@ -15,7 +15,7 @@ from core.i18n import (
 )
 from academy.models import (
     Student, Parent, Group, Subject, Room, SessionSchedule,
-    Attendance, Notification, User, ParentVisitLog, GroupMessage
+    Attendance, Notification, User, ParentVisitLog, GroupMessage, SessionMedia
 )
 from finance.models import Payment, Invoice
 from finance.receipt_pdf import generate_receipt_pdf
@@ -1287,6 +1287,22 @@ def parent_space_view(request):
                     ip_address=client_ip or ''
                 )
 
+    # Récupération des médias photos & vidéos pour les groupes de ces enfants ou publics
+    parent_group_ids = set()
+    for ch in children:
+        for grp in ch.groups.all():
+            parent_group_ids.add(grp.id)
+
+    media_filter = Q(visibility='public_academy')
+    if parent_group_ids:
+        media_filter |= Q(group_id__in=list(parent_group_ids))
+
+    child_medias = list(
+        SessionMedia.objects.filter(media_filter)
+        .select_related('group', 'group__subject', 'uploaded_by')
+        .order_by('-session_date', '-created_at')[:30]
+    )
+
     context = {
         'parent': parent,
         'all_parents': all_parents,
@@ -1296,6 +1312,8 @@ def parent_space_view(request):
         'invoices': invoices,
         'payments': payments,
         'notifications': user_notifications,
+        'medias': child_medias,
+        'medias_count': len(child_medias),
     }
     return render(request, 'portal/parent_space.html', context)
 
@@ -3965,3 +3983,169 @@ def pwa_service_worker_view(request):
     response['Service-Worker-Allowed'] = '/'
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
+
+
+# ==============================================================================
+# ESPACE MÉDIAS PHOTOS & VIDÉOS (GOOGLE DRIVE 5 TO - ZÉRO STOCKAGE VPS)
+# ==============================================================================
+
+@trainer_or_admin_required
+def session_media_list_view(request):
+    """
+    Galerie et console de gestion des photos & vidéos pour les formateurs et admins.
+    Permet de filtrer par groupe, date ou visibilité.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    group_id = request.GET.get('group_id')
+    media_type = request.GET.get('media_type')
+    date_filter = request.GET.get('date')
+
+    medias_qs = SessionMedia.objects.select_related('group', 'group__subject', 'uploaded_by').all()
+
+    # Si c'est un formateur non-admin, on peut restreindre aux groupes où il enseigne
+    if request.user.is_trainer_role() and not request.user.is_admin_role() and not request.user.is_superuser:
+        trainer_name = request.user.get_full_name() or request.user.username
+        trainer_groups = Group.objects.filter(
+            Q(schedules__trainer_name_fr__icontains=trainer_name) |
+            Q(schedules__trainer_name_ar__icontains=trainer_name)
+        ).distinct()
+        medias_qs = medias_qs.filter(Q(group__in=trainer_groups) | Q(visibility='public_academy'))
+
+    if group_id and group_id.isdigit():
+        medias_qs = medias_qs.filter(group_id=int(group_id))
+    if media_type in ('photo', 'video'):
+        medias_qs = medias_qs.filter(media_type=media_type)
+    if date_filter:
+        medias_qs = medias_qs.filter(session_date=date_filter)
+
+    all_groups = Group.objects.select_related('subject', 'level').order_by('subject__name_fr', 'name_fr')
+
+    context = {
+        'medias': medias_qs[:60],
+        'total_count': medias_qs.count(),
+        'all_groups': all_groups,
+        'selected_group_id': int(group_id) if group_id and group_id.isdigit() else None,
+        'selected_media_type': media_type or '',
+        'selected_date': date_filter or '',
+    }
+    return render(request, 'portal/session_media_list.html', context)
+
+
+@trainer_or_admin_required
+def session_media_upload_view(request):
+    """
+    Téléversement de photos et vidéos directement vers Google Drive (5 To).
+    Le VPS reçoit le flux et le transmet directement à l'API Google Drive
+    sans rien sauvegarder sur le disque local.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    from academy.google_drive import upload_file_to_drive
+
+    if request.method == 'POST':
+        form = SessionMediaUploadForm(request.POST, request.FILES)
+        files = request.FILES.getlist('media_files')
+
+        if not files:
+            messages.error(
+                request,
+                "Veuillez sélectionner au moins un fichier photo ou vidéo."
+                if lang == 'fr' else
+                "يرجى تحديد ملف صورة أو فيديو واحد على الأقل."
+            )
+            return render(request, 'portal/session_media_upload.html', {'form': form})
+
+        if form.is_valid():
+            title_base = form.cleaned_data['title']
+            group = form.cleaned_data.get('group')
+            session_date = form.cleaned_data['session_date']
+            visibility = form.cleaned_data['visibility']
+
+            uploaded_count = 0
+            failed_count = 0
+
+            for idx, f in enumerate(files, start=1):
+                # Déterminer le type (photo ou vidéo)
+                content_type = getattr(f, 'content_type', '') or ''
+                is_video = 'video' in content_type or f.name.lower().endswith(('.mp4', '.mov', '.avi', '.mkv', '.webm'))
+                media_type = 'video' if is_video else 'photo'
+
+                # Titre adapté si plusieurs fichiers
+                item_title = f"{title_base} ({idx})" if len(files) > 1 else title_base
+
+                try:
+                    drive_data = upload_file_to_drive(
+                        file_obj=f,
+                        filename=f"{session_date}_{f.name}",
+                        mime_type=content_type
+                    )
+
+                    SessionMedia.objects.create(
+                        title=item_title,
+                        media_type=media_type,
+                        group=group,
+                        session_date=session_date,
+                        google_drive_file_id=drive_data['file_id'],
+                        google_drive_web_link=drive_data.get('web_view_link', ''),
+                        google_drive_thumbnail_link=drive_data.get('thumbnail_link', ''),
+                        file_size_mb=drive_data.get('size_mb', 0.0),
+                        visibility=visibility,
+                        uploaded_by=request.user
+                    )
+                    uploaded_count += 1
+                except Exception as err:
+                    failed_count += 1
+
+            if uploaded_count > 0:
+                messages.success(
+                    request,
+                    f"✓ {uploaded_count} média(s) téléversé(s) avec succès sur Google Drive (Stockage 5 To)."
+                    if lang == 'fr' else
+                    f"✓ تم رفع {uploaded_count} ملف بنجاح إلى Google Drive (سعة 5 تيرابايت)."
+                )
+            if failed_count > 0:
+                messages.error(
+                    request,
+                    f"⚠️ {failed_count} fichier(s) n'ont pas pu être transférés."
+                    if lang == 'fr' else
+                    f"⚠️ تعذر نقل {failed_count} ملفات."
+                )
+
+            return redirect('portal:session_media_list')
+    else:
+        initial_data = {'session_date': date.today()}
+        group_id = request.GET.get('group_id')
+        if group_id and group_id.isdigit():
+            initial_data['group'] = group_id
+        form = SessionMediaUploadForm(initial=initial_data)
+
+    return render(request, 'portal/session_media_upload.html', {'form': form})
+
+
+@trainer_or_admin_required
+@require_POST
+def session_media_delete_view(request, media_id):
+    """
+    Supprime le média de la base de données et du dossier Google Drive (5 To).
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    from academy.google_drive import delete_file_from_drive
+
+    media = get_object_or_404(SessionMedia, id=media_id)
+    file_id = media.google_drive_file_id
+    title = media.title
+
+    # Suppression sur Drive
+    try:
+        delete_file_from_drive(file_id)
+    except Exception:
+        pass
+
+    media.delete()
+
+    messages.info(
+        request,
+        f"✓ Média « {title} » supprimé définitivement."
+        if lang == 'fr' else
+        f"✓ تم حذف الوسائط « {title} » نهائياً."
+    )
+    return redirect('portal:session_media_list')

@@ -449,3 +449,52 @@ class WhatsAppDispatchLog(models.Model):
         return f"[{self.target_date}] {self.phone} - {self.get_status_display()} ({self.attempt_count} essais)"
 
 
+class SessionMedia(models.Model):
+    MEDIA_TYPE_CHOICES = [
+        ('photo', 'Photo / صورة'),
+        ('video', 'Vidéo / فيديو'),
+    ]
+    VISIBILITY_CHOICES = [
+        ('group_only', 'Groupe uniquement / للمجموعة فقط'),
+        ('public_academy', 'Toute l’académie / للأكاديمية بأكملها'),
+    ]
+
+    title = models.CharField(max_length=200, verbose_name="Titre / Description courte")
+    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES, default='photo')
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True, related_name="medias", verbose_name="Groupe associé")
+    session_date = models.DateField(default=date.today, verbose_name="Date de la séance / événement")
+    
+    # Références Google Drive (ZÉRO stockage local sur le serveur VPS)
+    google_drive_file_id = models.CharField(max_length=150, unique=True, verbose_name="ID Google Drive")
+    google_drive_web_link = models.URLField(max_length=500, blank=True, verbose_name="Lien direct / visionnage")
+    google_drive_thumbnail_link = models.URLField(max_length=500, blank=True, verbose_name="Lien miniature")
+    file_size_mb = models.DecimalField(max_digits=8, decimal_places=2, default=0.00, verbose_name="Taille (Mo)")
+    
+    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='group_only', verbose_name="Visibilité")
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="uploaded_medias")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-session_date', '-created_at']
+        verbose_name = "Média de séance"
+        verbose_name_plural = "Médias de séance (Photos & Vidéos)"
+
+    def get_thumbnail_url(self):
+        """Retourne une URL de miniature optimisée pour affichage rapide."""
+        if self.google_drive_thumbnail_link:
+            return self.google_drive_thumbnail_link
+        if self.google_drive_file_id:
+            return f"https://lh3.googleusercontent.com/d/{self.google_drive_file_id}=s800"
+        return ""
+
+    def get_embed_url(self):
+        """Retourne l'URL de prévisualisation/streaming dans un iframe."""
+        if self.google_drive_file_id:
+            return f"https://drive.google.com/file/d/{self.google_drive_file_id}/preview"
+        return ""
+
+    def __str__(self):
+        type_str = "📷" if self.media_type == 'photo' else "🎥"
+        return f"{type_str} {self.title} ({self.session_date})"
+
+

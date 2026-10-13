@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load gca_tags %}
+
+{% block title %}
+    {% if CURRENT_LANG == 'ar' %}معرض الصور والفيديوهات — Genius Chess Academy{% else %}Médiathèque Séances & Événements — Genius Chess Academy{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 800; color: #1E293B; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+            📸 {% if CURRENT_LANG == 'ar' %}مكتبة الوسائط (الصور والفيديوهات){% else %}Médiathèque Photos & Vidéos{% endif %}
+        </h1>
+        <p style="color: #64748B; font-size: 0.9rem; margin-top: 0.25rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                تخزين سحابي فوري عبر Google Drive (5 تيرابايت) — صفر مساحة على خادم الويب
+            {% else %}
+                Stockage cloud direct Google Drive (5 To) — Zéro saturation du serveur VPS
+            {% endif %}
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{% url 'portal:session_media_upload' %}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; background: #2563EB; color: #fff; padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none;">
+            📤 {% if CURRENT_LANG == 'ar' %}رفع صور أو فيديوهات جديدة{% else %}Ajouter Photos / Vidéos{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- Filtres de recherche -->
+<div class="card" style="background: #fff; border: 1px solid #E2E8F0; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <form method="GET" action="" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+        <div style="flex: 1; min-width: 200px;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">
+                🎯 {% if CURRENT_LANG == 'ar' %}المجموعة{% else %}Groupe{% endif %}
+            </label>
+            <select name="group_id" class="search-input" style="width: 100%; padding: 0.45rem 0.65rem; border: 1px solid #CBD5E1; border-radius: 6px;">
+                <option value="">-- {% if CURRENT_LANG == 'ar' %}جميع المجموعات{% else %}Tous les groupes{% endif %} --</option>
+                {% for grp in all_groups %}
+                    <option value="{{ grp.id }}" {% if selected_group_id == grp.id %}selected{% endif %}>
+                        {{ grp|trans_field:CURRENT_LANG }} ({{ grp.subject|trans_field:CURRENT_LANG }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width: 170px;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">
+                🎞️ {% if CURRENT_LANG == 'ar' %}النوع{% else %}Type de média{% endif %}
+            </label>
+            <select name="media_type" class="search-input" style="width: 100%; padding: 0.45rem 0.65rem; border: 1px solid #CBD5E1; border-radius: 6px;">
+                <option value="">-- {% if CURRENT_LANG == 'ar' %}الكل (صور وفيديو){% else %}Tous les types{% endif %} --</option>
+                <option value="photo" {% if selected_media_type == 'photo' %}selected{% endif %}>📷 {% if CURRENT_LANG == 'ar' %}صور فقط{% else %}Photos uniquement{% endif %}</option>
+                <option value="video" {% if selected_media_type == 'video' %}selected{% endif %}>🎥 {% if CURRENT_LANG == 'ar' %}فيديوهات فقط{% else %}Vidéos uniquement{% endif %}</option>
+            </select>
+        </div>
+
+        <div style="width: 170px;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">
+                📅 {% if CURRENT_LANG == 'ar' %}التاريخ{% else %}Date de séance{% endif %}
+            </label>
+            <input type="date" name="date" value="{{ selected_date }}" class="search-input" style="width: 100%; padding: 0.45rem 0.65rem; border: 1px solid #CBD5E1; border-radius: 6px;">
+        </div>
+
+        <div>
+            <button type="submit" class="btn btn-secondary" style="padding: 0.45rem 1rem; border-radius: 6px; font-weight: 600;">
+                🔍 {% if CURRENT_LANG == 'ar' %}تصفية{% else %}Filtrer{% endif %}
+            </button>
+            {% if selected_group_id or selected_media_type or selected_date %}
+                <a href="{% url 'portal:session_media_list' %}" class="btn btn-outline" style="padding: 0.45rem 0.75rem; border-radius: 6px; font-size: 0.85rem; margin-inline-start: 0.25rem;">
+                    ✕ {% if CURRENT_LANG == 'ar' %}إعادة ضبط{% else %}Réinitialiser{% endif %}
+                </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Grille des médias -->
+{% if medias %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem;">
+        {% for m in medias %}
+        <div style="background: #fff; border-radius: 12px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column;">
+            
+            <!-- Zone média / aperçu -->
+            <div style="position: relative; height: 180px; background: #0F172A; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                {% if m.media_type == 'photo' %}
+                    <img src="{{ m.get_thumbnail_url }}" alt="{{ m.title }}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                {% else %}
+                    <!-- Vidéo -->
+                    <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #1E293B, #0F172A); color: #fff; position: relative;">
+                        <span style="font-size: 3rem;">▶️</span>
+                        <span style="font-size: 0.8rem; font-weight: 700; margin-top: 0.25rem; color: #94A3B8;">Vidéo (Google Drive)</span>
+                        <a href="{{ m.google_drive_web_link }}" target="_blank" style="position: absolute; inset: 0;" title="Visionner"></a>
+                    </div>
+                {% endif %}
+
+                <!-- Badge type -->
+                <span style="position: absolute; top: 8px; {% if CURRENT_LANG == 'ar' %}right: 8px;{% else %}left: 8px;{% endif %} background: rgba(0,0,0,0.65); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px; backdrop-filter: blur(4px);">
+                    {% if m.media_type == 'photo' %}📷 Photo{% else %}🎥 Vidéo{% endif %}
+                </span>
+
+                <!-- Badge visibilité -->
+                <span style="position: absolute; top: 8px; {% if CURRENT_LANG == 'ar' %}left: 8px;{% else %}right: 8px;{% endif %} background: {% if m.visibility == 'public_academy' %}#059669{% else %}#2563EB{% endif %}; color: #fff; font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px;">
+                    {% if m.visibility == 'public_academy' %}
+                        🌐 {% if CURRENT_LANG == 'ar' %}عام للجميع{% else %}Public Académie{% endif %}
+                    {% else %}
+                        👥 {% if CURRENT_LANG == 'ar' %}للمجموعة فقط{% else %}Groupe{% endif %}
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Détails -->
+            <div style="padding: 0.85rem 1rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h3 style="font-size: 0.95rem; font-weight: 700; color: #1E293B; margin: 0 0 0.35rem 0; line-height: 1.3;">
+                        {{ m.title }}
+                    </h3>
+                    <p style="font-size: 0.8rem; color: #64748B; margin: 0 0 0.5rem 0;">
+                        📅 {{ m.session_date|date:"d/m/Y" }}
+                        {% if m.group %}
+                            • <b style="color: #334155;">{{ m.group|trans_field:CURRENT_LANG }}</b>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- Actions -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #F1F5F9; padding-top: 0.65rem; margin-top: 0.5rem;">
+                    <a href="{{ m.google_drive_web_link }}" target="_blank" rel="noopener noreferrer" style="color: #2563EB; font-size: 0.82rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">
+                        🔗 {% if CURRENT_LANG == 'ar' %}عرض / تحميل{% else %}Voir / Ouvrir{% endif %}
+                    </a>
+
+                    <!-- Bouton supprimer -->
+                    <form method="POST" action="{% url 'portal:session_media_delete' m.id %}" onsubmit="return confirm('Confirmer la suppression définitive de ce média sur Google Drive ?');" style="margin: 0;">
+                        {% csrf_token %}
+                        <button type="submit" style="background: none; border: none; color: #EF4444; font-size: 0.82rem; cursor: pointer; padding: 0.2rem 0.4rem; font-weight: 600;">
+                            🗑️ Supprimer
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div style="background: #fff; border: 2px dashed #CBD5E1; border-radius: 12px; padding: 3rem 1.5rem; text-align: center; color: #64748B;">
+        <span style="font-size: 3rem; display: block; margin-bottom: 0.5rem;">🖼️</span>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #334155; margin-bottom: 0.5rem;">
+            {% if CURRENT_LANG == 'ar' %}لا توجد صور أو فيديوهات حالياً{% else %}Aucun média enregistré{% endif %}
+        </h3>
+        <p style="max-width: 500px; margin: 0 auto 1.5rem auto; font-size: 0.9rem;">
+            {% if CURRENT_LANG == 'ar' %}
+                ابدأ بتحميل صور وفيديوهات الحصص التدريبية والبطولات مباشرة لمشاركتها مع أولياء الأمور.
+            {% else %}
+                Téléversez vos photos et vidéos d'entraînements ou de compétitions pour les partager en temps réel avec les familles.
+            {% endif %}
+        </p>
+        <a href="{% url 'portal:session_media_upload' %}" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-weight: 700;">
+            📤 {% if CURRENT_LANG == 'ar' %}إضافة أول وسائط{% else %}Téléverser les premières photos/vidéos{% endif %}
+        </a>
+    </div>
+{% endif %}
+
+{% endblock %}

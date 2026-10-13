@@ -114,4 +114,11 @@ WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', 'http://127.0.0.1:3000/
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', 'edff40183779418cbfd267b471253777')
 WHATSAPP_SESSION_NAME = os.getenv('WHATSAPP_SESSION_NAME', 'default')
 
+# Configuration Google Drive (Stockage Cloud 5 To pour Photos & Vidéos)
+GOOGLE_DRIVE_FOLDER_ID = os.getenv('GOOGLE_DRIVE_FOLDER_ID', '1MwD-jVDclNwRSjtFr9UbnUWOM-TvwKTh')
+GOOGLE_DRIVE_CREDENTIALS_FILE = os.getenv(
+    'GOOGLE_DRIVE_CREDENTIALS_FILE',
+    os.path.join(BASE_DIR, 'google_drive_credentials.json')
+)
+
 

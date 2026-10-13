@@ -1,6 +1,6 @@
 import re
 from django import forms
-from academy.models import Student, Parent, Subject, Group, Room, Level, SessionSchedule, User, GroupMessage
+from academy.models import Student, Parent, Subject, Group, Room, Level, SessionSchedule, User, GroupMessage, SessionMedia
 
 from decimal import Decimal
 from finance.models import PaymentExemption, Invoice
@@ -575,6 +575,69 @@ class GroupMessageForm(forms.ModelForm):
                 'placeholder': 'Rédigez le message ou l\'annonce à destination des parents de ce groupe...'
             }),
         }
+
+
+class MultipleFileInput(forms.FileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = single_file_clean(data, initial)
+        return result
+
+
+class SessionMediaUploadForm(forms.Form):
+    """
+    Formulaire d'upload multiple de photos et vidéos vers Google Drive (5 To).
+    Supporte l'envoi de plusieurs fichiers en un seul clic.
+    """
+    title = forms.CharField(
+        max_length=200,
+        required=True,
+        label="Titre ou description / العنوان أو الوصف",
+        widget=forms.TextInput(attrs={
+            'class': 'search-input',
+            'placeholder': 'Ex: Photos de la ronde 3 du tournoi, Exercices tactiques, Remise des prix...'
+        })
+    )
+    group = forms.ModelChoiceField(
+        queryset=Group.objects.select_related('subject', 'level').all(),
+        required=False,
+        empty_label="-- Aucun groupe spécifique (Événement général) --",
+        label="Groupe concerné / المجموعة المعنية",
+        widget=forms.Select(attrs={'class': 'search-input'})
+    )
+    session_date = forms.DateField(
+        required=True,
+        label="Date de la séance ou événement / تاريخ الحصة أو الحدث",
+        widget=forms.DateInput(attrs={
+            'class': 'search-input',
+            'type': 'date'
+        })
+    )
+    visibility = forms.ChoiceField(
+        choices=SessionMedia.VISIBILITY_CHOICES,
+        initial='group_only',
+        label="Visibilité / مستوى الرؤية",
+        widget=forms.Select(attrs={'class': 'search-input'})
+    )
+    media_files = MultipleFileField(
+        label="Photos & Vidéos (Sélection multiple) / الصور والفيديوهات",
+        widget=MultipleFileInput(attrs={
+            'class': 'search-input',
+            'accept': 'image/*,video/*'
+        }),
+        help_text="Vous pouvez sélectionner plusieurs photos ou vidéos à la fois (JPEG, PNG, MP4, MOV, WebM...)."
+    )
 
 
 
