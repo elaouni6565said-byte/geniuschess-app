@@ -553,6 +553,12 @@ class ExemptionForm(forms.Form):
 
 
 class GroupMessageForm(forms.ModelForm):
+    send_whatsapp = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Envoyer immédiatement par WhatsApp aux parents du groupe (WAHA)",
+        widget=forms.CheckboxInput(attrs={'class': 'status-checkbox', 'id': 'id_send_whatsapp'})
+    )
     notify_parents = forms.BooleanField(
         required=False,
         initial=True,

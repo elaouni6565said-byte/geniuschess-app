@@ -58,6 +58,7 @@ urlpatterns = [
     path('groups/<int:group_id>/delete/', views.group_delete_view, name='group_delete'),
     path('groups/<int:group_id>/messages/', views.group_messages_view, name='group_messages'),
     path('groups/<int:group_id>/messages/<int:message_id>/delete/', views.group_message_delete_view, name='group_message_delete'),
+    path('groups/<int:group_id>/messages/<int:message_id>/resend-whatsapp/', views.group_message_resend_whatsapp_view, name='group_message_resend_whatsapp'),
 
     # Planning CRUD
     path('planning/add/', views.session_create_view, name='session_add'),

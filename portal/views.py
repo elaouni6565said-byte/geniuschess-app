@@ -2045,12 +2045,84 @@ def group_delete_view(request, group_id):
     return render(request, 'portal/confirm_delete.html', context)
 
 
+def dispatch_group_message_whatsapp(group, msg_obj):
+    """
+    Expédie un message de groupe aux parents des élèves actifs du groupe via WhatsApp (WAHA).
+    Retourne (sent_count, total_count, errors_list)
+    """
+    from academy.whatsapp_reminders import format_phone_for_whatsapp, send_whatsapp_via_gateway
+    from academy.models import WhatsAppDispatchLog
+    from django.utils import timezone
+    from datetime import date
+
+    type_badges = {
+        'info': ('📢 Information', '📢 إشعار'),
+        'reminder': ('⏰ Rappel', '⏰ تذكير'),
+        'pedagogy': ('📚 Pédagogie', '📚 تربوي'),
+        'event': ('🏆 Événement', '🏆 حدث'),
+        'urgent': ('🚨 URGENT', '🚨 عاجل'),
+    }
+    badge_fr, badge_ar = type_badges.get(msg_obj.message_type, ('📢 Annonce', '📢 إعلان'))
+    title_line = f"📌 *{msg_obj.title.strip()}*\n" if msg_obj.title and msg_obj.title.strip() else ""
+
+    sent_count = 0
+    contacted_phones = set()
+    errors = []
+
+    active_students = list(group.students.filter(active=True).select_related('parent'))
+    for st in active_students:
+        parent = st.parent
+        if not parent or not parent.phone:
+            continue
+
+        wa_phone = format_phone_for_whatsapp(parent.phone)
+        if not wa_phone or wa_phone in contacted_phones:
+            continue
+        contacted_phones.add(wa_phone)
+
+        parent_name = parent.get_name('fr')
+
+        msg_text = (
+            f"📢 *GENIUS CHESS ACADEMY*\n"
+            f"👥 *Groupe :* {group.name_fr} ({group.name_ar})\n"
+            f"🏷️ *{badge_fr}*\n"
+            f"{title_line}\n"
+            f"Bonjour cher(e) {parent_name},\n\n"
+            f"{msg_obj.content.strip()}\n\n"
+            f"--------------------------------\n"
+            f"🏢 _Message officiel diffusé aux parents du groupe {group.name_fr}._"
+        )
+
+        res = send_whatsapp_via_gateway(wa_phone, msg_text)
+        is_success = bool(res and res.get('success'))
+
+        WhatsAppDispatchLog.objects.create(
+            student=st,
+            parent=parent,
+            phone=wa_phone,
+            message_type='custom',
+            target_date=date.today(),
+            message_text=msg_text,
+            status='sent' if is_success else 'failed',
+            attempt_count=1,
+            last_error='' if is_success else str(res.get('error') or 'Échec passerelle'),
+            sent_at=timezone.now() if is_success else None,
+        )
+
+        if is_success:
+            sent_count += 1
+        else:
+            errors.append(f"{parent_name} ({wa_phone}): {res.get('error')}")
+
+    return sent_count, len(contacted_phones), errors
+
+
 @admin_required
 def group_messages_view(request, group_id):
     """
     Espace Messages et Annonces d'un Groupe (selon l'activité et le niveau) :
     Permet à l'administrateur de consulter l'historique et de rédiger des messages
-    diffusés aux parents d'élèves de ce groupe.
+    diffusés aux parents d'élèves de ce groupe (sur l'Espace Web et par WhatsApp).
     """
     lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
     group = get_object_or_404(
@@ -2084,12 +2156,33 @@ def group_messages_view(request, group_id):
                         notification_type=msg_obj.message_type
                     )
 
-            messages.success(
-                request,
-                f"✓ Message publié avec succès dans le groupe « {group.name_fr} »."
-                if lang == 'fr' else
-                f"✓ تم نشر الإعلان بنجاح في مجموعة « {group.name_ar} »."
-            )
+            send_whatsapp = form.cleaned_data.get('send_whatsapp', False)
+            wa_sent = 0
+            if send_whatsapp:
+                wa_sent, wa_total, wa_errs = dispatch_group_message_whatsapp(group, msg_obj)
+
+            if wa_sent > 0:
+                messages.success(
+                    request,
+                    f"✓ Message publié et expédié par WhatsApp avec succès à {wa_sent} parent(s) du groupe !"
+                    if lang == 'fr' else
+                    f"✓ تم نشر الإعلان وإرساله عبر واتساب بنجاح إلى {wa_sent} من أولياء أمور المجموعة !"
+                )
+            elif send_whatsapp:
+                messages.warning(
+                    request,
+                    f"✓ Message publié sur le site, mais l'envoi WhatsApp a échoué (vérifiez la passerelle WAHA)."
+                    if lang == 'fr' else
+                    f"✓ تم نشر الإعلان بالموقع، لكن تعذر إرسال الواتساب (يرجى التحقق من اتصال بوابة WAHA)."
+                )
+            else:
+                messages.success(
+                    request,
+                    f"✓ Message publié avec succès dans le groupe « {group.name_fr} »."
+                    if lang == 'fr' else
+                    f"✓ تم نشر الإعلان بنجاح في مجموعة « {group.name_ar} »."
+                )
+
             return redirect('portal:group_messages', group_id=group.id)
     else:
         form = GroupMessageForm()
@@ -2105,6 +2198,34 @@ def group_messages_view(request, group_id):
         'students_count': enrolled_students.count(),
     }
     return render(request, 'portal/group_messages.html', context)
+
+
+@admin_required
+@require_POST
+def group_message_resend_whatsapp_view(request, group_id, message_id):
+    """
+    Renvoyer un message de groupe existant par WhatsApp aux parents des élèves de ce groupe.
+    """
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+    group = get_object_or_404(Group, id=group_id)
+    msg_obj = get_object_or_404(GroupMessage, id=message_id, group=group)
+
+    wa_sent, wa_total, wa_errs = dispatch_group_message_whatsapp(group, msg_obj)
+    if wa_sent > 0:
+        messages.success(
+            request,
+            f"✓ Message WhatsApp renvoyé avec succès à {wa_sent} parent(s) du groupe !"
+            if lang == 'fr' else
+            f"✓ تم إعادة إرسال رسالة واتساب بنجاح إلى {wa_sent} من أولياء المجموعة !"
+        )
+    else:
+        messages.error(
+            request,
+            f"Échec de l'envoi WhatsApp. Vérifiez la passerelle WAHA."
+            if lang == 'fr' else
+            f"فشل إرسال رسالة واتساب. يرجى التحقق من بوابة WAHA."
+        )
+    return redirect('portal:group_messages', group_id=group.id)
 
 
 @admin_required
