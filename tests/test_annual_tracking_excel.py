@@ -144,6 +144,21 @@ def test_annual_tracking_excel_structure_and_data():
     assert majd_row[nov_base + 1] == "J"
     assert majd_row[nov_base + 4] == "EXONÉRÉ"
 
+    # Vérifier la ligne de total des payants du groupe Échecs N3
+    total_grp_row = next(
+        r for r in chess_values
+        if r and r[0] and "TOTAL PAYANTS (Échecs N3)" in str(r[0])
+    )
+    assert total_grp_row[nov_base + 4] == 1  # 1 payant (Malak Chahboun)
+    assert "Payants: 1 (+1 Exon.)" in str(total_grp_row[nov_base])
+
+    # Vérifier la ligne de total général en bas de la feuille
+    grand_tot_row = next(
+        r for r in chess_values
+        if r and r[0] and "TOTAL GÉNÉRAL PAYANTS" in str(r[0])
+    )
+    assert grand_tot_row[nov_base + 4] >= 1
+
 
 @pytest.mark.django_db
 def test_annual_tracking_excel_endpoint():

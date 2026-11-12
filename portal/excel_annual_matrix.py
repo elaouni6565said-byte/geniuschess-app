@@ -212,6 +212,17 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
 
     month_dict = ARABIC_MONTHS if lang == "ar" else FRENCH_MONTHS
 
+    # Compteurs globaux de la feuille par mois
+    sheet_paid_totals = [0] * len(months_list)
+    sheet_exempt_totals = [0] * len(months_list)
+    sheet_unpaid_totals = [0] * len(months_list)
+
+    TOTAL_ROW_BG = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
+    GRAND_TOTAL_BG = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    DOUBLE_BOTTOM_SIDE = Side(style="double", color=NAVY_DARK)
+    TOTAL_BORDER = Border(left=THIN_SIDE, right=THIN_SIDE, top=MED_NAVY_SIDE, bottom=DOUBLE_BOTTOM_SIDE)
+    TOTAL_MONTH_END_BORDER = Border(left=THIN_SIDE, right=MED_NAVY_SIDE, top=MED_NAVY_SIDE, bottom=DOUBLE_BOTTOM_SIDE)
+
     for block in blocks:
         group = block['group']
         subject_name = block['subject_name']
@@ -329,6 +340,10 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
 
         group_id = group.id if group else None
 
+        grp_paid_counts = [0] * len(months_list)
+        grp_exempt_counts = [0] * len(months_list)
+        grp_unpaid_counts = [0] * len(months_list)
+
         for idx, st in enumerate(students, start=1):
             ws.row_dimensions[curr_row].height = 20
             is_zebra = (idx % 2 == 0)
@@ -394,16 +409,139 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
                     cell_oui.value = pay_label
                     cell_oui.fill = pay_fill
                     cell_oui.font = pay_font
+                    if pay_label == 'EXONÉRÉ':
+                        grp_exempt_counts[m_idx] += 1
+                        sheet_exempt_totals[m_idx] += 1
+                    else:
+                        grp_paid_counts[m_idx] += 1
+                        sheet_paid_totals[m_idx] += 1
                 elif target == 'non':
                     cell_non.value = pay_label
                     cell_non.fill = pay_fill
                     cell_non.font = pay_font
+                    grp_unpaid_counts[m_idx] += 1
+                    sheet_unpaid_totals[m_idx] += 1
 
             curr_row += 1
+
+        # 4. Ligne de TOTAL DES PAYANTS du groupe pour chaque mois
+        ws.row_dimensions[curr_row].height = 23
+        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
+        c_tot_lbl = ws.cell(
+            row=curr_row,
+            column=1,
+            value=(
+                f"TOTAL PAYANTS ({group_name})"
+                if lang != "ar" else
+                f"مجموع المؤدين ({group_name})"
+            ),
+        )
+        c_tot_lbl.font = Font(name="Calibri", size=10, bold=True, color=NAVY_DARK)
+        c_tot_lbl.fill = TOTAL_ROW_BG
+        c_tot_lbl.alignment = Alignment(horizontal="right" if lang == "ar" else "left", vertical="center", indent=1)
+        ws.cell(row=curr_row, column=1).border = TOTAL_BORDER
+        ws.cell(row=curr_row, column=2).fill = TOTAL_ROW_BG
+        ws.cell(row=curr_row, column=2).border = TOTAL_BORDER
+
+        for m_idx, (m_num, y_num) in enumerate(months_list):
+            base_col = 3 + m_idx * 6
+            paid_n = grp_paid_counts[m_idx]
+            ex_n = grp_exempt_counts[m_idx]
+            unpaid_n = grp_unpaid_counts[m_idx]
+
+            # Cellule fusionnée sous S1..S4 : résumé texte du mois pour ce groupe
+            ws.merge_cells(start_row=curr_row, start_column=base_col, end_row=curr_row, end_column=base_col + 3)
+            c_summary = ws.cell(row=curr_row, column=base_col)
+            if paid_n > 0 or ex_n > 0 or unpaid_n > 0 or (y_num, m_num) <= (today.year, today.month):
+                if ex_n > 0:
+                    c_summary.value = f"Payants: {paid_n} (+{ex_n} Exon.)" if lang != "ar" else f"مؤدون: {paid_n} (+{ex_n} معفى)"
+                else:
+                    c_summary.value = f"Payants : {paid_n}/{len(students)}" if lang != "ar" else f"المؤدون : {paid_n}/{len(students)}"
+            c_summary.font = Font(name="Calibri", size=8, bold=True, color=NAVY_DARK)
+            c_summary.alignment = Alignment(horizontal="center", vertical="center")
+            for c_off in range(4):
+                cell_m_tot = ws.cell(row=curr_row, column=base_col + c_off)
+                cell_m_tot.fill = TOTAL_ROW_BG
+                cell_m_tot.border = TOTAL_BORDER
+
+            # Colonne OUI : Nombre total des payants du groupe sur ce mois
+            c_tot_oui = ws.cell(row=curr_row, column=base_col + 4, value=paid_n)
+            c_tot_oui.font = Font(name="Calibri", size=10, bold=True, color="166534")
+            c_tot_oui.fill = FILL_PAID
+            c_tot_oui.alignment = Alignment(horizontal="center", vertical="center")
+            c_tot_oui.border = TOTAL_BORDER
+
+            # Colonne NON : Nombre total des non-payants du groupe sur ce mois
+            c_tot_non = ws.cell(
+                row=curr_row,
+                column=base_col + 5,
+                value=unpaid_n if (unpaid_n > 0 or (y_num, m_num) <= (today.year, today.month)) else 0,
+            )
+            c_tot_non.font = Font(name="Calibri", size=10, bold=True, color="991B1B")
+            c_tot_non.fill = FILL_UNPAID
+            c_tot_non.alignment = Alignment(horizontal="center", vertical="center")
+            c_tot_non.border = TOTAL_MONTH_END_BORDER
+
+        curr_row += 1
 
         # Ligne vide de séparation entre deux groupes
         ws.row_dimensions[curr_row].height = 14
         curr_row += 1
+
+    # 5. Ligne de TOTAL GÉNÉRAL (tous groupes confondus de la feuille) par mois
+    if blocks:
+        ws.row_dimensions[curr_row].height = 26
+        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
+        c_grand = ws.cell(
+            row=curr_row,
+            column=1,
+            value=(
+                "TOTAL GÉNÉRAL PAYANTS (TOUS GROUPES)"
+                if lang != "ar" else
+                "المجموع العام للمؤدين (جميع الأفواج)"
+            ),
+        )
+        c_grand.font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+        c_grand.fill = GRAND_TOTAL_BG
+        c_grand.alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=curr_row, column=1).border = TOTAL_BORDER
+        ws.cell(row=curr_row, column=2).fill = GRAND_TOTAL_BG
+        ws.cell(row=curr_row, column=2).border = TOTAL_BORDER
+
+        for m_idx, (m_num, y_num) in enumerate(months_list):
+            base_col = 3 + m_idx * 6
+            g_paid = sheet_paid_totals[m_idx]
+            g_ex = sheet_exempt_totals[m_idx]
+            g_unpaid = sheet_unpaid_totals[m_idx]
+
+            ws.merge_cells(start_row=curr_row, start_column=base_col, end_row=curr_row, end_column=base_col + 3)
+            c_g_sum = ws.cell(
+                row=curr_row,
+                column=base_col,
+                value=(
+                    f"Total Payants : {g_paid}" + (f" (+{g_ex} Exon.)" if g_ex else "")
+                    if lang != "ar" else
+                    f"مجموع المؤدين : {g_paid}" + (f" (+{g_ex} معفى)" if g_ex else "")
+                ),
+            )
+            c_g_sum.font = Font(name="Calibri", size=9, bold=True, color="FFFFFF")
+            c_g_sum.alignment = Alignment(horizontal="center", vertical="center")
+            for c_off in range(4):
+                cell_gm = ws.cell(row=curr_row, column=base_col + c_off)
+                cell_gm.fill = GRAND_TOTAL_BG
+                cell_gm.border = TOTAL_BORDER
+
+            c_g_oui = ws.cell(row=curr_row, column=base_col + 4, value=g_paid)
+            c_g_oui.font = Font(name="Calibri", size=11, bold=True, color="166534")
+            c_g_oui.fill = FILL_PAID
+            c_g_oui.alignment = Alignment(horizontal="center", vertical="center")
+            c_g_oui.border = TOTAL_BORDER
+
+            c_g_non = ws.cell(row=curr_row, column=base_col + 5, value=g_unpaid)
+            c_g_non.font = Font(name="Calibri", size=11, bold=True, color="991B1B")
+            c_g_non.fill = FILL_UNPAID
+            c_g_non.alignment = Alignment(horizontal="center", vertical="center")
+            c_g_non.border = TOTAL_MONTH_END_BORDER
 
 
 def generate_annual_tracking_excel(groups_queryset=None, academic_start_year=None, lang="fr", include_unassigned=True):
