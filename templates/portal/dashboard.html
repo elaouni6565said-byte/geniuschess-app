@@ -16,6 +16,9 @@
         <a href="{% url 'portal:export_unpaid_excel' %}" class="btn btn-outline" style="background: white; border-color: var(--danger); color: var(--danger); font-weight: 600;">
             ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير المتأخرات (Excel){% else %}Exporter Impayés (Excel){% endif %}
         </a>
+        <a href="{% url 'portal:export_annual_tracking_excel' %}" class="btn btn-outline" style="background: #ECFDF5; border-color: #059669; color: #065F46; font-weight: 700;">
+            📊 {% if CURRENT_LANG == 'ar' %}التتبع السنوي للأداء والحضور (Excel){% else %}Suivi Annuel Paiements & Présences (Excel){% endif %}
+        </a>
         <a href="{% url 'portal:planning_pdf' %}?lang={{ CURRENT_LANG }}" target="_blank" class="btn btn-outline" style="background: white; border-color: #CBD5E1; color: var(--primary-navy); font-weight: 600;">
             📄 {% if CURRENT_LANG == 'ar' %}تحميل البرنامج (PDF){% else %}Exporter Planning (PDF){% endif %}
         </a>

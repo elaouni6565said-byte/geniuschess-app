@@ -9,6 +9,7 @@ urlpatterns = [
     path('set-device-mode/<str:mode>/', views.set_device_mode, name='set_device_mode'),
     path('students/', views.students_list_view, name='students'),
     path('students/export-excel/', views.export_students_excel_view, name='export_students_excel'),
+    path('students/export-tracking-excel/', views.export_annual_tracking_excel_view, name='export_annual_tracking_excel'),
     path('planning/', views.planning_view, name='planning'),
     path('planning/pdf/', views.download_planning_pdf_view, name='planning_pdf'),
     path('payments/', views.payments_list_view, name='payments'),

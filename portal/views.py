@@ -552,6 +552,48 @@ def export_students_excel_view(request):
 
 
 @admin_required
+def export_annual_tracking_excel_view(request):
+    """
+    Exporte la matrice annuelle complète des élèves classés par Activités et Groupes,
+    avec les mois, les séances S1..S4 (présences) et l'état de paiement (OUI/NON/EXONÉRÉ).
+    """
+    from portal.excel_annual_matrix import generate_annual_tracking_excel
+    lang = getattr(request, 'LANGUAGE_CODE', DEFAULT_LANGUAGE)
+
+    req_year = request.GET.get('year')
+    academic_start_year = int(req_year) if req_year and req_year.isdigit() else None
+
+    groups_qs = Group.objects.select_related('subject', 'level').all()
+    subject_id = request.GET.get('subject') or request.GET.get('activity')
+    group_id = request.GET.get('group')
+    include_unassigned = True
+
+    if subject_id and subject_id.isdigit():
+        groups_qs = groups_qs.filter(subject_id=int(subject_id))
+        include_unassigned = False
+    if group_id and group_id.isdigit():
+        groups_qs = groups_qs.filter(id=int(group_id))
+        include_unassigned = False
+
+    excel_data = generate_annual_tracking_excel(
+        groups_queryset=groups_qs,
+        academic_start_year=academic_start_year,
+        lang=lang,
+        include_unassigned=include_unassigned,
+    )
+
+    today = date.today()
+    yr = academic_start_year or (today.year if today.month >= 9 else today.year - 1)
+    filename = f"GCA_Suivi_Presences_Paiements_{yr}_{yr + 1}_{lang}.xlsx"
+    response = HttpResponse(
+        excel_data,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@admin_required
 def download_planning_pdf_view(request):
     """Export the official master timetable of the academy to a Landscape A4 PDF."""
     lang = request.GET.get('lang')
