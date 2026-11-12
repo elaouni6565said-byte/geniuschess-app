@@ -2943,13 +2943,25 @@ def payment_edit_view(request, payment_id):
                 old_inv = payment.invoice
                 updated_payment = form.save(commit=False)
 
-                # Priorité absolue au mois de la facture
+                req_month = form.cleaned_data.get('period_month')
+                req_year = form.cleaned_data.get('period_year')
+
+                # Si l'utilisateur a modifié le mois, l'année ou l'élève alors que l'ancienne facture était encore sélectionnée
+                if (
+                    old_inv
+                    and updated_payment.invoice_id == old_inv.id
+                    and (
+                        (req_month and int(req_month) != old_inv.period_month)
+                        or (req_year and int(req_year) != old_inv.period_year)
+                        or (updated_payment.student_id != old_inv.student_id)
+                    )
+                ):
+                    updated_payment.invoice = None
+
                 if updated_payment.invoice:
                     updated_payment.period_month = updated_payment.invoice.period_month
                     updated_payment.period_year = updated_payment.invoice.period_year
                 else:
-                    req_month = form.cleaned_data.get('period_month')
-                    req_year = form.cleaned_data.get('period_year')
                     if req_month:
                         updated_payment.period_month = int(req_month)
                     if req_year:

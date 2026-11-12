@@ -463,7 +463,11 @@ class PaymentForm(forms.ModelForm):
 
         self.fields['invoice'].required = False
         self.fields['invoice'].empty_label = "-- Attribution automatique à la facture impayée du mois --"
-        self.fields['invoice'].queryset = Invoice.objects.filter(status__in=['unpaid', 'partial']).select_related('student', 'group')
+        from django.db.models import Q
+        inv_filter = Q(status__in=['unpaid', 'partial'])
+        if self.instance and self.instance.pk and self.instance.invoice_id:
+            inv_filter = inv_filter | Q(id=self.instance.invoice_id)
+        self.fields['invoice'].queryset = Invoice.objects.filter(inv_filter).select_related('student', 'group')
         self.fields['invoice'].label_from_instance = lambda obj: f"{obj.student.get_full_name('fr')} — {obj.get_period_label('fr')} (Reste: {obj.get_balance()} DH)"
 
         def format_student_option(st):

@@ -327,19 +327,19 @@
                         </div>
                     </td>
                     <td style="text-align: center;">
-                        <div style="display: inline-flex; gap: 0.35rem;">
-                            <a href="{% url 'portal:payment_edit' p.id %}" class="btn btn-secondary btn-sm" title="Modifier ce paiement (sécurisé par code PIN)">
-                                ✏️
+                        <div style="display: inline-flex; gap: 0.35rem; flex-wrap: nowrap;">
+                            <a href="{% url 'portal:payment_edit' p.id %}" class="btn btn-secondary btn-sm" style="font-weight: 600;" title="Modifier ce paiement">
+                                ✏️ {% if CURRENT_LANG == 'ar' %}تعديل{% else %}Modifier{% endif %}
                             </a>
-                            <a href="{% url 'portal:payment_delete' p.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;" title="Annuler / Supprimer ce paiement (sécurisé par code PIN)">
-                                🗑️
+                            <a href="{% url 'portal:payment_delete' p.id %}" class="btn btn-sm" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-weight: 600;" title="Annuler / Supprimer ce paiement">
+                                🗑️ {% if CURRENT_LANG == 'ar' %}حذف{% else %}Supprimer{% endif %}
                             </a>
                         </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">
                         {% trans "common.not_found" %}
                     </td>
                 </tr>
