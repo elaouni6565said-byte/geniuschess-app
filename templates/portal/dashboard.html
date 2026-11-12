@@ -10,14 +10,14 @@
         <p>{% trans "dashboard.subtitle" %}</p>
     </div>
     <div class="page-actions" style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+        <a href="{% url 'portal:export_annual_tracking_excel' %}" class="btn" style="background: #059669; color: white; font-weight: 700; box-shadow: 0 2px 4px rgba(5,150,105,0.25);">
+            📊 {% if CURRENT_LANG == 'ar' %}التتبع السنوي للأداء والحضور (Excel){% else %}Suivi Annuel de Paiement (Excel){% endif %}
+        </a>
         <a href="{% url 'portal:export_paid_excel' %}" class="btn btn-secondary" style="font-weight: 600;">
             📥 {% if CURRENT_LANG == 'ar' %}تصدير الأداءات (Excel){% else %}Exporter Payants (Excel){% endif %}
         </a>
         <a href="{% url 'portal:export_unpaid_excel' %}" class="btn btn-outline" style="background: white; border-color: var(--danger); color: var(--danger); font-weight: 600;">
             ⚠️ {% if CURRENT_LANG == 'ar' %}تصدير المتأخرات (Excel){% else %}Exporter Impayés (Excel){% endif %}
-        </a>
-        <a href="{% url 'portal:export_annual_tracking_excel' %}" class="btn btn-outline" style="background: #ECFDF5; border-color: #059669; color: #065F46; font-weight: 700;">
-            📊 {% if CURRENT_LANG == 'ar' %}التتبع السنوي للأداء والحضور (Excel){% else %}Suivi Annuel Paiements & Présences (Excel){% endif %}
         </a>
         <a href="{% url 'portal:planning_pdf' %}?lang={{ CURRENT_LANG }}" target="_blank" class="btn btn-outline" style="background: white; border-color: #CBD5E1; color: var(--primary-navy); font-weight: 600;">
             📄 {% if CURRENT_LANG == 'ar' %}تحميل البرنامج (PDF){% else %}Exporter Planning (PDF){% endif %}
@@ -457,6 +457,9 @@
                 </span>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <a href="{% url 'portal:export_annual_tracking_excel' %}" class="btn btn-sm" style="background: #059669; color: white; font-weight: 700;">
+                    📊 {% if CURRENT_LANG == 'ar' %}التتبع السنوي للأداء (Excel){% else %}Suivi Annuel de Paiement (Excel){% endif %}
+                </a>
                 <a href="{% url 'portal:export_paid_excel' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-secondary btn-sm" style="font-weight: 600;">
                     📥 {% if CURRENT_LANG == 'ar' %}تصدير لائحة الأداءات (Excel){% else %}Exporter l'état de paiement (Excel){% endif %}
                 </a>
