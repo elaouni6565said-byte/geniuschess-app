@@ -24,6 +24,12 @@ FILL_SUBHEADER = PatternFill(start_color=SUBHEADER_BG, end_color=SUBHEADER_BG, f
 FILL_GROUP_BANNER = PatternFill(start_color=GROUP_BANNER_BG, end_color=GROUP_BANNER_BG, fill_type="solid")
 FILL_ZEBRA = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
 
+# Couleurs par Trimestre
+FILL_TRIM_1 = PatternFill(start_color="1D4ED8", end_color="1D4ED8", fill_type="solid")  # Bleu Roi
+FILL_TRIM_2 = PatternFill(start_color="047857", end_color="047857", fill_type="solid")  # Émeraude
+FILL_TRIM_3 = PatternFill(start_color="6D28D9", end_color="6D28D9", fill_type="solid")  # Violet
+FILL_SECTION_HEADER = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+
 # Couleurs présences
 FILL_PRESENT = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
 FONT_PRESENT = Font(name="Calibri", size=10, bold=True, color="166534")
@@ -53,10 +59,16 @@ FONT_EXEMPT = Font(name="Calibri", size=8, bold=True, color="0369A1")
 # Bordures
 THIN_SIDE = Side(style="thin", color=BORDER_LIGHT)
 MED_NAVY_SIDE = Side(style="medium", color=NAVY_DARK)
+DOUBLE_BOTTOM_SIDE = Side(style="double", color=NAVY_DARK)
 
 CELL_BORDER = Border(left=THIN_SIDE, right=THIN_SIDE, top=THIN_SIDE, bottom=THIN_SIDE)
 HEADER_BORDER = Border(left=THIN_SIDE, right=THIN_SIDE, top=MED_NAVY_SIDE, bottom=THIN_SIDE)
 MONTH_END_BORDER = Border(left=THIN_SIDE, right=MED_NAVY_SIDE, top=THIN_SIDE, bottom=THIN_SIDE)
+TOTAL_BORDER = Border(left=THIN_SIDE, right=THIN_SIDE, top=MED_NAVY_SIDE, bottom=DOUBLE_BOTTOM_SIDE)
+TOTAL_MONTH_END_BORDER = Border(left=THIN_SIDE, right=MED_NAVY_SIDE, top=MED_NAVY_SIDE, bottom=DOUBLE_BOTTOM_SIDE)
+
+TOTAL_ROW_BG = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
+GRAND_TOTAL_BG = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
 
 
 def _safe_sheet_title(raw_title, existing_titles):
@@ -89,6 +101,71 @@ def _get_academic_months(academic_start_year):
         (5, academic_start_year + 1),
         (6, academic_start_year + 1),
     ]
+
+
+def _get_academic_trimesters(academic_start_year, lang="fr"):
+    """
+    Retourne le découpage officiel des 3 trimestres de l'année académique :
+    - Trimestre 1 : Septembre à Décembre
+    - Trimestre 2 : Janvier à Mars
+    - Trimestre 3 : Avril à Juin
+    """
+    if lang == "ar":
+        return [
+            {
+                'code': 'T1',
+                'short_title': 'الأسدس/الدورة 1 (شتنبر-دجنبر)',
+                'banner_title': f'الدورة الأولى (Trimestre 1 : شتنبر — دجنبر {academic_start_year})',
+                'fill': FILL_TRIM_1,
+                'months': [(9, academic_start_year), (10, academic_start_year), (11, academic_start_year), (12, academic_start_year)],
+            },
+            {
+                'code': 'T2',
+                'short_title': 'الدورة 2 (يناير-مارس)',
+                'banner_title': f'الدورة الثانية (Trimestre 2 : يناير — مارس {academic_start_year + 1})',
+                'fill': FILL_TRIM_2,
+                'months': [(1, academic_start_year + 1), (2, academic_start_year + 1), (3, academic_start_year + 1)],
+            },
+            {
+                'code': 'T3',
+                'short_title': 'الدورة 3 (أبريل-يونيو)',
+                'banner_title': f'الدورة الثالثة (Trimestre 3 : أبريل — يونيو {academic_start_year + 1})',
+                'fill': FILL_TRIM_3,
+                'months': [(4, academic_start_year + 1), (5, academic_start_year + 1), (6, academic_start_year + 1)],
+            },
+        ]
+    return [
+        {
+            'code': 'T1',
+            'short_title': 'Trimestre 1 (Sep-Déc)',
+            'banner_title': f'TRIMESTRE 1 (Septembre — Décembre {academic_start_year})',
+            'fill': FILL_TRIM_1,
+            'months': [(9, academic_start_year), (10, academic_start_year), (11, academic_start_year), (12, academic_start_year)],
+        },
+        {
+            'code': 'T2',
+            'short_title': 'Trimestre 2 (Jan-Mar)',
+            'banner_title': f'TRIMESTRE 2 (Janvier — Mars {academic_start_year + 1})',
+            'fill': FILL_TRIM_2,
+            'months': [(1, academic_start_year + 1), (2, academic_start_year + 1), (3, academic_start_year + 1)],
+        },
+        {
+            'code': 'T3',
+            'short_title': 'Trimestre 3 (Avr-Juin)',
+            'banner_title': f'TRIMESTRE 3 (Avril — Juin {academic_start_year + 1})',
+            'fill': FILL_TRIM_3,
+            'months': [(4, academic_start_year + 1), (5, academic_start_year + 1), (6, academic_start_year + 1)],
+        },
+    ]
+
+
+def _trimester_info_for_month(m_num, lang="fr"):
+    """Retourne le libellé et la couleur du trimestre auquel appartient un mois donné."""
+    if m_num in (9, 10, 11, 12):
+        return ("TRIMESTRE 1 (Sep–Déc)" if lang != "ar" else "الدورة 1 (شتنبر–دجنبر)"), FILL_TRIM_1
+    if m_num in (1, 2, 3):
+        return ("TRIMESTRE 2 (Jan–Mar)" if lang != "ar" else "الدورة 2 (يناير–مارس)"), FILL_TRIM_2
+    return ("TRIMESTRE 3 (Avr–Juin)" if lang != "ar" else "الدورة 3 (أبريل–يونيو)"), FILL_TRIM_3
 
 
 def _attendance_code(status):
@@ -140,68 +217,28 @@ def _resolve_payment_state(student_id, group_id, year, month, today,
             return 'oui', 'OUI', FILL_PAID, FONT_PAID
         if inv.status == 'partial':
             return 'oui', 'PARTIEL', FILL_PARTIAL, FONT_PARTIAL
-        # status == 'unpaid'
         return 'non', 'NON', FILL_UNPAID, FONT_UNPAID
 
     if (student_id, year, month) in payments_set:
         return 'oui', 'OUI', FILL_PAID, FONT_PAID
 
-    # Aucun paiement ni facture : si mois passé ou en cours -> NON, si mois futur -> vide
     if (year, month) <= (today.year, today.month):
         return 'non', 'NON', FILL_UNPAID, FONT_UNPAID
     return None, '', None, None
 
 
-def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang="fr", academic_start_year=2026):
+def _render_blocks_section(ws, curr_row, blocks, months_list, today, preloaded_data, lang="fr", section_banner=None):
     """
-    Construit une feuille Excel complète contenant une suite de tableaux
-    (un par groupe), classés par Activité puis Groupe.
+    Écrit dans la feuille `ws` à partir de `curr_row` une section de blocs de groupes
+    pour la liste de mois `months_list`, avec :
+    - Bandeau de section optionnel (ex: Trimestre 1 / Trimestre 2 / Trimestre 3 / Annuel)
+    - Ligne d'en-tête des Trimestres au-dessus des Mois
+    - Ligne des Mois, ligne S1..S4 + Payé, ligne présence + OUI/NON
+    - Lignes d'élèves + ligne TOTAL PAYANTS par groupe
+    - Ligne TOTAL GÉNÉRAL de la section si plusieurs groupes
+    Retourne le nouveau `curr_row`.
     """
-    ws.views.sheetView[0].showGridLines = True
-    if lang == "ar":
-        ws.sheet_view.rightToLeft = True
-
     total_cols = 2 + len(months_list) * 6
-    last_col_letter = get_column_letter(total_cols)
-
-    # Largeurs de colonnes
-    ws.column_dimensions['A'].width = 5
-    ws.column_dimensions['B'].width = 28
-    for m_idx in range(len(months_list)):
-        base_col = 3 + m_idx * 6
-        for s_off in range(4):
-            ws.column_dimensions[get_column_letter(base_col + s_off)].width = 4.5
-        ws.column_dimensions[get_column_letter(base_col + 4)].width = 8.5  # OUI / EXONÉRÉ
-        ws.column_dimensions[get_column_letter(base_col + 5)].width = 5.5  # NON
-
-    # Bannière titre principal
-    ws.merge_cells(f"A1:{last_col_letter}1")
-    c_title = ws["A1"]
-    c_title.value = (
-        f"GENIUS CHESS ACADEMY — SUIVI ANNUEL PRÉSENCES & PAIEMENTS ({academic_start_year}-{academic_start_year + 1})"
-        if lang != "ar" else
-        f"جمعية الشطرنج القاسمي — التتبع السنوي للحضور والأداءات ({academic_start_year}-{academic_start_year + 1})"
-    )
-    c_title.font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
-    c_title.fill = FILL_NAVY
-    c_title.alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[1].height = 30
-
-    ws.merge_cells(f"A2:{last_col_letter}2")
-    c_sub = ws["A2"]
-    c_sub.value = (
-        f"Légende Présence : P = Présent | A = Absent | R = Retard | J = Justifié  •  "
-        f"Paiement : OUI / NON / PARTIEL / EXONÉRÉ  •  Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
-    )
-    c_sub.font = Font(name="Calibri", size=10, italic=True, color="0A192F")
-    c_sub.fill = FILL_SUBHEADER
-    c_sub.alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[2].height = 20
-
-    # Figer la colonne N° et Nom & Prénom pour scroller facilement à travers les mois
-    ws.freeze_panes = "C3"
-
-    curr_row = 4
 
     group_month_dates = preloaded_data['group_month_dates']
     att_map = preloaded_data['att_map']
@@ -212,16 +249,22 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
 
     month_dict = ARABIC_MONTHS if lang == "ar" else FRENCH_MONTHS
 
-    # Compteurs globaux de la feuille par mois
+    if section_banner:
+        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=total_cols)
+        sec_cell = ws.cell(row=curr_row, column=1, value=section_banner['title'])
+        sec_cell.font = Font(name="Calibri", size=12, bold=True, color="FFFFFF")
+        sec_fill = section_banner.get('fill', FILL_SECTION_HEADER)
+        sec_cell.fill = sec_fill
+        sec_cell.alignment = Alignment(horizontal="center", vertical="center")
+        for c_i in range(1, total_cols + 1):
+            ws.cell(row=curr_row, column=c_i).fill = sec_fill
+            ws.cell(row=curr_row, column=c_i).border = HEADER_BORDER
+        ws.row_dimensions[curr_row].height = 26
+        curr_row += 1
+
     sheet_paid_totals = [0] * len(months_list)
     sheet_exempt_totals = [0] * len(months_list)
     sheet_unpaid_totals = [0] * len(months_list)
-
-    TOTAL_ROW_BG = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
-    GRAND_TOTAL_BG = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    DOUBLE_BOTTOM_SIDE = Side(style="double", color=NAVY_DARK)
-    TOTAL_BORDER = Border(left=THIN_SIDE, right=THIN_SIDE, top=MED_NAVY_SIDE, bottom=DOUBLE_BOTTOM_SIDE)
-    TOTAL_MONTH_END_BORDER = Border(left=THIN_SIDE, right=MED_NAVY_SIDE, top=MED_NAVY_SIDE, bottom=DOUBLE_BOTTOM_SIDE)
 
     for block in blocks:
         group = block['group']
@@ -245,31 +288,60 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
         ws.row_dimensions[curr_row].height = 24
         curr_row += 1
 
-        # 2. Lignes d'en-tête du tableau (3 lignes : Mois / S1..S4+Payé / Présence+OUI/NON)
-        row_months = curr_row
-        row_subs = curr_row + 1
-        row_labels = curr_row + 2
+        # 2. Lignes d'en-tête du tableau (4 lignes : Trimestre / Mois / S1..S4+Payé / Présence+OUI/NON)
+        row_trims = curr_row
+        row_months = curr_row + 1
+        row_subs = curr_row + 2
+        row_labels = curr_row + 3
 
+        ws.row_dimensions[row_trims].height = 20
         ws.row_dimensions[row_months].height = 22
         ws.row_dimensions[row_subs].height = 20
         ws.row_dimensions[row_labels].height = 20
 
-        # Colonnes fixes A & B fusionnées verticalement sur les 3 lignes d'en-tête
-        ws.merge_cells(start_row=row_months, start_column=1, end_row=row_labels, end_column=1)
-        c_no = ws.cell(row=row_months, column=1, value="N°")
+        # Colonnes fixes A & B fusionnées verticalement sur les 4 lignes d'en-tête
+        ws.merge_cells(start_row=row_trims, start_column=1, end_row=row_labels, end_column=1)
+        c_no = ws.cell(row=row_trims, column=1, value="N°")
         c_no.font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
         c_no.fill = FILL_NAVY
         c_no.alignment = Alignment(horizontal="center", vertical="center")
 
-        ws.merge_cells(start_row=row_months, start_column=2, end_row=row_labels, end_column=2)
-        c_name = ws.cell(row=row_months, column=2, value="NOM ET PRENOM" if lang != "ar" else "الاسم الكامل")
+        ws.merge_cells(start_row=row_trims, start_column=2, end_row=row_labels, end_column=2)
+        c_name = ws.cell(row=row_trims, column=2, value="NOM ET PRENOM" if lang != "ar" else "الاسم الكامل")
         c_name.font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
         c_name.fill = FILL_NAVY
         c_name.alignment = Alignment(horizontal="center", vertical="center")
 
-        for r_i in range(row_months, row_labels + 1):
+        for r_i in range(row_trims, row_labels + 1):
             ws.cell(row=r_i, column=1).border = CELL_BORDER
             ws.cell(row=r_i, column=2).border = CELL_BORDER
+
+        # Regrouper les mois consécutifs appartenant au même trimestre pour fusionner l'en-tête de Trimestre
+        trim_spans = []
+        for m_idx, (m_num, _y_num) in enumerate(months_list):
+            t_label, t_fill = _trimester_info_for_month(m_num, lang=lang)
+            if trim_spans and trim_spans[-1]['label'] == t_label:
+                trim_spans[-1]['end_idx'] = m_idx
+            else:
+                trim_spans.append({
+                    'label': t_label,
+                    'fill': t_fill,
+                    'start_idx': m_idx,
+                    'end_idx': m_idx,
+                })
+
+        for sp in trim_spans:
+            c_start = 3 + sp['start_idx'] * 6
+            c_end = 3 + sp['end_idx'] * 6 + 5
+            ws.merge_cells(start_row=row_trims, start_column=c_start, end_row=row_trims, end_column=c_end)
+            ct = ws.cell(row=row_trims, column=c_start, value=sp['label'])
+            ct.font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+            ct.fill = sp['fill']
+            ct.alignment = Alignment(horizontal="center", vertical="center")
+            for col_c in range(c_start, c_end + 1):
+                cell_t = ws.cell(row=row_trims, column=col_c)
+                cell_t.fill = sp['fill']
+                cell_t.border = MONTH_END_BORDER if col_c == c_end else CELL_BORDER
 
         # En-têtes pour chaque mois
         for m_idx, (m_num, y_num) in enumerate(months_list):
@@ -326,7 +398,7 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
             cn.alignment = Alignment(horizontal="center", vertical="center")
             cn.border = MONTH_END_BORDER
 
-        curr_row += 3
+        curr_row += 4
 
         # 3. Lignes des élèves du groupe
         if not students:
@@ -366,9 +438,7 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
             for m_idx, (m_num, y_num) in enumerate(months_list):
                 base_col = 3 + m_idx * 6
 
-                # Dates de séances du groupe dans ce mois
                 dates_in_month = group_month_dates.get((group_id, y_num, m_num), []) if group_id else []
-                # Remplir S1, S2, S3, S4
                 for s_off in range(4):
                     cell_s = ws.cell(row=curr_row, column=base_col + s_off)
                     cell_s.alignment = Alignment(horizontal="center", vertical="center")
@@ -379,7 +449,6 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
                     val = ""
                     if s_off < len(dates_in_month):
                         if s_off == 3 and len(dates_in_month) > 4:
-                            # S'il y a une 5ème séance dans le mois, combiner dans S4
                             codes = [att_map.get((st.id, group_id, d), '') for d in dates_in_month[3:]]
                             codes = [c for c in codes if c]
                             val = "/".join(codes)
@@ -390,7 +459,6 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
                         cell_s.value = val
                         _apply_attendance_style(cell_s, val)
 
-                # État de paiement OUI / NON
                 cell_oui = ws.cell(row=curr_row, column=base_col + 4)
                 cell_non = ws.cell(row=curr_row, column=base_col + 5)
                 cell_oui.alignment = Alignment(horizontal="center", vertical="center")
@@ -449,7 +517,6 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
             ex_n = grp_exempt_counts[m_idx]
             unpaid_n = grp_unpaid_counts[m_idx]
 
-            # Cellule fusionnée sous S1..S4 : résumé texte du mois pour ce groupe
             ws.merge_cells(start_row=curr_row, start_column=base_col, end_row=curr_row, end_column=base_col + 3)
             c_summary = ws.cell(row=curr_row, column=base_col)
             if paid_n > 0 or ex_n > 0 or unpaid_n > 0 or (y_num, m_num) <= (today.year, today.month):
@@ -464,14 +531,12 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
                 cell_m_tot.fill = TOTAL_ROW_BG
                 cell_m_tot.border = TOTAL_BORDER
 
-            # Colonne OUI : Nombre total des payants du groupe sur ce mois
             c_tot_oui = ws.cell(row=curr_row, column=base_col + 4, value=paid_n)
             c_tot_oui.font = Font(name="Calibri", size=10, bold=True, color="166534")
             c_tot_oui.fill = FILL_PAID
             c_tot_oui.alignment = Alignment(horizontal="center", vertical="center")
             c_tot_oui.border = TOTAL_BORDER
 
-            # Colonne NON : Nombre total des non-payants du groupe sur ce mois
             c_tot_non = ws.cell(
                 row=curr_row,
                 column=base_col + 5,
@@ -488,7 +553,7 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
         ws.row_dimensions[curr_row].height = 14
         curr_row += 1
 
-    # 5. Ligne de TOTAL GÉNÉRAL (tous groupes confondus de la feuille) par mois
+    # 5. Ligne de TOTAL GÉNÉRAL de la section par mois
     if blocks:
         ws.row_dimensions[curr_row].height = 26
         ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
@@ -543,20 +608,127 @@ def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang
             c_g_non.alignment = Alignment(horizontal="center", vertical="center")
             c_g_non.border = TOTAL_MONTH_END_BORDER
 
+        curr_row += 2
+
+    return curr_row
+
+
+def _setup_sheet_header_and_cols(ws, max_months_count, title_text, lang="fr"):
+    """Configure les colonnes, la bannière de titre et le gel des volets d'une feuille."""
+    ws.views.sheetView[0].showGridLines = True
+    if lang == "ar":
+        ws.sheet_view.rightToLeft = True
+
+    total_cols = 2 + max_months_count * 6
+    last_col_letter = get_column_letter(total_cols)
+
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 28
+    for m_idx in range(max_months_count):
+        base_col = 3 + m_idx * 6
+        for s_off in range(4):
+            ws.column_dimensions[get_column_letter(base_col + s_off)].width = 4.5
+        ws.column_dimensions[get_column_letter(base_col + 4)].width = 8.5
+        ws.column_dimensions[get_column_letter(base_col + 5)].width = 5.5
+
+    ws.merge_cells(f"A1:{last_col_letter}1")
+    c_title = ws["A1"]
+    c_title.value = title_text
+    c_title.font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
+    c_title.fill = FILL_NAVY
+    c_title.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
+
+    ws.merge_cells(f"A2:{last_col_letter}2")
+    c_sub = ws["A2"]
+    c_sub.value = (
+        f"Légende Présence : P = Présent | A = Absent | R = Retard | J = Justifié  •  "
+        f"Paiement : OUI / NON / PARTIEL / EXONÉRÉ  •  Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+    )
+    c_sub.font = Font(name="Calibri", size=10, italic=True, color="0A192F")
+    c_sub.fill = FILL_SUBHEADER
+    c_sub.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[2].height = 20
+
+    ws.freeze_panes = "C3"
+
+
+def _build_sheet_for_groups(ws, blocks, months_list, today, preloaded_data, lang="fr", academic_start_year=2026, custom_title=None):
+    """
+    Construit une feuille Excel complète pour une liste de mois donnée (`months_list`).
+    """
+    title_text = custom_title or (
+        f"GENIUS CHESS ACADEMY — SUIVI ANNUEL PRÉSENCES & PAIEMENTS ({academic_start_year}-{academic_start_year + 1})"
+        if lang != "ar" else
+        f"جمعية الشطرنج القاسمي — التتبع السنوي للحضور والأداءات ({academic_start_year}-{academic_start_year + 1})"
+    )
+    _setup_sheet_header_and_cols(ws, len(months_list), title_text, lang=lang)
+    _render_blocks_section(ws, 4, blocks, months_list, today, preloaded_data, lang=lang)
+
+
+def _build_all_trimesters_and_annual_sheet(ws, blocks, trimesters, all_months_list, today, preloaded_data, lang="fr", title_text=""):
+    """
+    Construit une feuille complète (pour une Activité ou un Groupe) présentant :
+    1. Le détail du Trimestre 1 (Septembre - Décembre) + Totaux Payants T1
+    2. Le détail du Trimestre 2 (Janvier - Mars) + Totaux Payants T2
+    3. Le détail du Trimestre 3 (Avril - Juin) + Totaux Payants T3
+    4. Le Bilan Annuel Consolidé (T1 + T2 + T3 côte à côte) + Totaux Annuels
+    """
+    _setup_sheet_header_and_cols(ws, len(all_months_list), title_text, lang=lang)
+    curr_row = 4
+
+    # 1. Tableaux détaillés pour chacun des 3 Trimestres
+    for trim in trimesters:
+        curr_row = _render_blocks_section(
+            ws,
+            curr_row,
+            blocks,
+            trim['months'],
+            today,
+            preloaded_data,
+            lang=lang,
+            section_banner={
+                'title': f"📅 {trim['banner_title']}",
+                'fill': trim['fill'],
+            },
+        )
+        curr_row += 1
+
+    # 2. Tableau Récapitulatif Annuel Complet (Tous les Trimestres T1 + T2 + T3)
+    annual_banner_title = (
+        "📊 RÉCAPITULATIF ANNUEL COMPLET — TOUS LES TRIMESTRES (T1 + T2 + T3)"
+        if lang != "ar" else
+        "📊 الملخص السنوي الشامل — جميع الدورات (T1 + T2 + T3)"
+    )
+    _render_blocks_section(
+        ws,
+        curr_row,
+        blocks,
+        all_months_list,
+        today,
+        preloaded_data,
+        lang=lang,
+        section_banner={
+            'title': annual_banner_title,
+            'fill': FILL_NAVY,
+        },
+    )
+
 
 def generate_annual_tracking_excel(groups_queryset=None, academic_start_year=None, lang="fr", include_unassigned=True):
     """
-    Génère un classeur Excel (.xlsx) complet contenant tous les élèves groupés et
-    classés par Activités et Groupes, avec :
-    - Une colonne par mois (Septembre à Juin)
-    - Sous-colonnes S1..S4 pour les présences (P, A, R, J)
-    - Sous-colonnes Payé (OUI / NON / EXONÉRÉ / PARTIEL)
+    Génère un classeur Excel (.xlsx) complet contenant :
+    - Onglet 'Suivi Global' : Tous les élèves classés par Activités et Groupes sur toute l'année (T1, T2, T3)
+    - Onglets par Trimestre : 'Trimestre 1 (Sep-Déc)', 'Trimestre 2 (Jan-Mar)', 'Trimestre 3 (Avr-Juin)'
+    - Onglets pour CHAQUE Activité (avec détail T1, T2, T3 + Bilan Annuel)
+    - Onglets pour CHAQUE Groupe (avec détail T1, T2, T3 + Bilan Annuel)
     """
     today = date.today()
     if academic_start_year is None:
         academic_start_year = today.year if today.month >= 9 else today.year - 1
 
     months_list = _get_academic_months(academic_start_year)
+    trimesters = _get_academic_trimesters(academic_start_year, lang=lang)
     start_date = date(academic_start_year, 9, 1)
     end_date = date(academic_start_year + 1, 6, 30)
 
@@ -605,7 +777,6 @@ def generate_annual_tracking_excel(groups_queryset=None, academic_start_year=Non
     inv_by_stu = {}
     for inv in Invoice.objects.filter(period_year__in=years_in_scope).order_by('id'):
         inv_by_stu_grp[(inv.student_id, inv.group_id, inv.period_year, inv.period_month)] = inv
-        # Prioriser une facture réglée ou exonérée si l'élève a plusieurs factures sur le même mois
         existing = inv_by_stu.get((inv.student_id, inv.period_year, inv.period_month))
         if existing is None or inv.status in ('paid', 'exempt'):
             inv_by_stu[(inv.student_id, inv.period_year, inv.period_month)] = inv
@@ -677,7 +848,7 @@ def generate_annual_tracking_excel(groups_queryset=None, academic_start_year=Non
     wb = Workbook()
     existing_titles = set()
 
-    # Onglet 1 : Suivi Global
+    # 1. Onglet Principal : Suivi Global (Annuel Complet T1 + T2 + T3)
     ws_global = wb.active
     ws_global.title = _safe_sheet_title(
         "Suivi Global" if lang != "ar" else "التتبع الشامل",
@@ -688,7 +859,20 @@ def generate_annual_tracking_excel(groups_queryset=None, academic_start_year=Non
         lang=lang, academic_start_year=academic_start_year
     )
 
-    # Onglets par Activité (si plus d'une activité ou pour faciliter l'impression par matière)
+    # 2. Onglets Globaux par Trimestre (Trimestre 1, Trimestre 2, Trimestre 3)
+    for trim in trimesters:
+        ws_trim = wb.create_sheet(title=_safe_sheet_title(trim['short_title'], existing_titles))
+        trim_title = (
+            f"GENIUS CHESS ACADEMY — {trim['banner_title']}"
+            if lang != "ar" else
+            f"جمعية الشطرنج القاسمي — {trim['banner_title']}"
+        )
+        _build_sheet_for_groups(
+            ws_trim, blocks, trim['months'], today, preloaded_data,
+            lang=lang, academic_start_year=academic_start_year, custom_title=trim_title
+        )
+
+    # 3. Onglets pour CHAQUE Activité (avec T1, T2, T3 + Récapitulatif Annuel)
     blocks_by_subject = {}
     for b in blocks:
         s_key = b['subject_name']
@@ -696,13 +880,33 @@ def generate_annual_tracking_excel(groups_queryset=None, academic_start_year=Non
             blocks_by_subject[s_key] = []
         blocks_by_subject[s_key].append(b)
 
-    if len(blocks_by_subject) > 1:
-        for subj_name, subj_blocks in blocks_by_subject.items():
-            ws_subj = wb.create_sheet(title=_safe_sheet_title(subj_name, existing_titles))
-            _build_sheet_for_groups(
-                ws_subj, subj_blocks, months_list, today, preloaded_data,
-                lang=lang, academic_start_year=academic_start_year
-            )
+    for subj_name, subj_blocks in blocks_by_subject.items():
+        ws_subj = wb.create_sheet(title=_safe_sheet_title(subj_name, existing_titles))
+        subj_title = (
+            f"ACTIVITÉ : {subj_name.upper()} — SUIVI PAR TRIMESTRE (T1, T2, T3) & ANNUEL ({academic_start_year}-{academic_start_year + 1})"
+            if lang != "ar" else
+            f"النشاط : {subj_name} — التتبع حسب الدورات (T1, T2, T3) والسنوي ({academic_start_year}-{academic_start_year + 1})"
+        )
+        _build_all_trimesters_and_annual_sheet(
+            ws_subj, subj_blocks, trimesters, months_list, today, preloaded_data,
+            lang=lang, title_text=subj_title
+        )
+
+    # 4. Onglets pour CHAQUE Groupe (avec T1, T2, T3 + Récapitulatif Annuel)
+    for b in blocks:
+        if b['group'] is None:
+            continue
+        grp_sheet_raw = f"Grp - {b['group_name']}" if lang != "ar" else f"فوج - {b['group_name']}"
+        ws_grp = wb.create_sheet(title=_safe_sheet_title(grp_sheet_raw, existing_titles))
+        grp_title = (
+            f"GROUPE : {b['group_name']} ({b['subject_name']}) — PROF : {b['trainers']} — TRIMESTRES T1, T2, T3 & ANNUEL"
+            if lang != "ar" else
+            f"الفوج : {b['group_name']} ({b['subject_name']}) — المدرب : {b['trainers']} — الدورات T1, T2, T3 والسنوي"
+        )
+        _build_all_trimesters_and_annual_sheet(
+            ws_grp, [b], trimesters, months_list, today, preloaded_data,
+            lang=lang, title_text=grp_title
+        )
 
     output = io.BytesIO()
     wb.save(output)

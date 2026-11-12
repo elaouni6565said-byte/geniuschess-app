@@ -103,10 +103,15 @@ def test_annual_tracking_excel_structure_and_data():
     excel_bytes = generate_annual_tracking_excel(academic_start_year=2026, lang="fr")
     wb = load_workbook(io.BytesIO(excel_bytes))
 
-    # Vérifier les onglets : Suivi Global + Échecs + Robotique
+    # Vérifier les onglets : Suivi Global + Trimestres 1/2/3 + Activités + Groupes
     assert "Suivi Global" in wb.sheetnames
+    assert "Trimestre 1 (Sep-Déc)" in wb.sheetnames
+    assert "Trimestre 2 (Jan-Mar)" in wb.sheetnames
+    assert "Trimestre 3 (Avr-Juin)" in wb.sheetnames
     assert "Échecs" in wb.sheetnames
     assert "Robotique" in wb.sheetnames
+    assert "Grp - Échecs N3" in wb.sheetnames
+    assert "Grp - Robotique N3" in wb.sheetnames
 
     ws = wb["Suivi Global"]
     all_values = [
