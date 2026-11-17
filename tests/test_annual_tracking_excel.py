@@ -197,3 +197,48 @@ def test_annual_tracking_excel_endpoint():
     assert pay_resp.status_code == 200
     assert url in pay_resp.content.decode("utf-8")
 
+
+@pytest.mark.django_db
+def test_annual_full_year_payment_coverage():
+    admin = User.objects.create_superuser(username="admin_ann", password="pwd", role="admin")
+    subj = Subject.objects.create(name_fr="Échecs", name_ar="شطرنج")
+    grp = Group.objects.create(name_fr="Échecs Annuel", name_ar="شطرنج سنوي", subject=subj, monthly_fee=Decimal("300.00"))
+    parent = Parent.objects.create(full_name_fr="Parent Annuel", full_name_ar="ولي سنوي", phone="0600000099")
+    student = Student.objects.create(
+        registration_number="GCA-ANN01",
+        first_name_fr="Sara",
+        last_name_fr="Annuelle",
+        first_name_ar="سارة",
+        last_name_ar="سنوية",
+        parent=parent,
+        active=True,
+    )
+    student.groups.add(grp)
+
+    client = Client()
+    client.force_login(admin)
+
+    resp = client.post(
+        reverse("portal:payment_add"),
+        data={
+            "security_code": "8081",
+            "student": student.id,
+            "payment_coverage": "annual",
+            "period_month": 9,
+            "period_year": 2026,
+            "amount": "3000.00",
+            "payment_date": "2026-09-10",
+            "payment_method": "transfer",
+            "reference": "VIR-ANNUEL-2026",
+            "notes": "Paiement annuel complet",
+        },
+    )
+    assert resp.status_code == 302
+
+    # Vérifier que les 10 mois (Sep 2026 à Juin 2027) sont bien créés et marqués 'paid'
+    invoices = Invoice.objects.filter(student=student)
+    assert invoices.count() == 10
+    assert all(inv.status == "paid" for inv in invoices)
+    assert Payment.objects.filter(student=student).count() == 10
+
+

@@ -387,6 +387,22 @@ class PaymentForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'search-input', 'id': 'id_convention_name', 'placeholder': 'Ex: Convention OCP, Club Enseignants, Fratrie...'})
     )
 
+    # Option de couverture multi-mois (Mensuel / Trimestriel / Annuel complet)
+    COVERAGE_CHOICES = [
+        ('monthly', '📅 Mensuel — 1 seul mois (par défaut) / شهري (شهر واحد)'),
+        ('annual', '🎓 Année Scolaire Complète — 10 mois (Septembre à Juin) / السنة الدراسية كاملة (10 أشهر)'),
+        ('t1', '🍂 Trimestre 1 — 4 mois (Septembre à Décembre) / الدورة الأولى (شتنبر - دجنبر)'),
+        ('t2', '❄️ Trimestre 2 — 3 mois (Janvier à Mars) / الدورة الثانية (يناير - مارس)'),
+        ('t3', '🌸 Trimestre 3 — 3 mois (Avril à Juin) / الدورة الثالثة (أبريل - يونيو)'),
+    ]
+    payment_coverage = forms.ChoiceField(
+        choices=COVERAGE_CHOICES,
+        initial='monthly',
+        required=False,
+        widget=forms.Select(attrs={'class': 'search-input', 'id': 'id_payment_coverage'}),
+        label="Période couverte par ce paiement / الفترة المشمولة بالأداء"
+    )
+
     # Option explicite du mois / période réglé(e) (pour régularisation des paiements tardifs ou par avance)
     MONTH_CHOICES = [
         (1, '01 - Janvier / يناير'),

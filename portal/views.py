@@ -2753,6 +2753,181 @@ def payment_create_view(request):
                 apply_discount = form.cleaned_data.get('apply_discount')
                 disc_amount = form.cleaned_data.get('discount_amount') or Decimal('0.00')
                 conv_name = form.cleaned_data.get('convention_name', '').strip()
+                coverage = form.cleaned_data.get('payment_coverage') or 'monthly'
+
+                # Gestion des règlements multi-mois : Année Scolaire Complète (10 mois) ou Trimestre (T1 / T2 / T3)
+                if coverage in ('annual', 't1', 't2', 't3'):
+                    from datetime import date
+                    from finance.models import PaymentExemption
+
+                    req_year = int(form.cleaned_data.get('period_year') or 2026)
+                    req_month = int(form.cleaned_data.get('period_month') or 9)
+                    acad_start = req_year if req_month >= 9 else (req_year if req_year == 2026 else req_year - 1)
+
+                    if coverage == 'annual':
+                        target_periods = [
+                            (9, acad_start), (10, acad_start), (11, acad_start), (12, acad_start),
+                            (1, acad_start + 1), (2, acad_start + 1), (3, acad_start + 1),
+                            (4, acad_start + 1), (5, acad_start + 1), (6, acad_start + 1),
+                        ]
+                        cov_label = f"Année Scolaire {acad_start}/{acad_start + 1} (Septembre à Juin)"
+                    elif coverage == 't1':
+                        target_periods = [(9, acad_start), (10, acad_start), (11, acad_start), (12, acad_start)]
+                        cov_label = f"Trimestre 1 (Sep–Déc {acad_start})"
+                    elif coverage == 't2':
+                        target_periods = [(1, acad_start + 1), (2, acad_start + 1), (3, acad_start + 1)]
+                        cov_label = f"Trimestre 2 (Jan–Mar {acad_start + 1})"
+                    else:
+                        target_periods = [(4, acad_start + 1), (5, acad_start + 1), (6, acad_start + 1)]
+                        cov_label = f"Trimestre 3 (Avr–Juin {acad_start + 1})"
+
+                    if apply_discount and disc_amount > Decimal('0.00') and conv_name:
+                        p.student.has_convention = True
+                        p.student.convention_name = conv_name
+                        p.student.discount_type = 'fixed_discount'
+                        p.student.discount_value = disc_amount
+                        p.student.save()
+
+                    base_fee, default_disc, final_fee = p.student.calculate_monthly_fee()
+                    if apply_discount and disc_amount > Decimal('0.00'):
+                        final_fee = max(Decimal('0.00'), base_fee - disc_amount)
+
+                    grp = p.student.groups.first()
+
+                    if is_exemption:
+                        for m, y in target_periods:
+                            PaymentExemption.objects.update_or_create(
+                                student=p.student,
+                                period_month=m,
+                                period_year=y,
+                                defaults={'reason': ex_reason},
+                            )
+                            inv = Invoice.objects.filter(student=p.student, period_month=m, period_year=y).first()
+                            if not inv and grp:
+                                inv = Invoice.objects.create(
+                                    student=p.student,
+                                    group=grp,
+                                    period_month=m,
+                                    period_year=y,
+                                    original_amount=base_fee,
+                                    discount_amount=base_fee,
+                                    amount_due=Decimal('0.00'),
+                                    amount_paid=Decimal('0.00'),
+                                    status='exempt',
+                                    is_exempt=True,
+                                    exemption_reason=ex_reason,
+                                    due_date=date(y, m, 15),
+                                )
+                            elif inv:
+                                inv.is_exempt = True
+                                inv.status = 'exempt'
+                                inv.original_amount = base_fee
+                                inv.discount_amount = base_fee
+                                inv.amount_due = Decimal('0.00')
+                                inv.exemption_reason = ex_reason
+                                inv.save()
+
+                        messages.success(
+                            request,
+                            f"✓ L'élève {p.student.get_full_name('fr')} a été exonéré(e) sur toute la période : {cov_label} ({len(target_periods)} mois)."
+                        )
+                        return redirect('portal:payments')
+
+                    # Filtrer les mois non encore soldés ni exonérés
+                    unpaid_periods = []
+                    for m, y in target_periods:
+                        inv = Invoice.objects.filter(student=p.student, period_month=m, period_year=y).first()
+                        if inv and (inv.status in ('paid', 'exempt') or inv.is_exempt or inv.get_balance() <= Decimal('0.00')):
+                            continue
+                        unpaid_periods.append((m, y, inv))
+
+                    if not unpaid_periods:
+                        error_msg = (
+                            f"Contrôle anti-erreur : Tous les mois de la période « {cov_label} » sont DÉJÀ soldés ou exonérés pour {p.student.get_full_name('fr')}."
+                        )
+                        context = {
+                            'form': form,
+                            'error_msg': error_msg,
+                            'is_financial_session_unlocked': True,
+                            'title': get_translation('payments.add', lang=lang),
+                        }
+                        return render(request, 'portal/payment_form.html', context)
+
+                    entered_amt = p.amount or final_fee or Decimal('300.00')
+                    nb_unpaid = len(unpaid_periods)
+                    # Si le montant saisi correspond au tarif total multi-mois (> 1.5x tarif mensuel), on le répartit sur les mois restants
+                    if final_fee > Decimal('0.00') and entered_amt > final_fee * Decimal('1.5'):
+                        per_month_base = (entered_amt / Decimal(nb_unpaid)).quantize(Decimal('0.01'))
+                        is_lump_sum = True
+                    elif final_fee == Decimal('0.00') and nb_unpaid > 1 and entered_amt >= Decimal('600.00'):
+                        per_month_base = (entered_amt / Decimal(nb_unpaid)).quantize(Decimal('0.01'))
+                        is_lump_sum = True
+                    else:
+                        per_month_base = entered_amt
+                        is_lump_sum = False
+
+                    created_receipts = []
+                    count = Payment.objects.count() + 1
+
+                    for idx_m, (m, y, inv) in enumerate(unpaid_periods):
+                        if is_lump_sum and idx_m == nb_unpaid - 1:
+                            m_amt = entered_amt - (per_month_base * Decimal(nb_unpaid - 1))
+                        else:
+                            m_amt = per_month_base
+
+                        if not inv and grp:
+                            orig = base_fee if base_fee >= m_amt else m_amt
+                            disc_m = max(Decimal('0.00'), orig - m_amt)
+                            inv = Invoice.objects.create(
+                                student=p.student,
+                                group=grp,
+                                period_month=m,
+                                period_year=y,
+                                original_amount=orig,
+                                discount_amount=disc_m,
+                                amount_due=m_amt,
+                                amount_paid=Decimal('0.00'),
+                                status='unpaid',
+                                due_date=date(y, m, 15),
+                            )
+                        elif inv:
+                            # Ajuster le reste à payer de la facture pour que le mois soit 100% soldé (statut 'paid')
+                            target_due = inv.amount_paid + m_amt
+                            if inv.original_amount < target_due:
+                                inv.original_amount = target_due
+                            inv.discount_amount = max(Decimal('0.00'), inv.original_amount - target_due)
+                            inv.amount_due = target_due
+                            inv.save()
+
+                        rec_no = f"REC-2026-{count:04d}"
+                        while Payment.objects.filter(receipt_number=rec_no).exists():
+                            count += 1
+                            rec_no = f"REC-2026-{count:04d}"
+
+                        note_prefix = f"[{cov_label}]"
+                        full_notes = f"{note_prefix} {p.notes}".strip() if p.notes else note_prefix
+
+                        Payment.objects.create(
+                            student=p.student,
+                            invoice=inv,
+                            period_month=m,
+                            period_year=y,
+                            amount=m_amt,
+                            payment_date=p.payment_date,
+                            payment_method=p.payment_method,
+                            reference=p.reference,
+                            notes=full_notes,
+                            receipt_number=rec_no,
+                            created_by=request.user,
+                        )
+                        created_receipts.append(rec_no)
+                        count += 1
+
+                    messages.success(
+                        request,
+                        f"✓ Paiement multi-mois enregistré avec succès pour {p.student.get_full_name('fr')} — {cov_label} ({len(created_receipts)} mois soldés : #{created_receipts[0]} à #{created_receipts[-1]})."
+                    )
+                    return redirect('portal:payments')
 
                 # Si une facture est sélectionnée, le mois concerné est OBLIGATOIREMENT celui de la facture
                 if p.invoice:

@@ -139,8 +139,30 @@
                     {{ form.invoice }}
                 </div>
 
+                {% if not is_edit %}
+                <!-- MODE DE RÈGLEMENT : MENSUEL / TRIMESTRIEL / ANNUEL COMPLET (10 MOIS) -->
+                <div style="background: #EFF6FF; border: 2px solid #3B82F6; border-radius: var(--radius-md); padding: 1.1rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.65rem;">
+                        <label for="id_payment_coverage" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; font-weight: 700; color: #1E3A8A; margin: 0;">
+                            🎓 {% if CURRENT_LANG == 'ar' %}الفترة المشمولة بالأداء (شهري، دوري أو سنوي كامل) :{% else %}Période couverte (Mensuel, Trimestriel ou Année Complète) :{% endif %}
+                        </label>
+                        <span class="badge" style="background: #DBEAFE; color: #1D4ED8; font-weight: 700; font-size: 0.78rem; border: 1px solid #93C5FD;">
+                            {% if CURRENT_LANG == 'ar' %}دفع شهر واحد أو السنة كاملة بضغطة واحدة{% else %}1 clic pour toute l'année{% endif %}
+                        </span>
+                    </div>
+                    {{ form.payment_coverage }}
+                    <small id="coverage_help_text" style="display: block; color: #1E40AF; font-size: 0.76rem; margin-top: 0.5rem; line-height: 1.45;">
+                        {% if CURRENT_LANG == 'ar' %}
+                            💡 إذا أدى ولي الأمر واجبات السنة الدراسية كاملة (من شتنبر إلى يونيو) أو دورة كاملة، اختر <b>« السنة الدراسية كاملة (10 أشهر) »</b> ليتم تسجيل وتصفية جميع الأشهر تلقائياً دفعة واحدة.
+                        {% else %}
+                            💡 Si le parent a payé toute l'année scolaire (Septembre à Juin) ou un trimestre complet, sélectionnez <b>« Année Scolaire Complète — 10 mois »</b> : tous les mois seront automatiquement créés et marqués <b>Payé (OUI)</b> en une seule opération.
+                        {% endif %}
+                    </small>
+                </div>
+                {% endif %}
+
                 <!-- OPTION PRÉCISE DU MOIS & ANNÉE CONCERNÉS (RÉGULARISATION PAIEMENT TARDIF / EN AVANCE) -->
-                <div style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius-md); padding: 1.1rem;">
+                <div id="single_month_box" style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius-md); padding: 1.1rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.65rem;">
                         <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 700; color: #166534; margin: 0;">
                             🗓️ {% if CURRENT_LANG == 'ar' %}الشهر والسنة المؤدى عنهما (تسوية المتأخرات أو الأداء المسبق) :{% else %}Mois & Année concernés par ce versement (Régularisation / Paiement tardif) :{% endif %}
@@ -331,8 +353,18 @@
         var discAmtField = document.getElementById("id_discount_amount");
         var convNameField = document.getElementById("id_convention_name");
         var amtInput = document.getElementById("id_payment_amount");
+        var coverageSelect = document.getElementById("id_payment_coverage");
 
         var currentBaseAmount = null;
+
+        function getCoverageMultiplier() {
+            if (!coverageSelect) return 1;
+            var val = coverageSelect.value;
+            if (val === "annual") return 10;
+            if (val === "t1") return 4;
+            if (val === "t2" || val === "t3") return 3;
+            return 1;
+        }
 
         function recalcAmountWithDiscount() {
             if (exCheck && exCheck.checked) {
@@ -352,11 +384,19 @@
                     discount = parseFloat(discAmtField.value || "0");
                     if (isNaN(discount)) discount = 0;
                 }
-                var net = Math.max(0, base - discount);
-                if (amtInput && !isNaN(net)) {
-                    amtInput.value = net.toFixed(2);
+                var netMonthly = Math.max(0, base - discount);
+                var mult = getCoverageMultiplier();
+                var totalNet = netMonthly * mult;
+                if (amtInput && !isNaN(totalNet)) {
+                    amtInput.value = totalNet.toFixed(2);
                 }
             }
+        }
+
+        if (coverageSelect) {
+            coverageSelect.addEventListener("change", function() {
+                recalcAmountWithDiscount();
+            });
         }
 
         var isEditMode = {% if is_edit %}true{% else %}false{% endif %};
@@ -660,8 +700,11 @@
                             var bal = parseFloat(data.balance_remaining || "0");
                             var curVal = parseFloat(amtInput.value || "0");
                             var baseVal = parseFloat(data.base_fee || "0");
+                            var mult = getCoverageMultiplier();
 
-                            if (!amtInput.value || amtInput.value === "0.00" || amtInput.value === "") {
+                            if (mult > 1 && finalFee > 0) {
+                                amtInput.value = (finalFee * mult).toFixed(2);
+                            } else if (!amtInput.value || amtInput.value === "0.00" || amtInput.value === "") {
                                 if (!data.existing_payments || data.existing_payments.length === 0) {
                                     amtInput.value = finalFee.toFixed(2);
                                 } else if (bal > 0) {
